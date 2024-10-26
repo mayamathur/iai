@@ -1,0 +1,144 @@
+
+# PRELIMINARIES ---------------------------------------------------------------
+
+# This script uses renv to preserve the R environment specs (e.g., package versions.)
+library(renv)
+# run this if you want to reproduce results using the R environment we had:
+# renv::restore()
+
+to.load = c("dplyr",
+            "data.table",
+            "purrr",
+            "tidyr",
+            "stringr",
+            "tibble",
+            "ggplot2",
+            "testthat",
+            "plotly",
+            "htmlwidgets", # for saving plotly
+            "here")
+
+# load within installation if needed
+for (pkg in to.load) {
+  
+  cat( paste("\nAbout to try loading package", pkg) )
+  
+  tryCatch({
+    # eval below needed because library() will otherwise be confused
+    # https://www.mitchelloharawild.com/blog/loading-r-packages-in-a-loop/
+    eval( bquote( library( .(pkg) ) ) )
+  }, error = function(err) {
+    install.packages(pkg)
+  })
+  
+}
+
+# run this only if you want to update the R environment specs
+# renv::snapshot()
+
+
+# set working directories
+code.dir = "/Users/mmathur/Dropbox/Personal computer/Independent studies/*Inchoate/2024/2024-10-20 - IAI (Incomplete auxiliaries in imputation as in Dowd)/Simulation study/Code"
+
+
+# get helper fns
+setwd(code.dir)
+source("helper_IAI.R")
+
+# no sci notation
+options(scipen=999)
+
+
+# PRELIMINARIES ---------------------------------------------------------------
+
+# ~ Simulate data  -------------------------------------------------
+p = tidyr::expand_grid(
+  
+  rep.methods = "gold ; CC ; MICE", 
+  
+  model = "OLS",
+  coef_of_interest = "A",
+  N = c(10000),
+  
+  # MICE parameters
+  # as on cluster
+  imp_m = 5,  # CURRENTLY SET LOW
+  imp_maxit = 100,
+  mice_method = "norm",
+  
+  # # for quicker sims
+  # imp_m = 5,
+  # imp_maxit = 5,
+  # N = c(100),
+  
+  #dag_name = c( "1B", "1D", "1G", "1H" ),
+  dag_name = "1A-bin"
+)
+
+coef_of_interest = p$coef_of_interest
+sim_obj = sim_data(.p = p)
+
+du = sim_obj$du
+di = sim_obj$di
+( form_string = as.character( sim_obj$form_string ) )
+( gold_form_string = as.character( sim_obj$gold_form_string ) )
+( beta = as.numeric(sim_obj$beta) )
+( exclude_from_imp_model = as.character( sim_obj$exclude_from_imp_model ) )
+
+
+# coefficient of interest for gold-standard model
+if ( coef_of_interest == "(Intercept)" ){
+  coef_of_interest_gold = "(Intercept)"
+  
+} else if ( coef_of_interest == "A:C"){
+  coef_of_interest_gold = "A1:C1"
+} else {
+  # *this assumes coef_of_interest is always the factual variable
+  #  (e.g., A), so need to add "1" to use the variable
+  # that's in gold-standard model
+  coef_of_interest_gold = paste(coef_of_interest, "1", sep = "")
+}
+
+# complete cases only
+dc = du[ complete.cases(du), ]
+
+
+# ~ MICE -------------------------------------------------
+
+imps_mice = mice( di,
+                  maxit = p$imp_maxit,
+                  m = p$imp_m,
+                  method = p$mice_method,
+                  printFlag = FALSE )
+
+# sanity check
+imp1 = complete(imps_mice, 1)
+
+m_mice = fit_regression(form_string = form_string,
+               model = p$model,
+               coef_of_interest = coef_of_interest,
+               miss_method = "MI",
+               du = NULL,
+               imps = imps_mice)
+m_mice
+
+# ~ G-formula  -------------------------------------------------
+
+# above Eq (1) on iPad
+
+( a1_term = mean( dc$B[dc$A == 1 & dc$C == 0] ) * mean( dc$C[dc$A == 1] == 0 ) + mean( dc$B[dc$A == 1 & dc$C == 1] ) * mean( dc$C[dc$A == 1] == 1 ) )
+# will be an incorrect estimate of this:
+mean( du$B1[du$A1 == 1] )
+
+
+( a0_term = mean( dc$B[dc$A == 0 & dc$C == 0] ) * mean( dc$C[dc$A == 0] == 0 ) + mean( dc$B[dc$A == 0 & dc$C == 1] ) * mean( dc$C[dc$A == 0] == 1 ) )
+# will be an incorrect estimate of this:
+mean( du$B1[du$A1 == 0] )
+
+
+( ate = a1_term - a0_term )
+
+
+
+
+

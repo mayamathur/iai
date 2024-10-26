@@ -1,0 +1,4 @@
+job.name,scen.name,rep.name,rep.methods,model,coef_of_interest,N,imp_m,imp_maxit,mice_method,dag_name,method,bhat,bhat_lo,bhat_hi,bhat_width,overall.error,beta,form_string,gold_form_string,sancheck.prop_complete,sancheck.mean_RB,sancheck.mean_RC
+job_1,1,1,gold ; CC ; MICE,OLS,A,5000,5,100,norm,1A,gold,1.97214913474254,1.91996367242024,2.02433459706483,0.104370924644584,,2,B ~ A,B1 ~ A1,0.2466,0.4956,0.751
+job_1,1,1,gold ; CC ; MICE,OLS,A,5000,5,100,norm,1A,CC,1.3486919884411,1.2725400530185,1.4248439238637,0.152303870845198,,2,B ~ A,B1 ~ A1,0.2466,0.4956,0.751
+job_1,1,1,gold ; CC ; MICE,OLS,A,5000,5,100,norm,1A,MICE,1.74497017679428,1.66851524346958,1.82142511011898,0.152909866649397,,2,B ~ A,B1 ~ A1,0.2466,0.4956,0.751
