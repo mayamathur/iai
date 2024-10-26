@@ -98,6 +98,7 @@ sim_data = function(.p) {
       mutate( B1 = rnorm( n = 1,
                           mean = coef1*A1 + coef2*C1),
               
+              
               RB = rbinom( n = 1,
                            size = 1,
                            prob = expit(-3 + 3*A1 + 3*C1) ),
