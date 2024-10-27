@@ -101,11 +101,16 @@ sim_data = function(.p) {
               
               RB = rbinom( n = 1,
                            size = 1,
-                           prob = expit(-3 + 3*A1 + 3*C1) ),
+                           prob = 0.4 + 0.2*A1 + 0.3*C1 ),
+              
+              # previous version (before 2024-10-26):
+              # RB = rbinom( n = 1,
+              #              size = 1,
+              #              prob = expit(-3 + 3*A1 + 3*C1) ),
               
               RC = rbinom(n = 1, size = 1, prob = 0.5) )
     
-    # monotone missingness: conditionally overwrite RZ
+    # monotone missingness: conditionally overwrite RC
     du$RC[ du$RB == 0 ] = 1 
     # missmap(du %>% select(A, B, C))
     

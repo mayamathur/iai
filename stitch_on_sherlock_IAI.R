@@ -4,7 +4,7 @@ path = "/home/groups/manishad/IAI"
 setwd(path)
 source("stitch_on_sherlock_helper.R")
 
-stitch()
+#stitch()
 
 
 
@@ -129,16 +129,16 @@ t = s2 %>% group_by(dag_name, coef_of_interest, method) %>%
     BhatRMSE = sqrt( meanNA( (bhat - beta)^2 ) ),
     BhatCover = meanNA( covers(truth = beta,
                                lo = bhat_lo,
-                               hi = bhat_hi) ) ) %>%
+                               hi = bhat_hi) ),
+    
+    sancheck.mean_RB = meanNA(sancheck.mean_RB),
+    sancheck.mean_RC = meanNA(sancheck.mean_RC),
+    sancheck.prop_complete = meanNA(sancheck.prop_complete)
+    ) %>%
   arrange() %>%
   mutate_if(is.numeric, function(x) round(x,2)) 
-
-
-
-
 as.data.frame(t)
 
-#as.data.frame( t %>% filter(dag_name == "1F") %>% select(method, Bhat, BhatBias, BhatCover) )
 
 path = "/home/groups/manishad/IAI/overall_stitched"
 setwd(path)

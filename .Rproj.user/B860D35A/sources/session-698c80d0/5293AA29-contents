@@ -1,4 +1,6 @@
 
+rm(list=ls())
+
 # PRELIMINARIES ---------------------------------------------------------------
 
 # This script uses renv to preserve the R environment specs (e.g., package versions.)
@@ -100,10 +102,11 @@ if ( coef_of_interest == "(Intercept)" ){
 }
 
 # complete cases only
+du$R = du$RB * du$RC
 dc = du[ complete.cases(du), ]
 
 
-# ~ MICE -------------------------------------------------
+# ~ MICE (including C) -------------------------------------------------
 
 imps_mice = mice( di,
                   maxit = p$imp_maxit,
@@ -122,14 +125,46 @@ m_mice = fit_regression(form_string = form_string,
                imps = imps_mice)
 m_mice
 
+
+# ~ MICE (not including C) -------------------------------------------------
+
+imps_mice2 = mice( di %>% select(A, B),
+                  maxit = p$imp_maxit,
+                  m = p$imp_m,
+                  method = p$mice_method,
+                  printFlag = FALSE )
+
+# sanity check
+imp1 = complete(imps_mice2, 1)
+
+m_mice2 = fit_regression(form_string = form_string,
+                        model = p$model,
+                        coef_of_interest = coef_of_interest,
+                        miss_method = "MI",
+                        du = NULL,
+                        imps = imps_mice2)
+m_mice2
+
+
+# ~ CCA-unadj  -------------------------------------------------
+
+m_cca = fit_regression(form_string = form_string,
+                         model = p$model,
+                         coef_of_interest = coef_of_interest,
+                         miss_method = "CC",
+                         du = du)
+
+m_cca
+
 # ~ G-formula  -------------------------------------------------
 
 # above Eq (1) on iPad
-
 ( a1_term = mean( dc$B[dc$A == 1 & dc$C == 0] ) * mean( dc$C[dc$A == 1] == 0 ) + mean( dc$B[dc$A == 1 & dc$C == 1] ) * mean( dc$C[dc$A == 1] == 1 ) )
 # will be an incorrect estimate of this:
 mean( du$B1[du$A1 == 1] )
 
+# a1_term should agree with this:
+mean(dc$B[dc$A==1])
 
 ( a0_term = mean( dc$B[dc$A == 0 & dc$C == 0] ) * mean( dc$C[dc$A == 0] == 0 ) + mean( dc$B[dc$A == 0 & dc$C == 1] ) * mean( dc$C[dc$A == 0] == 1 ) )
 # will be an incorrect estimate of this:
@@ -137,6 +172,43 @@ mean( du$B1[du$A1 == 0] )
 
 
 ( ate = a1_term - a0_term )
+
+
+
+### Manually confirm the bias of one component of ATE
+
+( del_A1 = mean( du$C1[ du$A == 1 ] ) - mean( du$C1[ du$A == 1 & du$R == 1 ] ) )
+( del_A0 = mean( du$C1[ du$A == 0 ] ) - mean( du$C1[ du$A == 0 & du$R == 1 ] ) )
+
+manual_bias_a1_term = mean( du$B1[du$A1 == 1 & du$C1 == 0] ) *(-del_A1) + mean( du$B1[du$A1 == 1 & du$C1 == 1] ) * del_A1
+# c.f. actual bias:
+a1_term - mean( du$B1[du$A1 == 1] )
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
