@@ -12,17 +12,17 @@
     "properties": {
         "source_window_id": "",
         "Source": "Source",
-        "cursorPosition": "94,16",
-        "scrollLine": "84",
+        "cursorPosition": "13,1",
+        "scrollLine": "0",
         "docOutlineVisible": "1",
-        "docOutlineSize": "347"
+        "docOutlineSize": "146"
     },
-    "folds": "",
-    "lastKnownWriteTime": 1729889840,
+    "folds": "45|17|102|0|\n104|26|166|0|\n180|30|560|0|\n360|42|378|6|\n379|42|398|6|\n",
+    "lastKnownWriteTime": 1730144095,
     "encoding": "UTF-8",
     "collab_server": "",
     "source_window": "",
-    "last_content_update": 1729889840345,
+    "last_content_update": 1730144095798,
     "read_only": false,
     "read_only_alternatives": []
 }

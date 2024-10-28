@@ -11,8 +11,8 @@ rm( list = ls() )
 
 
 # are we running locally?
-run.local = FALSE
-# run.local = TRUE
+#run.local = FALSE
+run.local = TRUE
 
 # should we set scen params interactively on cluster?
 # *if you accidently set this to TRUE and run via sbatches on cluster,
@@ -124,7 +124,7 @@ if ( run.local == TRUE ) {
   
   scen.params = tidyr::expand_grid(
     
-    rep.methods = "gold ; CC ; MICE", 
+    rep.methods = "gold ; CC ; MICE-std ; MICE-ours ; Am-std ; custom", 
     
     model = "OLS",
     coef_of_interest = "A",
@@ -142,7 +142,7 @@ if ( run.local == TRUE ) {
     # N = c(100),
     
     #dag_name = c( "1B", "1D", "1G", "1H" ),
-    dag_name = "2A"
+    dag_name = "1B-bin"
   )
   
   
@@ -258,10 +258,10 @@ for ( scen in scens_to_run ) {
       # ~ Make Imputed Data ------------------------------
       
       
-      # ~~ MICE ----
+      # ~~ MICE (standard) ----
       # details of how mice() implements pmm:
       # ?mice.impute.pmm
-      if ( "MICE" %in% all.methods & !is.null(di) ) {
+      if ( "MICE-std" %in% all.methods & !is.null(di) ) {
         
         imps_mice = mice( di,
                               maxit = p$imp_maxit,
@@ -281,6 +281,71 @@ for ( scen in scens_to_run ) {
         imps_mice = NULL
       }
       
+      
+      # ~~ MICE-ours ----
+      # MICE by adjusting predictor matrix
+      if ( "MICE-ours" %in% all.methods & !is.null(di) ) {
+        
+        
+        if ( !( p$dag_name %in% c("1B-bin", "1B") ) ) {
+          stop("MICE-ours not implemented for that DAG")
+        }
+        
+        # modify predictor matrix instead of restricting dataset
+        # "A value of 1 specifies that the variable given in the column name is used in the model to impute the variable given in the row name (and 0 specifies that this variable is not used in that model)."
+        ini = mice(di, maxit=0)
+        pred = ini$predictorMatrix
+        
+        if ( p$dag_name %in% c("1B-bin", "1B") ) {
+          pred["C","B"] = 0  # do NOT use incomplete B to impute auxiliary C
+        }
+
+        
+        imps_mice_ours_pred = mice( di,
+                                    predictorMatrix = pred,
+                                    maxit = p$imp_maxit,
+                                    m = p$imp_m,
+                                    method = p$mice_method,
+                                    printFlag = FALSE )
+        
+        # for later sanity checks
+        actual_pred = imps_mice_ours_pred$predictorMatrix
+        
+        # sanity check
+        imp1 = complete(imps_mice_ours_pred, 1)
+        
+        if ( any(is.na(imp1)) ) {
+          message("MI left NAs in dataset - what a butt")
+          imps_mice_ours_pred = NULL
+        }
+        
+      } else {
+        imps_mice_ours_pred = NULL
+      }
+      
+      
+      # ~~ Am-std ----
+      if ( "Am-std" %in% all.methods & !is.null(di) ) {
+        
+        imps_am_std = amelia( as.data.frame(di),
+                              m=p$imp_m,
+                              p2s = 0 # don't print output
+        )
+        
+        
+        imp1 = imps_am_std$imputations$imp1
+        
+        if ( any(is.na(imp1)) ) {
+          message("MI left NAs in dataset - what a butt")
+          imps_am_std = NULL
+        }
+        
+        
+      } else {
+        imps_am_std = NULL
+      }
+      
+
 
       
       # ~ Initialize Global Vars ------------------------------
@@ -333,8 +398,8 @@ for ( scen in scens_to_run ) {
       
       
       # ~~ MICE ----
-      if ( "MICE" %in% all.methods ) {
-        rep.res = run_method_safe(method.label = c("MICE"),
+      if ( "MICE-std" %in% all.methods ) {
+        rep.res = run_method_safe(method.label = c("MICE-std"),
                                   
                                   method.fn = function(x) fit_regression(form_string = form_string,
                                                                          model = p$model,
@@ -348,7 +413,80 @@ for ( scen in scens_to_run ) {
       if (run.local == TRUE) srr(rep.res)
       
       
+      # ~~ MICE-ours ----
+      if ( "MICE-ours" %in% all.methods ) {
+        rep.res = run_method_safe(method.label = c("MICE-ours"),
+                                  
+                                  method.fn = function(x) fit_regression(form_string = form_string,
+                                                                         model = p$model,
+                                                                         coef_of_interest = coef_of_interest,
+                                                                         miss_method = "MI",
+                                                                         du = NULL,
+                                                                         imps = imps_mice_ours_pred),
+                                  .rep.res = rep.res )
+      }
+      
+      if (run.local == TRUE) srr(rep.res)
+      
+      
+      # ~~ Am-std ----
+      if ( "Am-std" %in% all.methods & !is.null(imps_am_std) ) {
+        rep.res = run_method_safe(method.label = c("Am-std"),
+                                  
+                                  method.fn = function(x) fit_regression(form_string = form_string,
+                                                                         model = p$model,
+                                                                         coef_of_interest = coef_of_interest,
+                                                                         miss_method = "MI",
+                                                                         du = NULL,
+                                                                         imps = imps_am_std),
+                                  .rep.res = rep.res )
+      }
+      
+      if (run.local == TRUE) srr(rep.res)
+      
+      
+      # ~~ Custom ID ----
+      if ( "custom" %in% all.methods ) {
+        rep.res = run_method_safe(method.label = c("custom"),
+                                  
+                                  method.fn = function(x) {
+                                    
+                                    if ( p$dag_name == "1B-bin" ) {
+                                      
+                                      # for p(b(1) | a = 1)
+                                      a = 1
+                                      term0 = mean( du$C[ du$RC == 1 ] == 0 ) * mean( du$B[ du$A == a & du$C == 0 & du$RB == 1 & du$RC == 1 ] )
+                                      term1 = mean( du$C[ du$RC == 1 ] == 1 ) * mean( du$B[ du$A == a & du$C == 1 & du$RB == 1 & du$RC == 1 ] )
+                                      ( ate_term1 = term0 + term1 )
+                                      
+                                      # c.f. truth
+                                      mean(du$B1[du$A1 == a] )
+                                      
+                                      
+                                      a = 0
+                                      term0 = mean( du$C[ du$RC == 1 ] == 0 ) * mean( du$B[ du$A == a & du$C == 0 & du$RB == 1 & du$RC == 1 ] )
+                                      term1 = mean( du$C[ du$RC == 1 ] == 1 ) * mean( du$B[ du$A == a & du$C == 1 & du$RB == 1 & du$RC == 1 ] )
+                                      ( ate_term0 = term0 + term1 )
+                                      
+                                      # c.f. truth
+                                      mean(du$B1[du$A1 == a] )
+                                      
+                                      # correct! :D
+                                      ( ate = ate_term1 - ate_term0 )
+                                      
+                                      return( list( stats = data.frame(method = "custom",
+                                                                       bhat = ate) ) )
+                                      
 
+                                    } else {
+                                      stop("Custom method not implemented for that DAG")
+                                    }
+                                    
+                                  },
+                                  .rep.res = rep.res )
+      }
+      
+      if (run.local == TRUE) srr(rep.res)
       
       
       

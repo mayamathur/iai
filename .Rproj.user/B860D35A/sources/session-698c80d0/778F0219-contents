@@ -258,7 +258,7 @@ sim_data = function(.p) {
     
     # make dataset for imputation (standard way: all measured variables)
     di = du %>% select(B, C, A)
-    
+  
     
     ### For just the intercept of A
     if ( .p$coef_of_interest == "(Intercept)" ){ 
