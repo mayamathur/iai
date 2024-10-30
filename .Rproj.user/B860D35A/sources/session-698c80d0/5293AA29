@@ -3,7 +3,7 @@
     "path": "~/Dropbox/Personal computer/Independent studies/*Inchoate/2024/2024-10-20 - IAI (Incomplete auxiliaries in imputation as in Dowd)/Aux code/2024-10-25 - Dowd graph g-formula.R",
     "project_path": null,
     "type": "r_source",
-    "hash": "0",
+    "hash": "725525902",
     "contents": "",
     "dirty": false,
     "created": 1729882504486.0,
@@ -13,15 +13,16 @@
         "tempName": "Untitled1",
         "source_window_id": "",
         "Source": "Source",
-        "cursorPosition": "110,0",
-        "scrollLine": "84"
+        "cursorPosition": "462,0",
+        "scrollLine": "413",
+        "docOutlineVisible": "1"
     },
-    "folds": "",
-    "lastKnownWriteTime": 1730142419,
+    "folds": "53|9|54|0|\n55|19|107|0|\n108|12|132|0|\n133|23|167|0|\n168|27|187|0|\n188|33|236|0|\n281|18|327|0|\n328|15|340|0|\n",
+    "lastKnownWriteTime": 1730250978,
     "encoding": "UTF-8",
     "collab_server": "",
     "source_window": "",
-    "last_content_update": 1730142419274,
+    "last_content_update": 1730250978523,
     "read_only": false,
     "read_only_alternatives": []
 }

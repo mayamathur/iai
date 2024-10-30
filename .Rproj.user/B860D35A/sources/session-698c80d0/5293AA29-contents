@@ -51,7 +51,7 @@ source("helper_IAI.R")
 options(scipen=999)
 
 
-# PRELIMINARIES ---------------------------------------------------------------
+# DAG 1B ---------------------------------------------------------------
 
 # ~ Simulate data  -------------------------------------------------
 p = tidyr::expand_grid(
@@ -66,7 +66,7 @@ p = tidyr::expand_grid(
   # as on cluster
   imp_m = 5,  # CURRENTLY SET LOW
   imp_maxit = 100,
-  mice_method = "norm",
+  mice_method = "pmm",
   
   # # for quicker sims
   # imp_m = 5,
@@ -151,24 +151,178 @@ m_mice = fit_regression(form_string = form_string,
 m_mice
 
 
+### Look for problems in 1 dataset
+
+# cor mat looks pretty close, although C1 and B are too highly correlated
+cor(imp1)
+cor(du %>% select(B1, C1, A1))
+
+# but this is wrong
+mean(imp1$B[imp1$A == 1]); mean(du$B1[du$A1 == 1])
+mean(imp1$B[imp1$A == 1]); mean(du$B1[du$A1 == 1])
+
+# this too
+mean(imp1$B[imp1$A == 0]); mean(du$B1[du$A1 == 0])
+mean(imp1$B[imp1$A == 0]); mean(du$B1[du$A1 == 0])
+
+
 # ~ MICE (not including C) -------------------------------------------------
 
-imps_mice2 = mice( di %>% select(A, B),
-                  maxit = p$imp_maxit,
-                  m = p$imp_m,
-                  method = p$mice_method,
-                  printFlag = FALSE )
+# imps_mice2 = mice( di %>% select(A, B),
+#                   maxit = p$imp_maxit,
+#                   m = p$imp_m,
+#                   method = p$mice_method,
+#                   printFlag = FALSE )
+# 
+# # sanity check
+# imp1 = complete(imps_mice2, 1)
+# 
+# m_mice2 = fit_regression(form_string = form_string,
+#                         model = p$model,
+#                         coef_of_interest = coef_of_interest,
+#                         miss_method = "MI",
+#                         du = NULL,
+#                         imps = imps_mice2)
+# m_mice2
+
+
+# ~ MICE (2-step) - DOESN'T WORK -------------------------------------------------
+
+# even the first step is wrong; no idea why! 
+
+# p(c | a, R_C = 1)
+imps0 = mice( di %>% select(A, C),
+                   maxit = p$imp_maxit,
+                   m = p$imp_m,
+                   method = "pmm",
+                   printFlag = FALSE )
+imps0$method
+
 
 # sanity check
-imp1 = complete(imps_mice2, 1)
+imp1 = complete(imps0, 1)
+
+mean(imp1$C); mean(du$C1)  # whoa...this is already wrong! 
+mean(imp1$C[imp1$A == 1]); mean(du$C1[du$A1 == 1])  # pretty far off! 
+mean(imp1$C[imp1$A == 0]); mean(du$C1[du$A1 == 0])
+
+cor(imp1$C, imp1$A)
+cor(du$C1, du$A1)
+
+
+# now add in B and impute over the imputations
+imp1$B = du$B
+
+imps1 = mice( imp1,
+              maxit = p$imp_maxit,
+              m = p$imp_m,
+              method = p$mice_method,
+              printFlag = FALSE )
+
 
 m_mice2 = fit_regression(form_string = form_string,
-                        model = p$model,
-                        coef_of_interest = coef_of_interest,
-                        miss_method = "MI",
-                        du = NULL,
-                        imps = imps_mice2)
+                         model = p$model,
+                         coef_of_interest = coef_of_interest,
+                         miss_method = "MI",
+                         du = NULL,
+                         imps = imps1)
 m_mice2
+
+# still equally wrong! hmmm!
+imps1 = complete(imps1, 1)
+cor(imps1 %>% select(B, C, A))  # loses correlation of B, C
+cor(du %>% select(B1, C1, A1))
+
+
+
+# ~ Manual single imputation (2-step) - WORKS -------------------------------------------------
+
+# init
+imp1 = du %>% select(B, C, A)
+
+# imputation step 1
+p0 = mean( du$C[ du$A == 0 & du$RC == 1 ] )
+p1 = mean( du$C[ du$A == 1 & du$RC == 1 ] )
+imp1$C[ imp1$A == 0 ] = rbinom( n = length(imp1$C[ imp1$A == 0 ]),
+                                size = 1,
+                                prob = p0)
+imp1$C[ imp1$A == 1 ] = rbinom( n = length(imp1$C[ imp1$A == 1 ]),
+                                size = 1,
+                                prob = p1)
+
+
+mean(imp1$C); mean(du$C1)  # correct, of course
+mean(imp1$C[imp1$A == 1]); mean(du$C1[du$A1 == 1])  
+mean(imp1$C[imp1$A == 0]); mean(du$C1[du$A1 == 0])
+
+cor(imp1$C, imp1$A)
+cor(du$C1, du$A1)
+
+# imputation step 2
+imp2 = imp1
+imp2$B = du$B
+
+m = lm( B ~ A + C, data = dc )
+draws = rnorm( mean = coef(m)[["(Intercept)"]] + coef(m)[["A"]] * imp1$A + coef(m)[["C"]] * imp1$C,
+               sd = sigma(m),
+               n = nrow(imp1) )
+#preds = predict(object = m, newdata = imp2)
+imp2$B[ is.na(imp2$B) ] = draws[ is.na(imp2$B) ]
+
+
+# complete-case analysis using this dataset
+m_mice2 = fit_regression(form_string = form_string,
+                         model = p$model,
+                         coef_of_interest = coef_of_interest,
+                         miss_method = "CC",
+                         du = imp2)
+m_mice2
+
+
+# ~ MICE (2-step) -------------------------------------------------
+
+# p(c | a, R_C = 1)
+imps0 = mice( di %>% select(A, C),
+              maxit = p$imp_maxit,
+              m = p$imp_m,
+              method = p$mice_method,
+              printFlag = FALSE )
+
+imp1 = complete(imps0, 1)
+mean(imp1$C); mean(du$C1)  # whoa...this is already wrong! 
+mean(imp1$C[imp1$A == 1]); mean(du$C1[du$A1 == 1])  # pretty far off! 
+mean(imp1$C[imp1$A == 0]); mean(du$C1[du$A1 == 0])
+
+cor(imp1$C, imp1$A)
+cor(du$C1, du$A1)
+
+
+# sanity check
+imp1 = complete(imps0, 1)
+
+# now add in B and impute over the imputations
+imp1$B = du$B
+
+imps1 = mice( imp1,
+              maxit = p$imp_maxit,
+              m = p$imp_m,
+              method = p$mice_method,
+              printFlag = FALSE )
+
+
+m_mice2 = fit_regression(form_string = form_string,
+                         model = p$model,
+                         coef_of_interest = coef_of_interest,
+                         miss_method = "MI",
+                         du = NULL,
+                         imps = imps1)
+m_mice2
+
+# still equally wrong! hmmm!
+imps1 = complete(imps1, 1)
+cor(imps1 %>% select(B, C, A))  # loses correlation of B, C
+cor(du %>% select(B1, C1, A1))
+
 
 
 
@@ -217,6 +371,190 @@ m_cca
 
 
 
+# DAG 1C ---------------------------------------------------------------
+
+# ~ Simulate data  -------------------------------------------------
+p = tidyr::expand_grid(
+  
+  rep.methods = "gold ; CC ; MICE", 
+  
+  model = "OLS",
+  coef_of_interest = "A",
+  N = c(10000),
+  
+  # MICE parameters
+  # as on cluster
+  imp_m = 5,  # CURRENTLY SET LOW
+  imp_maxit = 100,
+  mice_method = "pmm",
+  
+  # # for quicker sims
+  # imp_m = 5,
+  # imp_maxit = 5,
+  # N = c(100),
+  
+  #dag_name = c( "1B", "1D", "1G", "1H" ),
+  dag_name = "1C"
+)
+
+coef_of_interest = p$coef_of_interest
+sim_obj = sim_data(.p = p)
+
+du = sim_obj$du
+di = sim_obj$di
+( form_string = as.character( sim_obj$form_string ) )
+( gold_form_string = as.character( sim_obj$gold_form_string ) )
+( beta = as.numeric(sim_obj$beta) )
+( exclude_from_imp_model = as.character( sim_obj$exclude_from_imp_model ) )
+
+
+# coefficient of interest for gold-standard model
+if ( coef_of_interest == "(Intercept)" ){
+  coef_of_interest_gold = "(Intercept)"
+  
+} else if ( coef_of_interest == "A:C"){
+  coef_of_interest_gold = "A1:C1"
+} else {
+  # *this assumes coef_of_interest is always the factual variable
+  #  (e.g., A), so need to add "1" to use the variable
+  # that's in gold-standard model
+  coef_of_interest_gold = paste(coef_of_interest, "1", sep = "")
+}
+
+# complete cases only
+du$R = du$RB * du$RC
+dc = du[ complete.cases(du), ]
+
+
+# ~ Gold standard -------------------------------------------------
+
+
+gold = fit_regression(form_string = gold_form_string,
+                        model = p$model,
+                        coef_of_interest = coef_of_interest_gold,
+                        miss_method = "CC",
+                        du = du)
+gold
+
+
+lm(B1 ~ A1, data = du)
+
+
+# ~ MICE (including C) -------------------------------------------------
+
+imps_mice = mice( di,
+                  maxit = p$imp_maxit,
+                  m = p$imp_m,
+                  method = p$mice_method,
+                  printFlag = FALSE )
+
+# sanity check
+imp1 = complete(imps_mice, 1)
+
+m_mice = fit_regression(form_string = form_string,
+                        model = p$model,
+                        coef_of_interest = coef_of_interest,
+                        miss_method = "MI",
+                        du = NULL,
+                        imps = imps_mice)
+m_mice
+
+
+### Look for problems in 1 dataset
+
+cor(imp1)
+cor(du %>% select(B1, C1, A1))
+
+
+# ~ MICE (2-step) - DOESN'T WORK -------------------------------------------------
+
+# even the first step is wrong; no idea why! 
+
+# p(c | a, R_C = 1)
+imps0 = mice( di %>% select(A, C),
+              maxit = p$imp_maxit,
+              m = p$imp_m,
+              #method = "pmm",
+              printFlag = FALSE )
+imps0$method
+
+
+# sanity check
+imp1 = complete(imps0, 1)
+
+mean(imp1$C); mean(du$C1)  # this is now correct 
+cor(imp1$C, imp1$A); cor(du$C1, du$A1)
+
+
+
+# now add in B and impute over the imputations
+imp1$B = du$B
+
+imps1 = mice( imp1,
+              maxit = p$imp_maxit,
+              m = p$imp_m,
+              method = p$mice_method,
+              printFlag = FALSE )
+
+
+m_mice2 = fit_regression(form_string = form_string,
+                         model = p$model,
+                         coef_of_interest = coef_of_interest,
+                         miss_method = "MI",
+                         du = NULL,
+                         imps = imps1)
+m_mice2
+
+# still equally wrong! hmmm!
+imps1 = complete(imps1, 1)
+cor(imps1 %>% select(B, C, A))  # loses correlation of B, C
+cor(du %>% select(B1, C1, A1))
+
+
+
+# ~ ***Manual single imputation (2-step) - WORKS AGAIN! :D -------------------------------------------------
+
+# init
+imp1 = du %>% select(B, C, A)
+
+### Imputation step 1
+( m = lm( C ~ A, data = du %>% filter(RC == 1) ) )
+# c.f. truth
+lm( C1 ~ A1, data = du )
+draws = rnorm( mean = coef(m)[["(Intercept)"]] + coef(m)[["A"]] * imp1$A,
+               sd = sigma(m),
+               n = nrow(imp1) )
+imp1$C[ is.na(imp1$C) ] = draws[ is.na(imp1$C) ]
+
+
+mean(imp1$C); mean(du$C1)  # correct, of course
+
+
+cor(imp1$C, imp1$A)
+cor(du$C1, du$A1)
+
+
+### Imputation step 2
+imp2 = imp1
+imp2$B = du$B
+
+( m = lm( B ~ A + C, data = dc ) )
+# c.f. truth
+lm( B1 ~ A1 + C1, data = du )
+draws = rnorm( mean = coef(m)[["(Intercept)"]] + coef(m)[["A"]] * imp1$A + coef(m)[["C"]] * imp1$C,
+               sd = sigma(m),
+               n = nrow(imp1) )
+#preds = predict(object = m, newdata = imp2)
+imp2$B[ is.na(imp2$B) ] = draws[ is.na(imp2$B) ]
+
+
+# complete-case analysis using this dataset
+m_man = fit_regression(form_string = form_string,
+                         model = p$model,
+                         coef_of_interest = coef_of_interest,
+                         miss_method = "CC",
+                         du = imp2)
+m_man
 
 
 

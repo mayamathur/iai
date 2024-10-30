@@ -36,7 +36,8 @@ toLoad = c("crayon",
            "stringr",
            "mice",
            "Amelia",
-           "sandwich")
+           "sandwich",
+           "MASS")
 
 if ( run.local == TRUE | interactive.cluster.run == TRUE ) toLoad = c(toLoad, "here")
 
@@ -169,6 +170,9 @@ if ( run.local == TRUE ) {
 
 
 # RUN SIMULATION ------------------------------
+
+
+select = dplyr::select
 
 
 # mimic Sherlock structure
