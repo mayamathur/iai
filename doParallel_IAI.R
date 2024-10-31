@@ -12,7 +12,7 @@ rm( list = ls() )
 
 # are we running locally?
 run.local = FALSE
-#run.local = TRUE
+# run.local = TRUE
 
 # should we set scen params interactively on cluster?
 # *if you accidently set this to TRUE and run via sbatches on cluster,
@@ -32,11 +32,11 @@ toLoad = c("crayon",
            "tidyr",
            "tibble",
            "testthat",
-           "Hmisc",
+           #"Hmisc",
            "stringr",
            "mice",
            "Amelia",
-           "sandwich",
+           #"sandwich",
            "MASS")
 
 if ( run.local == TRUE | interactive.cluster.run == TRUE ) toLoad = c(toLoad, "here")
@@ -74,6 +74,8 @@ if (run.local == FALSE ) {
   }
   if ( any.failed == TRUE ) stop("Some packages couldn't be loaded. See outfile for details of which ones.")
   
+  select = dplyr::select
+  
   # helper code
   path = "/home/groups/manishad/IAI"
   setwd(path)
@@ -109,6 +111,7 @@ if ( run.local == TRUE ) {
           require,
           character.only = TRUE)
   
+  select = dplyr::select
   
   # helper fns
   code.dir = here()
@@ -125,7 +128,7 @@ if ( run.local == TRUE ) {
   
   scen.params = tidyr::expand_grid(
     
-    rep.methods = "gold ; CC ; MICE-std ; MICE-ours ; Am-std ; custom", 
+    rep.methods = "gold ; CC ; MICE-std ; Am-std ; g-form ; custom", 
     
     model = "OLS",
     coef_of_interest = "A",
@@ -171,8 +174,6 @@ if ( run.local == TRUE ) {
 
 # RUN SIMULATION ------------------------------
 
-
-select = dplyr::select
 
 
 # mimic Sherlock structure
@@ -449,7 +450,9 @@ for ( scen in scens_to_run ) {
       if (run.local == TRUE) srr(rep.res)
       
       
-      # ~~ Custom ID ----
+      
+      
+      # ~~ Custom imputation ----
       if ( "custom" %in% all.methods ) {
         rep.res = run_method_safe(method.label = c("custom"),
                                   
@@ -457,7 +460,124 @@ for ( scen in scens_to_run ) {
                                     
                                     if ( p$dag_name == "1B-bin" ) {
                                       
-                                      # for p(b(1) | a = 1)
+                                      # initialize single imputed dataset
+                                      imp1 = du %>% select(B, C, A)
+                                      
+                                      ### Imputation step 1: Impute C using only A and subsetting on RC = 1 (not RC = RB = 1)
+                                      ( m = glm( C ~ A, data = du %>% filter(RC == 1),
+                                                 family = binomial ) )
+                                      # c.f. truth
+                                      glm( C1 ~ A1, data = du, family = binomial )
+                                      # draw imputed values
+                                      probs = predict(object = m, type = "response")
+                                      draws = rbinom( n = nrow(imp1),
+                                                      size = 1,
+                                                      prob = probs )
+            
+                                      imp1$C[ is.na(imp1$C) ] = draws[ is.na(imp1$C) ]
+                                      
+                                      
+                                      mean(imp1$C); mean(du$C1)  # correct, of course
+                                      
+                                      
+                                      cor(imp1$C, imp1$A)
+                                      cor(du$C1, du$A1)
+                                      
+                                      
+                                      ### Imputation step 2: Impute B using A, C and subsetting to complete cases
+                                      imp2 = imp1
+                                      imp2$B = du$B
+                                      
+                                      # complete-case dataset
+                                      dc = du[ complete.cases(du), ]
+                                      
+                                      ( m = lm( B ~ A + C, data = dc ) )
+                                      # c.f. truth
+                                      lm( B1 ~ A1 + C1, data = du )
+                                      # draw imputed values
+                                      draws = rnorm( mean = coef(m)[["(Intercept)"]] + coef(m)[["A"]] * imp1$A + coef(m)[["C"]] * imp1$C,
+                                                     sd = sigma(m),
+                                                     n = nrow(imp1) )
+                                      #preds = predict(object = m, newdata = imp2)
+                                      imp2$B[ is.na(imp2$B) ] = draws[ is.na(imp2$B) ]
+                                      
+                                      
+                                      # complete-case analysis using the imputed dataset
+                                      m_man = fit_regression(form_string = form_string,
+                                                             model = p$model,
+                                                             coef_of_interest = coef_of_interest,
+                                                             miss_method = "CC",
+                                                             du = imp2)
+                                      m_man
+                                      
+                                    } else if ( p$dag_name == "1C") {
+                                      
+                                      # initialize single imputed dataset
+                                      imp1 = du %>% select(B, C, A)
+                                      
+                                      ### Imputation step 1: Impute C using only A and subsetting on RC = 1 (not RC = RB = 1)
+                                      ( m = lm( C ~ A, data = du %>% filter(RC == 1) ) )
+                                      # c.f. truth
+                                      lm( C1 ~ A1, data = du )
+                                      # draw imputed values
+                                      draws = rnorm( mean = coef(m)[["(Intercept)"]] + coef(m)[["A"]] * imp1$A,
+                                                     sd = sigma(m),
+                                                     n = nrow(imp1) )
+                                      imp1$C[ is.na(imp1$C) ] = draws[ is.na(imp1$C) ]
+                                      
+                                      
+                                      mean(imp1$C); mean(du$C1)  # correct, of course
+                                      
+                                      
+                                      cor(imp1$C, imp1$A)
+                                      cor(du$C1, du$A1)
+                                      
+                                      
+                                      ### Imputation step 2: Impute B using A, C and subsetting to complete cases
+                                      imp2 = imp1
+                                      imp2$B = du$B
+                                      
+                                      # complete-case dataset
+                                      dc = du[ complete.cases(du), ]
+                                      
+                                      ( m = lm( B ~ A + C, data = dc ) )
+                                      # c.f. truth
+                                      lm( B1 ~ A1 + C1, data = du )
+                                      # draw imputed values
+                                      draws = rnorm( mean = coef(m)[["(Intercept)"]] + coef(m)[["A"]] * imp1$A + coef(m)[["C"]] * imp1$C,
+                                                     sd = sigma(m),
+                                                     n = nrow(imp1) )
+                                      #preds = predict(object = m, newdata = imp2)
+                                      imp2$B[ is.na(imp2$B) ] = draws[ is.na(imp2$B) ]
+                                      
+                                      
+                                      # complete-case analysis using the imputed dataset
+                                      m_man = fit_regression(form_string = form_string,
+                                                             model = p$model,
+                                                             coef_of_interest = coef_of_interest,
+                                                             miss_method = "CC",
+                                                             du = imp2)
+                                      m_man
+                                      
+                                    }
+                                    else {
+                                      stop("Custom method not implemented for that DAG")
+                                    }
+                                    
+                                  },
+                                  .rep.res = rep.res )
+      }
+      
+      
+      # ~~ G-formula ----
+      if ( "g-form" %in% all.methods ) {
+        rep.res = run_method_safe(method.label = c("g-form"),
+                                  
+                                  method.fn = function(x) {
+                                    
+                                    if ( p$dag_name == "1B-bin" ) {
+                                      
+                                      # p(b(1) | a = 1) = sum_c { p(c | a = 1, RC = 1) * p(b | a = 1, c, RC = RB = 1) }
                                       a = 1
                                       term0 = mean( du$C[ du$RC == 1 ] == 0 ) * mean( du$B[ du$A == a & du$C == 0 & du$RB == 1 & du$RC == 1 ] )
                                       term1 = mean( du$C[ du$RC == 1 ] == 1 ) * mean( du$B[ du$A == a & du$C == 1 & du$RB == 1 & du$RC == 1 ] )
@@ -466,7 +586,7 @@ for ( scen in scens_to_run ) {
                                       # c.f. truth
                                       mean(du$B1[du$A1 == a] )
                                       
-                                      
+                                      # p(b(1) | a = 0)
                                       a = 0
                                       term0 = mean( du$C[ du$RC == 1 ] == 0 ) * mean( du$B[ du$A == a & du$C == 0 & du$RB == 1 & du$RC == 1 ] )
                                       term1 = mean( du$C[ du$RC == 1 ] == 1 ) * mean( du$B[ du$A == a & du$C == 1 & du$RB == 1 & du$RC == 1 ] )
@@ -478,12 +598,11 @@ for ( scen in scens_to_run ) {
                                       # correct! :D
                                       ( ate = ate_term1 - ate_term0 )
                                       
-                                      return( list( stats = data.frame(method = "custom",
-                                                                       bhat = ate) ) )
+                                      return( list( stats = data.frame(bhat = ate) ) )
                                       
 
                                     } else {
-                                      stop("Custom method not implemented for that DAG")
+                                      stop("G-form method not implemented for that DAG")
                                     }
                                     
                                   },

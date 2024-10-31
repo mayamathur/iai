@@ -34,7 +34,8 @@ lapply( allPackages,
 
 scen.params = tidyr::expand_grid(
   
-  rep.methods = "gold ; CC ; MICE-std ; MICE-ours ; Am-std ; custom", 
+  #rep.methods = "gold ; CC ; MICE-std ; MICE-ours ; Am-std ; custom", 
+  rep.methods = "gold ; CC ; MICE-std ; Am-std ; g-form ; custom", 
   
   model = "OLS",
   coef_of_interest = "A",
@@ -52,7 +53,7 @@ scen.params = tidyr::expand_grid(
   # N = c(100),
   
   #dag_name = c( "1B", "1D", "1G", "1H" ),
-  dag_name = c("1B-bin")
+  dag_name = c("1C")
 )
 
 # # remove combos that aren't implemented

@@ -17,8 +17,11 @@ to.load = c("dplyr",
             "ggplot2",
             "testthat",
             "plotly",
+            "MASS",
             "htmlwidgets", # for saving plotly
             "here")
+
+
 
 # load within installation if needed
 for (pkg in to.load) {
@@ -34,6 +37,8 @@ for (pkg in to.load) {
   })
   
 }
+
+select = dplyr::select
 
 # run this only if you want to update the R environment specs
 # renv::snapshot()
@@ -74,7 +79,7 @@ p = tidyr::expand_grid(
   # N = c(100),
   
   #dag_name = c( "1B", "1D", "1G", "1H" ),
-  dag_name = "1B-bin"
+  dag_name = "1C"
 )
 
 coef_of_interest = p$coef_of_interest
@@ -428,7 +433,7 @@ dc = du[ complete.cases(du), ]
 
 # ~ Gold standard -------------------------------------------------
 
-
+# note that since all variables have variance 1, beta hat is also an estimator of the correlation
 gold = fit_regression(form_string = gold_form_string,
                         model = p$model,
                         coef_of_interest = coef_of_interest_gold,
@@ -437,7 +442,9 @@ gold = fit_regression(form_string = gold_form_string,
 gold
 
 
+# c.f. truth with 2 different estimators
 lm(B1 ~ A1, data = du)
+cor(du$A1, du$B1)
 
 
 # ~ MICE (including C) -------------------------------------------------
@@ -459,6 +466,9 @@ m_mice = fit_regression(form_string = form_string,
                         imps = imps_mice)
 m_mice
 
+# c.f. their Fig 1A, orange line, data point corresponding to 50% missing data in Z:
+#  expect about 30-40% bias
+
 
 ### Look for problems in 1 dataset
 
@@ -467,8 +477,6 @@ cor(du %>% select(B1, C1, A1))
 
 
 # ~ MICE (2-step) - DOESN'T WORK -------------------------------------------------
-
-# even the first step is wrong; no idea why! 
 
 # p(c | a, R_C = 1)
 imps0 = mice( di %>% select(A, C),
@@ -521,6 +529,7 @@ imp1 = du %>% select(B, C, A)
 ( m = lm( C ~ A, data = du %>% filter(RC == 1) ) )
 # c.f. truth
 lm( C1 ~ A1, data = du )
+# draw imputed values
 draws = rnorm( mean = coef(m)[["(Intercept)"]] + coef(m)[["A"]] * imp1$A,
                sd = sigma(m),
                n = nrow(imp1) )
@@ -541,6 +550,7 @@ imp2$B = du$B
 ( m = lm( B ~ A + C, data = dc ) )
 # c.f. truth
 lm( B1 ~ A1 + C1, data = du )
+# draw imputed values
 draws = rnorm( mean = coef(m)[["(Intercept)"]] + coef(m)[["A"]] * imp1$A + coef(m)[["C"]] * imp1$C,
                sd = sigma(m),
                n = nrow(imp1) )
@@ -559,9 +569,12 @@ m_man
 
 
 
+# ~ MLE -------------------------------------------------
+
+library(Rfast)
 
 
-
+mvnorm.mle( as.matrix( du %>% select(A1, B1, C1) ) )
 
 
 

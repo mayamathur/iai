@@ -291,6 +291,10 @@ sim_data = function(.p) {
   
   if ( .p$dag_name == "1C" ) {
     
+    # for cluster if running R version 4.3.2:
+    #install_version("MASS", version = "7.3-60.0.1", repos = "http://cran.us.r-project.org")
+    
+    
     du = as.data.frame( mvrnorm(n = .p$N,
                                 mu = c(-3, 6, 2),  # X, Y, Z per Dowd pg 7
                                 Sigma = matrix( c(1, 0.6, 0,
@@ -298,22 +302,21 @@ sim_data = function(.p) {
                                                   0, 0.7, 1),
                                                 byrow = TRUE,
                                                 nrow = 3) ) )
-    
     names(du) = c("A1", "B1", "C1")
     
-    # In missing outcome mechanism 1 Y was set to missing if the cumulative distribution function (CDF) of
-    # X or Z was less than √0.5. 
-    # but this seems to result in 92% missing data, not 50% as they say! 
-    du$RB = 1
-    du$RB[ pnorm( du$A1, mean = -3, sd = 1 ) < sqrt(0.5) ] = 0
-    du$RB[ pnorm( du$C1, mean = 2, sd = 1 ) < sqrt(0.5) ] = 0
-    mean(du$RB)
+    
+    # replicating their code rather than what the preprint says (typos)
+    du$RB = 0
+    du$RB[ pnorm( du$A1, mean = -3, sd = 1 ) > sqrt(0.5) ] = 1
+    du$RB[ pnorm( du$C1, mean = 2, sd = 1 ) > sqrt(0.5) ] = 1
+    mean(du$RB)  # should be 0.50
     
     # C is MCAR
     # In missing auxiliary mechanism 1, Z was set to missing if a random draw from the uniform distribution
     # bounded by 0 and 1 was less than μ, where μ was varied between 0 and 0.9 in increments of 0.1.
     U = runif( n = nrow(du), min = 0, max = 1 )
     du$RC = (U < 0.5)
+    mean(du$RC)
     
     du = du %>% rowwise() %>%
       mutate( A = A1,
@@ -343,7 +346,7 @@ sim_data = function(.p) {
       # gold-standard model uses underlying variables
       gold_form_string = "B1 ~ A1"
       
-      beta = NULL
+      beta = NA
       
       # custom predictor matrix for MICE-ours-pred
       exclude_from_imp_model = NULL # B is in target law

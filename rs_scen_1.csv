@@ -1,7 +1,7 @@
-job.name,scen.name,rep.name,rep.methods,model,coef_of_interest,N,imp_m,imp_maxit,mice_method,dag_name,method,bhat,bhat_lo,bhat_hi,bhat_width,overall.error,method.1,beta,form_string,gold_form_string,sancheck.prop_complete,sancheck.mean_RB,sancheck.mean_RC
-job_1,1,1,gold ; CC ; MICE-std ; MICE-ours ; Am-std ; custom,OLS,A,5000,5,100,norm,1B-bin,gold,2.0026058785907,1.93238602828839,2.07282572889301,0.140439700604617,,,2,B ~ A,B1 ~ A1,0.2542,0.497,0.5066
-job_1,1,1,gold ; CC ; MICE-std ; MICE-ours ; Am-std ; custom,OLS,A,5000,5,100,norm,1B-bin,CC,1.63979104384355,1.53340333852727,1.74617874915983,0.212775410632553,,,2,B ~ A,B1 ~ A1,0.2542,0.497,0.5066
-job_1,1,1,gold ; CC ; MICE-std ; MICE-ours ; Am-std ; custom,OLS,A,5000,5,100,norm,1B-bin,MICE-std,1.8364756036878,1.73400271091105,1.93894849646455,0.204945785553493,,,2,B ~ A,B1 ~ A1,0.2542,0.497,0.5066
-job_1,1,1,gold ; CC ; MICE-std ; MICE-ours ; Am-std ; custom,OLS,A,5000,5,100,norm,1B-bin,MICE-ours,1.68712697985854,1.56306301122216,1.81119094849492,0.248127937272758,,,2,B ~ A,B1 ~ A1,0.2542,0.497,0.5066
-job_1,1,1,gold ; CC ; MICE-std ; MICE-ours ; Am-std ; custom,OLS,A,5000,5,100,norm,1B-bin,Am-std,1.81400625154995,1.68352945748288,1.94448304561703,0.260953588134147,,,2,B ~ A,B1 ~ A1,0.2542,0.497,0.5066
-job_1,1,1,gold ; CC ; MICE-std ; MICE-ours ; Am-std ; custom,OLS,A,5000,5,100,norm,1B-bin,custom,2.09305315522918,,,,,custom,2,B ~ A,B1 ~ A1,0.2542,0.497,0.5066
+job.name,scen.name,rep.name,rep.methods,model,coef_of_interest,N,imp_m,imp_maxit,mice_method,dag_name,method,bhat,bhat_lo,bhat_hi,bhat_width,overall.error,beta,form_string,gold_form_string,sancheck.prop_complete,sancheck.mean_RB,sancheck.mean_RC
+job_1,1,1,gold ; CC ; MICE-std ; Am-std ; g-form ; custom,OLS,A,5000,5,100,norm,1B-bin,gold,1.95043674691811,1.87978313629891,2.02109035753731,0.141307221238401,,2,B ~ A,B1 ~ A1,0.245,0.4948,0.4948
+job_1,1,1,gold ; CC ; MICE-std ; Am-std ; g-form ; custom,OLS,A,5000,5,100,norm,1B-bin,CC,1.57615248764525,1.46638371526364,1.68592126002687,0.219537544763237,,2,B ~ A,B1 ~ A1,0.245,0.4948,0.4948
+job_1,1,1,gold ; CC ; MICE-std ; Am-std ; g-form ; custom,OLS,A,5000,5,100,norm,1B-bin,MICE-std,1.74845470188922,1.67634114700217,1.82056825677626,0.144227109774083,,2,B ~ A,B1 ~ A1,0.245,0.4948,0.4948
+job_1,1,1,gold ; CC ; MICE-std ; Am-std ; g-form ; custom,OLS,A,5000,5,100,norm,1B-bin,Am-std,1.76033177655225,1.5904515807403,1.93021197236419,0.339760391623894,,2,B ~ A,B1 ~ A1,0.245,0.4948,0.4948
+job_1,1,1,gold ; CC ; MICE-std ; Am-std ; g-form ; custom,OLS,A,5000,5,100,norm,1B-bin,custom,1.98320981602002,1.91148463547643,2.05493499656361,0.143450361087178,,2,B ~ A,B1 ~ A1,0.245,0.4948,0.4948
+job_1,1,1,gold ; CC ; MICE-std ; Am-std ; g-form ; custom,OLS,A,5000,5,100,norm,1B-bin,g-form,1.89477964006315,,,,,2,B ~ A,B1 ~ A1,0.245,0.4948,0.4948
