@@ -3,7 +3,7 @@
     "path": "~/Dropbox/Personal computer/Independent studies/*Inchoate/2024/2024-10-20 - IAI (Incomplete auxiliaries in imputation as in Dowd)/Simulation study/Code/stitch_on_sherlock_IAI.R",
     "project_path": "stitch_on_sherlock_IAI.R",
     "type": "r_source",
-    "hash": "0",
+    "hash": "802850564",
     "contents": "",
     "dirty": false,
     "created": 1729896633028.0,
@@ -12,16 +12,16 @@
     "properties": {
         "source_window_id": "",
         "Source": "Source",
-        "cursorPosition": "113,77",
+        "cursorPosition": "126,45",
         "scrollLine": "103",
         "docOutlineVisible": "1"
     },
     "folds": "",
-    "lastKnownWriteTime": 1730414570,
+    "lastKnownWriteTime": 1730465402,
     "encoding": "UTF-8",
     "collab_server": "",
     "source_window": "",
-    "last_content_update": 1730414570235,
+    "last_content_update": 1730465402360,
     "read_only": false,
     "read_only_alternatives": []
 }

@@ -124,6 +124,7 @@ t = s2 %>% group_by(dag_name, coef_of_interest, method) %>%
     reps = n(),
     Bhat = meanNA(bhat),
     BhatBias = meanNA(bhat - beta),
+    BhatRelBias = meanNA( (bhat - beta)/beta ),
     BhatLo = meanNA(bhat_lo),
     BhatHi = meanNA(bhat_hi),
     BhatRMSE = sqrt( meanNA( (bhat - beta)^2 ) ),
