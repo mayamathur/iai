@@ -132,7 +132,7 @@ if ( run.local == TRUE ) {
     
     model = "OLS",
     coef_of_interest = "A",
-    N = c(5000),
+    N = c(10000),
     
     # MICE parameters
     # as on cluster
@@ -233,6 +233,10 @@ for ( scen in scens_to_run ) {
       ( gold_form_string = as.character( sim_obj$gold_form_string ) )
       ( beta = as.numeric(sim_obj$beta) )
       ( exclude_from_imp_model = as.character( sim_obj$exclude_from_imp_model ) )
+      
+      if (FALSE){
+        cor(du %>% select(A1, B1, C1))
+      }
       
       # check number of complete cases
       #sum(complete.cases(du))

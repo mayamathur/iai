@@ -39,7 +39,7 @@ scen.params = tidyr::expand_grid(
   
   model = "OLS",
   coef_of_interest = "A",
-  N = c(10000),
+  N = c(50000),
   
   # MICE parameters
   # as on cluster
@@ -53,7 +53,7 @@ scen.params = tidyr::expand_grid(
   # N = c(100),
   
   #dag_name = c( "1B", "1D", "1G", "1H" ),
-  dag_name = c("1C")
+  dag_name = c("1B-bin")
 )
 
 # # remove combos that aren't implemented
@@ -100,7 +100,7 @@ runfile_path = paste(path, "/testRunFile.R", sep="")
 sbatch_params <- data.frame(jobname,
                             outfile,
                             errorfile,
-                            jobtime = "03:00:00", 
+                            jobtime = "06:00:00", 
                             quality = "normal",
                             node_number = 1,
                             mem_per_node = 64000,

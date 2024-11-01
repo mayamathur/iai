@@ -79,7 +79,7 @@ p = tidyr::expand_grid(
   # N = c(100),
   
   #dag_name = c( "1B", "1D", "1G", "1H" ),
-  dag_name = "1C"
+  dag_name = "1B-bin"
 )
 
 coef_of_interest = p$coef_of_interest

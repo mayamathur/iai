@@ -233,13 +233,7 @@ sim_data = function(.p) {
     du = du %>% rowwise() %>%
       mutate( B1 = rnorm( n = 1,
                           mean = coef1*A1 + coef2*C1),
-              
-              
-              # RB = rbinom( n = 1,
-              #              size = 1,
-              #              prob = 0.4 + 0.2*A1 + 0.3*C1 ),
-              
-              # previous version (before 2024-10-26):
+
               RB = rbinom( n = 1,
                            size = 1,
                            prob = expit(-3 + 3*A1 + 3*C1) ),
