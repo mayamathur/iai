@@ -467,26 +467,16 @@ for ( scen in scens_to_run ) {
                                       # initialize single imputed dataset
                                       imp1 = du %>% select(B, C, A)
                                       
-                                      ### Imputation step 1: Impute C using only A and subsetting on RC = 1 (not RC = RB = 1)
-                                      ( m = glm( C ~ A, data = du %>% filter(RC == 1),
-                                                 family = binomial ) )
-                                      # c.f. truth
-                                      glm( C1 ~ A1, data = du, family = binomial )
-                                      # draw imputed values
-                                      probs = predict(object = m, type = "response")
+                                      ### Imputation step 1: Impute C by subsetting on RC = 1 (not RC = RB = 1)
+                                      prob = mean( du$C[du$RC == 1] )
                                       draws = rbinom( n = nrow(imp1),
                                                       size = 1,
-                                                      prob = probs )
+                                                      prob = prob )
             
                                       imp1$C[ is.na(imp1$C) ] = draws[ is.na(imp1$C) ]
                                       
-                                      
-                                      mean(imp1$C); mean(du$C1)  # correct, of course
-                                      
-                                      
-                                      cor(imp1$C, imp1$A)
-                                      cor(du$C1, du$A1)
-                                      
+                                      # mean(imp1$C); mean(du$C1)  # correct, of course
+
                                       
                                       ### Imputation step 2: Impute B using A, C and subsetting to complete cases
                                       imp2 = imp1
