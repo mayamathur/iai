@@ -1,7 +1,6 @@
 job.name,scen.name,rep.name,rep.methods,model,coef_of_interest,N,imp_m,imp_maxit,mice_method,dag_name,method,bhat,bhat_lo,bhat_hi,bhat_width,overall.error,beta,form_string,gold_form_string,sancheck.prop_complete,sancheck.mean_RB,sancheck.mean_RC
-job_1,1,1,gold ; CC ; MICE-std ; Am-std ; g-form ; custom,OLS,A,5000,5,100,norm,1B-bin,gold,1.95043674691811,1.87978313629891,2.02109035753731,0.141307221238401,,2,B ~ A,B1 ~ A1,0.245,0.4948,0.4948
-job_1,1,1,gold ; CC ; MICE-std ; Am-std ; g-form ; custom,OLS,A,5000,5,100,norm,1B-bin,CC,1.57615248764525,1.46638371526364,1.68592126002687,0.219537544763237,,2,B ~ A,B1 ~ A1,0.245,0.4948,0.4948
-job_1,1,1,gold ; CC ; MICE-std ; Am-std ; g-form ; custom,OLS,A,5000,5,100,norm,1B-bin,MICE-std,1.74845470188922,1.67634114700217,1.82056825677626,0.144227109774083,,2,B ~ A,B1 ~ A1,0.245,0.4948,0.4948
-job_1,1,1,gold ; CC ; MICE-std ; Am-std ; g-form ; custom,OLS,A,5000,5,100,norm,1B-bin,Am-std,1.76033177655225,1.5904515807403,1.93021197236419,0.339760391623894,,2,B ~ A,B1 ~ A1,0.245,0.4948,0.4948
-job_1,1,1,gold ; CC ; MICE-std ; Am-std ; g-form ; custom,OLS,A,5000,5,100,norm,1B-bin,custom,1.98320981602002,1.91148463547643,2.05493499656361,0.143450361087178,,2,B ~ A,B1 ~ A1,0.245,0.4948,0.4948
-job_1,1,1,gold ; CC ; MICE-std ; Am-std ; g-form ; custom,OLS,A,5000,5,100,norm,1B-bin,g-form,1.89477964006315,,,,,2,B ~ A,B1 ~ A1,0.245,0.4948,0.4948
+job_1,1,1,gold ; CC ; MICE-std ; Am-std ; adj-form-1 ; adj-form-2,OLS,A,10000,5,100,norm,3B-bin,gold,1.96446810056208,1.91468840409859,2.01424779702557,0.0995593929269774,,2,B ~ A + C,B1 ~ A1 + C1,0.3517,0.5713,0.5738
+job_1,1,1,gold ; CC ; MICE-std ; Am-std ; adj-form-1 ; adj-form-2,OLS,A,10000,5,100,norm,3B-bin,CC,1.97045587424987,1.87183935321373,2.06907239528602,0.197233042072283,,2,B ~ A + C,B1 ~ A1 + C1,0.3517,0.5713,0.5738
+job_1,1,1,gold ; CC ; MICE-std ; Am-std ; adj-form-1 ; adj-form-2,OLS,A,10000,5,100,norm,3B-bin,MICE-std,2.00547238610402,1.93432403223104,2.076620739977,0.142296707745967,,2,B ~ A + C,B1 ~ A1 + C1,0.3517,0.5713,0.5738
+job_1,1,1,gold ; CC ; MICE-std ; Am-std ; adj-form-1 ; adj-form-2,OLS,A,10000,5,100,norm,3B-bin,adj-form-1,1.96575235510478,,,,,2,B ~ A + C,B1 ~ A1 + C1,0.3517,0.5713,0.5738
+job_1,1,1,gold ; CC ; MICE-std ; Am-std ; adj-form-1 ; adj-form-2,OLS,A,10000,5,100,norm,3B-bin,adj-form-2,2.63064328938731,,,,,2,B ~ A + C,B1 ~ A1 + C1,0.3517,0.5713,0.5738

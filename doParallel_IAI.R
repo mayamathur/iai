@@ -95,7 +95,7 @@ if (run.local == FALSE ) {
   # ~~*********** Set cluster sim reps ----------------
   # simulation reps to run within this job
   # **this need to match n.reps.in.doParallel in the genSbatch script
-  sim.reps = 500
+  sim.reps = 100
   
   # set the number of cores
   registerDoParallel(cores=16)
@@ -128,9 +128,9 @@ if ( run.local == TRUE ) {
   
   scen.params = tidyr::expand_grid(
     
-    rep.methods = "gold ; CC ; MICE-std ; Am-std ; g-form ; custom", 
+    rep.methods = "gold ; CC ; MICE-std ; Am-std ; adj-form-1 ; adj-form-2", 
     
-    model = "OLS",
+    model = "OLS", 
     coef_of_interest = "A",
     N = c(10000),
     
@@ -146,7 +146,7 @@ if ( run.local == TRUE ) {
     # N = c(100),
     
     #dag_name = c( "1B", "1D", "1G", "1H" ),
-    dag_name = "1B-bin"
+    dag_name = "3B-bin"
   )
   
   
@@ -157,7 +157,7 @@ if ( run.local == TRUE ) {
   start.at = 1  # scen name to start at
   scen.params$scen = start.at:( nrow(scen.params) + start.at - 1 )
   
-  sim.reps = 500  # reps to run in this iterate
+  sim.reps = 1  # reps to run in this iterate
   
   # set the number of local cores
   registerDoParallel(cores=8)
@@ -234,6 +234,9 @@ for ( scen in scens_to_run ) {
       ( beta = as.numeric(sim_obj$beta) )
       ( exclude_from_imp_model = as.character( sim_obj$exclude_from_imp_model ) )
       
+      
+      
+      
       if (FALSE){
         cor(du %>% select(A1, B1, C1))
       }
@@ -273,10 +276,10 @@ for ( scen in scens_to_run ) {
       if ( "MICE-std" %in% all.methods & !is.null(di) ) {
         
         imps_mice = mice( di,
-                              maxit = p$imp_maxit,
-                              m = p$imp_m,
-                              method = p$mice_method,
-                              printFlag = FALSE )
+                          maxit = p$imp_maxit,
+                          m = p$imp_m,
+                          method = p$mice_method,
+                          printFlag = FALSE )
         
         # sanity check
         imp1 = complete(imps_mice, 1)
@@ -308,7 +311,7 @@ for ( scen in scens_to_run ) {
         if ( p$dag_name %in% c("1B-bin", "1B") ) {
           pred["C","B"] = 0  # do NOT use incomplete B to impute auxiliary C
         }
-
+        
         
         imps_mice_ours_pred = mice( di,
                                     predictorMatrix = pred,
@@ -354,8 +357,8 @@ for ( scen in scens_to_run ) {
         imps_am_std = NULL
       }
       
-
-
+      
+      
       
       # ~ Initialize Global Vars ------------------------------
       
@@ -472,11 +475,11 @@ for ( scen in scens_to_run ) {
                                       draws = rbinom( n = nrow(imp1),
                                                       size = 1,
                                                       prob = prob )
-            
+                                      
                                       imp1$C[ is.na(imp1$C) ] = draws[ is.na(imp1$C) ]
                                       
                                       # mean(imp1$C); mean(du$C1)  # correct, of course
-
+                                      
                                       
                                       ### Imputation step 2: Impute B using A, C and subsetting to complete cases
                                       imp2 = imp1
@@ -594,10 +597,92 @@ for ( scen in scens_to_run ) {
                                       
                                       return( list( stats = data.frame(bhat = ate) ) )
                                       
-
+                                      
                                     } else {
                                       stop("G-form method not implemented for that DAG")
                                     }
+                                    
+                                  },
+                                  .rep.res = rep.res )
+      }
+      
+      
+      # ~~ Adj form 1 ----
+      
+      if ( "adj-form-1" %in% all.methods ) {
+        rep.res = run_method_safe(method.label = c("adj-form-1"),
+                                  
+                                  method.fn = function(x) {
+                                    
+                                    
+                                    # p(b(1) | a = 1) = sum_c { p(c | RC = 1) * p(b | a = 1, c, RA = RC = RB = 1) }
+                                    a = 1
+                                    term0 = mean( du$C[ du$RC == 1 ] == 0 ) *
+                                      mean( du$B[ du$A == a & du$C == 0 & du$RA == 1 & du$RB == 1 & du$RC == 1 ] )
+                                    
+                                    term1 = mean( du$C[ du$RC == 1 ] == 1 ) *
+                                      mean( du$B[ du$A == a & du$C == 1 & du$RA == 1 & du$RB == 1 & du$RC == 1 ] )
+                                    
+                                    ( ate_term1 = term0 + term1 )
+                                    
+                                    # c.f. truth (IF no conventional confounding)
+                                    mean(du$B1[du$A1 == a] )
+                                    
+                                    # p(b(1) | a = 0)
+                                    a = 0
+                                    term0 = mean( du$C[ du$RC == 1 ] == 0 ) * mean( du$B[ du$A == a & du$C == 0 & du$RA == 1 & du$RB == 1 & du$RC == 1 ] )
+                                    term1 = mean( du$C[ du$RC == 1 ] == 1 ) * mean( du$B[ du$A == a & du$C == 1 & du$RA == 1 & du$RB == 1 & du$RC == 1 ] )
+                                    ( ate_term0 = term0 + term1 )
+                                    
+                                    # c.f. truth (IF no conventional confounding)
+                                    mean(du$B1[du$A1 == a] )
+                                    
+                                    # correct! :D
+                                    ( ate = ate_term1 - ate_term0 )
+                                    
+                                    return( list( stats = data.frame(bhat = ate) ) )
+                                    
+                                    
+                                  },
+                                  .rep.res = rep.res )
+      }
+      
+      # ~~ Adj form 2 ----
+      # Difference from adj-form-1: This one uses  p(c | a, RC = 1, RA = 1) instead of  p(c | RC = 1)
+      
+      if ( "adj-form-2" %in% all.methods ) {
+        rep.res = run_method_safe(method.label = c("adj-form-2"),
+                                  
+                                  method.fn = function(x) {
+                                    
+                       
+                                    # p(b(1) | a = 1) = sum_c { p(c | a = 1, RC = 1, RA = 1) * p(b | a = 1, c, RA = RC = RB = 1) }
+                                    a = 1
+                                    term0 = mean( du$C[ du$A == a & du$RA == 1 & du$RC == 1 ] == 0 ) *
+                                      mean( du$B[ du$A == a & du$C == 0 & du$RA == 1 & du$RB == 1 & du$RC == 1 ] )
+                                    
+                                    term1 = mean( du$C[ du$A == a & du$RA == 1 & du$RC == 1 ] == 1 ) *
+                                      mean( du$B[ du$A == a & du$C == 1 & du$RA == 1 & du$RB == 1 & du$RC == 1 ] )
+                                    
+                                    ( ate_term1 = term0 + term1 )
+                                    
+                                    # c.f. truth
+                                    mean(du$B1[du$A1 == a] )
+                                    
+                                    # p(b(1) | a = 0)
+                                    a = 0
+                                    term0 = mean( du$C[ du$A == a & du$RA == 1 & du$RC == 1 ] == 0 ) * mean( du$B[ du$A == a & du$C == 0 & du$RA == 1 & du$RB == 1 & du$RC == 1 ] )
+                                    term1 = mean( du$C[ du$A == a & du$RA == 1 & du$RC == 1 ] == 1 ) * mean( du$B[ du$A == a & du$C == 1 & du$RA == 1 & du$RB == 1 & du$RC == 1 ] )
+                                    ( ate_term0 = term0 + term1 )
+                                    
+                                    # c.f. truth
+                                    mean(du$B1[du$A1 == a] )
+                                    
+                                    # correct! :D
+                                    ( ate = ate_term1 - ate_term0 )
+                                    
+                                    return( list( stats = data.frame(bhat = ate) ) )
+                                    
                                     
                                   },
                                   .rep.res = rep.res )
@@ -680,6 +765,7 @@ for ( scen in scens_to_run ) {
 
 
 if ( run.local == TRUE ) {
+  View(rs_all_scens)
   dim(rs_all_scens)
   
   
@@ -715,7 +801,7 @@ if ( run.local == TRUE ) {
   mean(rs_all_scens$sancheck.mean_RB)
   mean(rs_all_scens$sancheck.mean_RC)
   
-
+  
   # setwd(data.dir)
   # fwrite( rs_all_scens,
   #         paste( "stitched_local.csv", sep = "" ) )
