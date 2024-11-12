@@ -1,6 +1,5 @@
 job.name,scen.name,rep.name,rep.methods,model,coef_of_interest,N,imp_m,imp_maxit,mice_method,dag_name,method,bhat,bhat_lo,bhat_hi,bhat_width,overall.error,beta,form_string,gold_form_string,sancheck.prop_complete,sancheck.mean_RB,sancheck.mean_RC
-job_1,1,1,gold ; CC ; MICE-std ; Am-std ; adj-form-1 ; adj-form-2,OLS,A,10000,5,100,norm,3B-bin,gold,1.96446810056208,1.91468840409859,2.01424779702557,0.0995593929269774,,2,B ~ A + C,B1 ~ A1 + C1,0.3517,0.5713,0.5738
-job_1,1,1,gold ; CC ; MICE-std ; Am-std ; adj-form-1 ; adj-form-2,OLS,A,10000,5,100,norm,3B-bin,CC,1.97045587424987,1.87183935321373,2.06907239528602,0.197233042072283,,2,B ~ A + C,B1 ~ A1 + C1,0.3517,0.5713,0.5738
-job_1,1,1,gold ; CC ; MICE-std ; Am-std ; adj-form-1 ; adj-form-2,OLS,A,10000,5,100,norm,3B-bin,MICE-std,2.00547238610402,1.93432403223104,2.076620739977,0.142296707745967,,2,B ~ A + C,B1 ~ A1 + C1,0.3517,0.5713,0.5738
-job_1,1,1,gold ; CC ; MICE-std ; Am-std ; adj-form-1 ; adj-form-2,OLS,A,10000,5,100,norm,3B-bin,adj-form-1,1.96575235510478,,,,,2,B ~ A + C,B1 ~ A1 + C1,0.3517,0.5713,0.5738
-job_1,1,1,gold ; CC ; MICE-std ; Am-std ; adj-form-1 ; adj-form-2,OLS,A,10000,5,100,norm,3B-bin,adj-form-2,2.63064328938731,,,,,2,B ~ A + C,B1 ~ A1 + C1,0.3517,0.5713,0.5738
+job_1,1,1,gold ; CC ; MICE-std ; Am-std ; adj-form-4-cate,OLS,A,10000,5,100,norm,4A,gold,1.1916745101849,1.10250014190917,1.28084887846064,0.178348736551475,,,B ~ A + C,B1 ~ A1 + C,0.1033,0.6428,0.5749
+job_1,1,1,gold ; CC ; MICE-std ; Am-std ; adj-form-4-cate,OLS,A,10000,5,100,norm,4A,CC,0.887842738797405,0.723263607843681,1.05242186975113,0.329158261907446,,,B ~ A + C,B1 ~ A1 + C,0.1033,0.6428,0.5749
+job_1,1,1,gold ; CC ; MICE-std ; Am-std ; adj-form-4-cate,OLS,A,10000,5,100,norm,4A,MICE-std,0.966315331880286,0.795650368021017,1.13698029573956,0.341329927718539,,,B ~ A + C,B1 ~ A1 + C,0.1033,0.6428,0.5749
+job_1,1,1,gold ; CC ; MICE-std ; Am-std ; adj-form-4-cate,OLS,A,10000,5,100,norm,4A,adj-form-4-cate,1.21817985282709,,,,,,B ~ A + C,B1 ~ A1 + C,0.1033,0.6428,0.5749

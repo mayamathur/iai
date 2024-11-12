@@ -128,7 +128,7 @@ if ( run.local == TRUE ) {
   
   scen.params = tidyr::expand_grid(
     
-    rep.methods = "gold ; CC ; MICE-std ; Am-std ; adj-form-1 ; adj-form-2", 
+    rep.methods = "gold ; CC ; MICE-std ; Am-std ; adj-form-4-cate", 
     
     model = "OLS", 
     coef_of_interest = "A",
@@ -146,7 +146,7 @@ if ( run.local == TRUE ) {
     # N = c(100),
     
     #dag_name = c( "1B", "1D", "1G", "1H" ),
-    dag_name = "3B-bin"
+    dag_name = "4A"
   )
   
   
@@ -234,8 +234,7 @@ for ( scen in scens_to_run ) {
       ( beta = as.numeric(sim_obj$beta) )
       ( exclude_from_imp_model = as.character( sim_obj$exclude_from_imp_model ) )
       
-      
-      
+
       
       if (FALSE){
         cor(du %>% select(A1, B1, C1))
@@ -680,6 +679,73 @@ for ( scen in scens_to_run ) {
                                     
                                     # correct! :D
                                     ( ate = ate_term1 - ate_term0 )
+                                    
+                                    return( list( stats = data.frame(bhat = ate) ) )
+                                    
+                                    
+                                  },
+                                  .rep.res = rep.res )
+      }
+      
+      if (run.local == TRUE) srr(rep.res)
+      
+      
+      
+      # ~~ Adj form 4 (CATE on C) ----
+      # sum_w { p(b | a, w, c, R = 1) p(w | a, c, RA = RC = RW = 1) }
+      
+      if ( "adj-form-4-cate" %in% all.methods ) {
+        rep.res = run_method_safe(method.label = c("adj-form-4-cate"),
+                                  
+                                  method.fn = function(x) {
+                                    
+                                    
+                                    # two restricted datasets
+                                    # complete-case dataset
+                                    dc = du[ complete.cases(du), ]
+                                    # restricted dataset for modeling W
+                                    dw = du %>% filter( RA == 1 & RW == 1 & RC == 1 )
+                                    
+                                    
+                                    c = 0  # will fix this level throughout
+                                    a = 1
+                          
+                                    ### p(b(1) | a = 1, c = c)
+                                    term_w0 = mean( dw$W[ dw$A == a & dw$C == c ] == 0 ) *
+                                      mean( dc$B[ dc$A == a & dc$C == c & dc$W == 0 ] )
+                                    
+                                    term_w1 = mean( dw$W[ dw$A == a & dw$C == c ] == 1 ) *
+                                      mean( dc$B[ dc$A == a & dc$C == c & dc$W == 1 ] )
+                                    
+                                    ( ate_term1 = term_w0 + term_w1 )
+                                    
+                                    # c.f. truth
+                                    mean(du$B1[du$A1 == a & du$C1 == c] )
+                                    
+                                    # compare each sub-term to truth
+                                    mean( dc$B[ dc$A == a & dc$C == c & dc$W == 0 ] ); mean( du$B1[ du$A1 == a & du$C1 == c & du$W1 == 0 ] )
+                                    mean( dw$W[ dw$A == a & dw$C == c ] == 0 ); mean( du$W1[ du$A1 == a & du$C1 == c ] == 0 )
+                                    
+                                    ### p(b(1) | a = 0, c = c)
+                                    a = 0
+                                    term_w0 = mean( dw$W[ dw$A == a & dw$C == c ] == 0 ) *
+                                      mean( dc$B[ dc$A == a & dc$C == c & dc$W == 0 ] )
+                                    
+                                    term_w1 = mean( dw$W[ dw$A == a & dw$C == c ] == 1 ) *
+                                      mean( dc$B[ dc$A == a & dc$C == c & dc$W == 1 ] )
+                                    
+                                    ( ate_term0 = term_w0 + term_w1 )
+                                    
+                                    # c.f. truth
+                                    mean(du$B1[du$A1 == a & du$C1 == c] )
+                                    
+                                    # correct! :D
+                                    ( ate = ate_term1 - ate_term0 )
+                                    
+                                    
+                                    # c.f. gold std 
+                                    #lm(B1 ~ A1, data = du %>% filter(C1 == c))
+                                    
                                     
                                     return( list( stats = data.frame(bhat = ate) ) )
                                     

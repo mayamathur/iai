@@ -414,47 +414,33 @@ sim_data = function(.p) {
   }  # end of .p$dag_name == "2A"
   
   
-  # ~ DAG 3A-bin -----------------------------
-  # C1 -> A1 -> B1 and C1 -> all R's
-  # CCA and std imputation are fine here
+  # ~ DAG 1B -----------------------------
+  # same as above, but no R_Y -> R_C edge (same graph as Dowd, though different law)
   
-  if ( .p$dag_name == "3A-bin" ) {
+  if ( .p$dag_name == "1B" ) {
     
-    du = data.frame( C1 = rbinom( n = .p$N,
-                                  size = 1, 
-                                  prob = 0.5 ) ) 
+    du = data.frame( C1 = rnorm( n = .p$N ),  
+                     A1 = rnorm( n = .p$N ) )  # only including this because neither imputation method runs with 1 variable
     
-
     coef1 = 2
     coef2 = 1.6
     
     du = du %>% rowwise() %>%
-      mutate( A1 = rbinom( n = 1,
-                           size = 1,
-                           prob = expit(-1 + 3*C1) ),
-              
-              B1 = rnorm( n = 1,
-                          mean = coef1*A1),
-
-              
-              RA = rbinom( n = 1,
-                           size = 1,
-                           prob = expit(-1 + 3*C1) ),
+      mutate( B1 = rnorm( n = 1,
+                          mean = coef1*A1 + coef2*C1 ),
               
               RB = rbinom( n = 1,
                            size = 1,
-                           prob = expit(-1 + 3*C1) ),
+                           prob = expit(3*A1 + 3*C1) ),
               
-              RC = rbinom( n = 1,
-                           size = 1,
-                           prob = expit(-1 + 3*C1) ) )
+              RC = rbinom(n = 1, size = 1, prob = 0.75) )
     
     
     du = du %>% rowwise() %>%
-      mutate( A = ifelse(RA == 1, A1, NA),
+      mutate( A = A1,
               B = ifelse(RB == 1, B1, NA),
               C = ifelse(RC == 1, C1, NA) )
-  
+    
     
     colMeans(du)
     cor(du %>% select(A1, B1, C1, RB, RC) )
@@ -485,7 +471,7 @@ sim_data = function(.p) {
       exclude_from_imp_model = NULL # B is in target law
     }
     
-  }  # end of .p$dag_name == "3A-bin"
+  }  # end of .p$dag_name == "1B"
   
   
   
@@ -562,6 +548,91 @@ sim_data = function(.p) {
     
   }  # end of .p$dag_name == "3B-bin"
   
+  
+  # ~ DAG 4A -----------------------------
+  
+  # for adjustment formula 4, CATE version
+  # C1 -> A1 -> W1 -> B1
+  # C1 -> Y1, C1 -> RC
+  # W1 -> RY
+  
+  
+  if ( .p$dag_name == "4A" ) {
+    
+    du = data.frame( C1 = rbinom( n = .p$N,
+                                  size = 1, 
+                                  prob = 0.5 ) ) 
+    
+    
+    coefWB = 2
+    coefAW = 3
+    
+    du = du %>% rowwise() %>%
+      mutate( A1 = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(-1 + 3*C1) ),
+              
+              W1 = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(-1 + coefAW*A1) ),
+              
+              B1 = rnorm( n = 1,
+                          mean = coefWB*W1 + 2.6*C1),
+              
+              RA = rbinom( n = 1,
+                           size = 1,
+                           prob = 0.5 ),
+              
+              RW = rbinom( n = 1,
+                           size = 1,
+                           prob = 0.5 ),
+              
+              RC = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(-1 + 3*C1) ),
+              
+              RB = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(-1 + 3*W1) ) )
+    
+    
+    du = du %>% rowwise() %>%
+      mutate( A = ifelse(RA == 1, A1, NA),
+              B = ifelse(RB == 1, B1, NA),
+              C = ifelse(RC == 1, C1, NA),
+              W = ifelse(RW == 1, W1, NA) )
+    
+    
+    colMeans(du)
+    cor(du %>% select(A1, B1, C1, W1, RA, RB, RC, RW) )
+    
+    
+    # make dataset for imputation (standard way: all measured variables)
+    di = du %>% select(A, B, C, W)
+    
+    
+    ### For just the intercept of A
+    if ( .p$coef_of_interest == "(Intercept)" ){ 
+      stop("Intercept not implemented for this DAG")
+    }
+    
+    
+    ### For the A-B association
+    if ( .p$coef_of_interest == "A" ){ 
+      
+      # regression strings
+      form_string = "B ~ A + C"
+      
+      # gold-standard model uses underlying variables
+      gold_form_string = "B1 ~ A1 + C"
+      
+      beta = NA
+      
+      # custom predictor matrix for MICE-ours-pred
+      exclude_from_imp_model = NULL # B is in target law
+    }
+    
+  }  # end of .p$dag_name == "4A"
   
   
   # ~ Finish generating data ----------------
