@@ -666,7 +666,7 @@ sim_data = function(.p) {
                            prob = expit(-1 + 3*U1) ),
               
               B1 = rnorm( n = 1,
-                          mean = coefAB*A1),
+                          mean = coefAB*A1 + 1.6*W1),
               
               RA = rbinom( n = 1,
                            size = 1,
