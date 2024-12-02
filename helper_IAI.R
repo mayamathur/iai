@@ -18,7 +18,7 @@ sim_data = function(.p) {
   # R_Y -> R_C so that if Y(1) is missing, then C(1) is definitely observed
   
   if ( .p$dag_name == "1A" ) {
-
+    
     du = data.frame( C1 = rnorm( n = .p$N ),  
                      A1 = rnorm( n = .p$N ) )  # only including this because neither imputation method runs with 1 variable
     
@@ -30,8 +30,8 @@ sim_data = function(.p) {
                           mean = coef1*A1 + coef2*C1 ),
               
               RB = rbinom( n = 1,
-                          size = 1,
-                          prob = expit(3*A1 + 3*C1) ),
+                           size = 1,
+                           prob = expit(3*A1 + 3*C1) ),
               
               RC = rbinom(n = 1, size = 1, prob = 0.5) )
     
@@ -46,7 +46,7 @@ sim_data = function(.p) {
     
     colMeans(du)
     cor(du %>% select(A1, B1, C1, RB, RC) )
-
+    
     
     # make dataset for imputation (standard way: all measured variables)
     di = du %>% select(B, C, A)
@@ -88,8 +88,8 @@ sim_data = function(.p) {
                                   size = 1, 
                                   prob = 0.5 ),  
                      A1 = rbinom( n = .p$N, 
-                                 size = 1, 
-                                 prob = 0.5 ) )  
+                                  size = 1, 
+                                  prob = 0.5 ) )  
     
     coef1 = 2
     coef2 = 1.6
@@ -180,7 +180,7 @@ sim_data = function(.p) {
       mutate( A = A1,
               B = ifelse(RB == 1, B1, NA),
               C = ifelse(RC == 1, C1, NA) )
-  
+    
     
     colMeans(du)
     cor(du %>% select(A1, B1, C1, RB, RC) )
@@ -233,13 +233,13 @@ sim_data = function(.p) {
     du = du %>% rowwise() %>%
       mutate( B1 = rnorm( n = 1,
                           mean = coef1*A1 + coef2*C1),
-
+              
               RB = rbinom( n = 1,
                            size = 1,
                            prob = expit(-3 + 3*A1 + 3*C1) ),
               
               RC = rbinom(n = 1, size = 1, prob = 0.5) )
-  
+    
     
     du = du %>% rowwise() %>%
       mutate( A = A1,
@@ -252,7 +252,7 @@ sim_data = function(.p) {
     
     # make dataset for imputation (standard way: all measured variables)
     di = du %>% select(B, C, A)
-  
+    
     
     ### For just the intercept of A
     if ( .p$coef_of_interest == "(Intercept)" ){ 
@@ -515,7 +515,7 @@ sim_data = function(.p) {
               B = ifelse(RB == 1, B1, NA),
               C = ifelse(RC == 1, C1, NA) )
     
-
+    
     colMeans(du)
     cor(du %>% select(A1, B1, C1, RB, RC) )
     
@@ -635,6 +635,91 @@ sim_data = function(.p) {
   }  # end of .p$dag_name == "4A"
   
   
+  
+  
+  # ~ DAG 5A -----------------------------
+  
+  # for adjustment formula 4, CATE version
+  # will break, but correct imputation is possible
+  # RA <- W (complete) <-> A1 -> Y1
+  # RY and C are isolate
+  
+  if ( .p$dag_name == "5A" ) {
+    
+    du = data.frame( C1 = rbinom( n = .p$N,
+                                  size = 1, 
+                                  prob = 0.5 ),
+
+                     U1 = rbinom( n = .p$N,
+                                  size = 1, 
+                                  prob = 0.5 ) ) 
+    
+    coefAB = 2
+    
+    du = du %>% rowwise() %>%
+      mutate( A1 = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(-1 + 3*U1) ),
+              
+              W1 = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(-1 + 3*U1) ),
+              
+              B1 = rnorm( n = 1,
+                          mean = coefAB*A1),
+              
+              RA = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(-1 + 3*W1) ),
+              
+              RB = rbinom( n = 1,
+                           size = 1,
+                           prob = 0.5 ),
+              
+              RC = 1, 
+              RW = 1 )
+    
+    
+    du = du %>% rowwise() %>%
+      mutate( A = ifelse(RA == 1, A1, NA),
+              B = ifelse(RB == 1, B1, NA),
+              C = ifelse(RC == 1, C1, NA),
+              W = ifelse(RW == 1, W1, NA) )
+    
+    
+    # colMeans(du)
+    # cor(du %>% select(A1, B1, C1, W1, RA, RB, RC, RW) )
+    
+    
+    # make dataset for imputation (standard way: all measured variables)
+    di = du %>% select(A, B, C, W)
+    
+    
+    ### For just the intercept of A
+    if ( .p$coef_of_interest == "(Intercept)" ){ 
+      stop("Intercept not implemented for this DAG")
+    }
+    
+    
+    ### For the A-B association
+    if ( .p$coef_of_interest == "A" ){ 
+      
+      # regression strings
+      form_string = "B ~ A"
+      
+      # gold-standard model uses underlying variables
+      gold_form_string = "B1 ~ A1"
+      
+      beta = coefAB
+      
+      # custom predictor matrix for MICE-ours-pred
+      exclude_from_imp_model = NULL # B is in target law
+    }
+    
+  }  # end of .p$dag_name == "5A"
+  
+  
+  
   # ~ Finish generating data ----------------
   
   # marginal prevalences
@@ -658,7 +743,7 @@ sim_data = function(.p) {
                beta = beta) )
   
   
-
+  
 }
 
 # for testing:
@@ -898,7 +983,7 @@ fit_regression = function(form_string,
                                       bhat_hi = mod_hc0$hi,
                                       bhat_width = mod_hc0$hi - mod_hc0$lo ) ) ) 
   }
-    
+  
 }
 
 
