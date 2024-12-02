@@ -641,31 +641,27 @@ sim_data = function(.p) {
   
   # for adjustment formula 4, CATE version
   # will break, but correct imputation is possible
-  # RA <- W (complete) <-> A1 -> Y1
-  # RY and C are isolate
+  # RA <- W (complete) -> Y1 and A1 -> Y1
+  # RY and C are isolated
   
   if ( .p$dag_name == "5A" ) {
     
-    du = data.frame( C1 = rbinom( n = .p$N,
+    du = data.frame( A1 = rbinom( n = .p$N,
+                                  size = 1, 
+                                  prob = 0.5 ),
+                     
+                     C1 = rbinom( n = .p$N,
                                   size = 1, 
                                   prob = 0.5 ),
 
-                     U1 = rbinom( n = .p$N,
+                     W1 = rbinom( n = .p$N,
                                   size = 1, 
                                   prob = 0.5 ) ) 
     
     coefAB = 2
     
     du = du %>% rowwise() %>%
-      mutate( A1 = rbinom( n = 1,
-                           size = 1,
-                           prob = expit(-1 + 3*U1) ),
-              
-              W1 = rbinom( n = 1,
-                           size = 1,
-                           prob = expit(-1 + 3*U1) ),
-              
-              B1 = rnorm( n = 1,
+      mutate( B1 = rnorm( n = 1,
                           mean = coefAB*A1 + 1.6*W1),
               
               RA = rbinom( n = 1,
@@ -717,6 +713,85 @@ sim_data = function(.p) {
     }
     
   }  # end of .p$dag_name == "5A"
+  
+  
+  
+  
+  
+  # ~ DAG 5B -----------------------------
+  
+  # same DAG as 5A, but with A*W interaction
+  if ( .p$dag_name == "5B" ) {
+    
+    du = data.frame( A1 = rbinom( n = .p$N,
+                                  size = 1, 
+                                  prob = 0.5 ),
+                     
+                     C1 = rbinom( n = .p$N,
+                                  size = 1, 
+                                  prob = 0.5 ),
+                     
+                     W1 = rbinom( n = .p$N,
+                                  size = 1, 
+                                  prob = 0.5 ) ) 
+    
+    coefAB = 2
+    
+    du = du %>% rowwise() %>%
+      mutate( B1 = rnorm( n = 1,
+                          mean = coefAB*A1 + 1.6*W1 + 2*A1*W1),
+              
+              RA = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(-1 + 3*W1) ),
+              
+              RB = rbinom( n = 1,
+                           size = 1,
+                           prob = 0.5 ),
+              
+              RC = 1, 
+              RW = 1 )
+    
+    
+    du = du %>% rowwise() %>%
+      mutate( A = ifelse(RA == 1, A1, NA),
+              B = ifelse(RB == 1, B1, NA),
+              C = ifelse(RC == 1, C1, NA),
+              W = ifelse(RW == 1, W1, NA) )
+    
+    
+    # colMeans(du)
+    # cor(du %>% select(A1, B1, C1, W1, RA, RB, RC, RW) )
+    
+    
+    # make dataset for imputation (standard way: all measured variables)
+    di = du %>% select(A, B, C, W)
+    
+    
+    ### For just the intercept of A
+    if ( .p$coef_of_interest == "(Intercept)" ){ 
+      stop("Intercept not implemented for this DAG")
+    }
+    
+    
+    ### For the A-B association
+    if ( .p$coef_of_interest == "A" ){ 
+      
+      # regression strings
+      form_string = "B ~ A"
+      
+      # gold-standard model uses underlying variables
+      gold_form_string = "B1 ~ A1"
+      
+      beta = coefAB
+      
+      # custom predictor matrix for MICE-ours-pred
+      exclude_from_imp_model = NULL # B is in target law
+    }
+    
+  }  # end of .p$dag_name == "5B"
+  
+  
   
   
   

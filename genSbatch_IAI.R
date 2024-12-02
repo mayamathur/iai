@@ -53,7 +53,7 @@ scen.params = tidyr::expand_grid(
   # N = c(100),
   
   #dag_name = c( "1B", "1D", "1G", "1H" ),
-  dag_name = c("5A")
+  dag_name = c("5B")
 )
 
 # # remove combos that aren't implemented
@@ -84,7 +84,7 @@ source("helper_IAI.R")
 # number of sbatches to generate (i.e., iterations within each scenario)
 # FOR SOME REASON, THIS ULTIMATELY RUNS 1000 REPS RATHER THAN 5000. FIX AND ADJUST IF RE-RUNNING.
 n.reps.per.scen = 500
-n.reps.in.doParallel = 100
+n.reps.in.doParallel = 10
 ( n.files = ( n.reps.per.scen / n.reps.in.doParallel ) * n.scen )
 
 
@@ -100,7 +100,7 @@ runfile_path = paste(path, "/testRunFile.R", sep="")
 sbatch_params <- data.frame(jobname,
                             outfile,
                             errorfile,
-                            jobtime = "02:00:00", 
+                            jobtime = "00:20:00", 
                             quality = "normal",
                             node_number = 1,
                             mem_per_node = 64000,
@@ -121,10 +121,10 @@ n.files
 # run just the first one
 # sbatch -p qsu,owners,normal /home/groups/manishad/IAI/sbatch_files/1.sbatch
 
-# xx files
+# run them all
 path = "/home/groups/manishad/IAI"
 setwd( paste(path, "/sbatch_files", sep="") )
-for (i in 1:5) {
+for (i in 1:50) {
   system( paste("sbatch -p qsu,owners,normal /home/groups/manishad/IAI/sbatch_files/", i, ".sbatch", sep="") )
 }
 
