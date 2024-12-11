@@ -783,7 +783,7 @@ sim_data = function(.p) {
       # gold-standard model uses underlying variables
       gold_form_string = "B1 ~ A1"
       
-      beta = coefAB
+      beta = NA
       
       # custom predictor matrix for MICE-ours-pred
       exclude_from_imp_model = NULL # B is in target law
@@ -907,7 +907,8 @@ fit_regression = function(form_string,
                       family = binomial(link = "logit") ) )
     }
     
-    mod_pool = pool(mod)
+    #browser()
+    mod_pool = mice::pool(mod)
     summ = summary(mod_pool, conf.int = TRUE)
     
     bhat_lo = summ$`2.5 %`[ summ$term == coef_of_interest ]
