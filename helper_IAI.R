@@ -638,15 +638,16 @@ sim_data = function(.p) {
   
   # ~ DAG 4A - Steve's version -----------------------------
   
-  # for adjustment formula 4, CATE version
   # C1 -> A1 -> W1 -> B1
-  # C1 -> Y1, NO EDGE C1 -> RC
+  # C1 -> B1, NO EDGE C1 -> RC
   # W1 -> RY
+  # D1: a standalone complete variable included so that Amelia can run
   
   
   if ( .p$dag_name == "4A-Steve" ) {
     
-    du = data.frame( C1 = rnorm( n = .p$N ) ) 
+    du = data.frame( C1 = rnorm( n = .p$N ),
+                     D1 = rnorm( n = .p$N ) ) 
 
     
     du = du %>% rowwise() %>%
@@ -660,37 +661,44 @@ sim_data = function(.p) {
               B1 = rnorm( n = 1,
                           mean = C1 + A1 + W1),
               
-              RA = rbinom( n = 1,
+              # following Steve's code, these are the complements of my R's 
+              RA_comp = rbinom( n = 1,
                            size = 1,
                            prob = 0.3 ),
               
-              RW = rbinom( n = 1,
+              RW_comp = rbinom( n = 1,
                            size = 1,
                            prob = 0.3 ),
               
-              RC = rbinom( n = 1,
+              RC_comp = rbinom( n = 1,
                            size = 1,
                            # note: C is not self-censoring as in 4A
                            prob = 0.3 ),
               
-              RB = rbinom( n = 1,
+              RB_comp = rbinom( n = 1,
                            size = 1,
-                           prob = 1 / (1 + exp(-( -log(1/.3-1) + log(2) * W1))) ) )
+                           prob = 1 / (1 + exp(-( -log(1/.3-1) + log(2) * W1))) ),
+              
+              RA = (RA_comp == 0),
+              RW = (RW_comp == 0),
+              RC = (RC_comp == 0),
+              RB = (RB_comp == 0) )
     
     
     du = du %>% rowwise() %>%
       mutate( A = ifelse(RA == 1, A1, NA),
               B = ifelse(RB == 1, B1, NA),
               C = ifelse(RC == 1, C1, NA),
-              W = ifelse(RW == 1, W1, NA) )
+              W = ifelse(RW == 1, W1, NA),
+              D = D1 )
     
     
     colMeans(du)
-    cor(du %>% select(A1, B1, C1, W1, RA, RB, RC, RW) )
+    cor(du %>% select(A1, B1, C1, W1, D1, RA, RB, RC, RW) )
     
     
     # make dataset for imputation (standard way: all measured variables)
-    di = du %>% select(A, B, C, W)
+    di = du %>% select(A, B, C, W, D)
     
     
     ### For just the intercept of A
@@ -714,7 +722,7 @@ sim_data = function(.p) {
       exclude_from_imp_model = NULL # B is in target law
     }
     
-  }  # end of .p$dag_name == "4A"
+  }  # end of .p$dag_name == "4A-Steve"
   
   
   

@@ -138,7 +138,7 @@ if ( run.local == TRUE ) {
     # as on cluster
     imp_m = 5,  # CURRENTLY SET LOW
     imp_maxit = 100,
-    mice_method = "norm",
+    mice_method = "pmm",
     
     # # for quicker sims
     # imp_m = 5,
@@ -146,7 +146,7 @@ if ( run.local == TRUE ) {
     # N = c(100),
     
     #dag_name = c( "1B", "1D", "1G", "1H" ),
-    dag_name = "4A"
+    dag_name = "4A-Steve"
   )
   
   
