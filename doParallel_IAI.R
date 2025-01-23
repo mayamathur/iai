@@ -236,12 +236,8 @@ for ( scen in scens_to_run ) {
       
 
       
-      if (FALSE){
-        cor(du %>% select(A1, B1, C1))
-      }
-      
       # check number of complete cases
-      #sum(complete.cases(du))
+      # sum(complete.cases(du))
       
       
       # coefficient of interest for gold-standard model

@@ -35,11 +35,12 @@ lapply( allPackages,
 scen.params = tidyr::expand_grid(
   
   #rep.methods = "gold ; CC ; MICE-std ; MICE-ours ; Am-std ; custom", 
-  rep.methods = "gold ; CC ; MICE-std ; Am-std ; adj-form-4-cate", 
+  #rep.methods = "gold ; CC ; MICE-std ; Am-std ; adj-form-4-cate",
+  rep.methods = "gold ; CC ; MICE-std ; Am-std",
   
   model = "OLS",
   coef_of_interest = "A",
-  N = c(50000),
+  N = c(10000),
   
   # MICE parameters
   # as on cluster
@@ -53,7 +54,7 @@ scen.params = tidyr::expand_grid(
   # N = c(100),
   
   #dag_name = c( "1B", "1D", "1G", "1H" ),
-  dag_name = c("4A-Steve", "4A")
+  dag_name = c("4A-Steve")
 )
 
 # # remove combos that aren't implemented
@@ -123,7 +124,7 @@ n.files
 # run them all
 path = "/home/groups/manishad/IAI"
 setwd( paste(path, "/sbatch_files", sep="") )
-for (i in 1:100) {
+for (i in 1:50) {
   system( paste("sbatch -p qsu,owners,normal /home/groups/manishad/IAI/sbatch_files/", i, ".sbatch", sep="") )
 }
 
