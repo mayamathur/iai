@@ -128,8 +128,8 @@ if ( run.local == TRUE ) {
   
   scen.params = tidyr::expand_grid(
     
-    #rep.methods = "gold ; CC ; MICE-std ; Am-std ; adj-form-4-cate", 
-    rep.methods = "gold ; CC ; MICE-std ; Am-std", 
+    rep.methods = "gold ; CC ; MICE-std ; Am-std ; adj-form-4-cate", 
+    #rep.methods = "gold ; CC ; MICE-std ; Am-std", 
     
     model = "OLS", 
     coef_of_interest = "A",
