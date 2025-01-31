@@ -1,6 +1,5 @@
 job.name,scen.name,rep.name,rep.methods,model,coef_of_interest,N,imp_m,imp_maxit,mice_method,dag_name,method,bhat,bhat_lo,bhat_hi,bhat_width,overall.error,beta,form_string,gold_form_string,sancheck.prop_complete,sancheck.mean_RB,sancheck.mean_RC
-job_1,1,1,gold ; CC ; MICE-std ; Am-std ; adj-form-4-cate,OLS,A,10000,5,100,norm,5A,gold,1.98405981815218,1.94435916005897,2.02376047624539,0.0794013161864224,,2,B ~ A,B1 ~ A1,0.3038,0.4955,1
-job_1,1,1,gold ; CC ; MICE-std ; Am-std ; adj-form-4-cate,OLS,A,10000,5,100,norm,5A,CC,1.99957215424468,1.92408185068577,2.07506245780359,0.150980607117817,,2,B ~ A,B1 ~ A1,0.3038,0.4955,1
-job_1,1,1,gold ; CC ; MICE-std ; Am-std ; adj-form-4-cate,OLS,A,10000,5,100,norm,5A,MICE-std,1.9925980360906,1.93517695602913,2.05001911615206,0.114842160122925,,2,B ~ A,B1 ~ A1,0.3038,0.4955,1
-job_1,1,1,gold ; CC ; MICE-std ; Am-std ; adj-form-4-cate,OLS,A,10000,5,100,norm,5A,Am-std,2.0033270036004,1.9462977192361,2.0603562879647,0.114058568728607,,2,B ~ A,B1 ~ A1,0.3038,0.4955,1
-job_1,1,1,gold ; CC ; MICE-std ; Am-std ; adj-form-4-cate,OLS,A,10000,5,100,norm,5A,adj-form-4-cate,2.07441062735354,,,,,2,B ~ A,B1 ~ A1,0.3038,0.4955,1
+job_1,1,1,gold ; CC ; MICE-std ; Am-std,OLS,A,10000,5,100,pmm,6A,gold,1.99405274766791,1.97411025994581,2.01399523539001,0.0398849754441963,,2,B ~ A,B1 ~ A1,0.4132,0.4132,0.5092
+job_1,1,1,gold ; CC ; MICE-std ; Am-std,OLS,A,10000,5,100,pmm,6A,CC,1.99185446550383,1.96064437801829,2.02306455298937,0.0624201749710811,,2,B ~ A,B1 ~ A1,0.4132,0.4132,0.5092
+job_1,1,1,gold ; CC ; MICE-std ; Am-std,OLS,A,10000,5,100,pmm,6A,MICE-std,1.99756520302535,1.97471679507242,2.02041361097828,0.0456968159058662,,2,B ~ A,B1 ~ A1,0.4132,0.4132,0.5092
+job_1,1,1,gold ; CC ; MICE-std ; Am-std,OLS,A,10000,5,100,pmm,6A,Am-std,1.98801069226494,1.96589235157726,2.01012903295262,0.0442366813753665,,2,B ~ A,B1 ~ A1,0.4132,0.4132,0.5092
