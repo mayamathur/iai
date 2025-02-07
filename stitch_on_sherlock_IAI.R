@@ -92,7 +92,8 @@ table(s$dag_name)
 # sanity check
 table(s$dag_name, s$coef_of_interest)
 
-correct.order = c("gold", "CC", "MICE-std", "Am-std", "MICE-ours", "adj-form-1", "adj-form-2", "adj-form-4-cate", "g-form", "custom")
+correct.order = c("gold", "CC", "MICE-std", "Am-std", "MICE-ours", "IPW-custom",
+                  "adj-form-1", "adj-form-2", "adj-form-4-cate", "g-form", "custom")
 s$method = factor(s$method, levels = correct.order)
 
 # fill in beta (where it's NA) using gold-standard

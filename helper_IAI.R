@@ -949,10 +949,10 @@ sim_data = function(.p) {
     if ( .p$coef_of_interest == "A" ){ 
       
       # regression strings
-      form_string = "B ~ A"
+      form_string = "B ~ A + C"
       
       # gold-standard model uses underlying variables
-      gold_form_string = "B1 ~ A1"
+      gold_form_string = "B1 ~ A1 + C1"
       
       beta = NA
       
@@ -961,6 +961,82 @@ sim_data = function(.p) {
     }
     
   }  # end of .p$dag_name == "6A"
+  
+  
+  
+  
+  
+  # ~ DAG 6B -----------------------------
+  
+  # same as 6A, but no W
+  
+  if ( .p$dag_name == "6B" ) {
+    
+    du = data.frame( C1 = rbinom( n = .p$N,
+                                  size = 1, 
+                                  prob = 0.5 ), 
+
+                     A1 = rbinom( n = .p$N, 
+                                  size = 1, 
+                                  prob = 0.5 ) )  
+    
+    coef1 = 2
+    coef2 = 1.6
+    
+    du = du %>% rowwise() %>%
+      mutate( B1 = rnorm( n = 1,
+                          mean = coef1*A1 ),
+              
+              RB = rbinom( n = 1,
+                           size = 1,
+                           prob = 0.5 ),
+              
+              RC = rbinom(n = 1,
+                          size = 1,
+                          prob = expit(0 + 3*C1) ),
+              
+              RA = 1)
+    
+    # monotone missingness: conditionally overwrite indicator
+    du$RB[ du$RC == 0 ] = 0
+    # missmap(du %>% select(A, B, C))
+    
+    du = du %>% rowwise() %>%
+      mutate( A = A1,
+              B = ifelse(RB == 1, B1, NA),
+              C = ifelse(RC == 1, C1, NA) )
+    
+    colMeans(du)
+    cor(du %>% select(A1, B1, C1, RB, RC) )
+    
+    
+    # make dataset for imputation (standard way: all measured variables)
+    di = du %>% select(B, C, A)
+    
+    
+    ### For just the intercept of A
+    if ( .p$coef_of_interest == "(Intercept)" ){ 
+      stop("Intercept not implemented for this DAG")
+    }
+    
+    
+    ### For the A-B association
+    if ( .p$coef_of_interest == "A" ){ 
+      
+      # regression strings
+      form_string = "B ~ A + C"
+      
+      # gold-standard model uses underlying variables
+      gold_form_string = "B1 ~ A1 + C1"
+      
+      beta = NA
+      
+      # custom predictor matrix for MICE-ours-pred
+      exclude_from_imp_model = NULL # B is in target law
+    }
+    
+  }  # end of .p$dag_name == "6B"
+  
   
   
   
@@ -1036,7 +1112,6 @@ fit_regression = function(form_string,
     if ( model == "OLS" ) {
       #if ( nuni(dat$Y) <= 2 ) stop("You have a binary outcome but are fitting OLS with model-based SEs; need to allow robust SEs")
       
-      #bm
       mod = lm( eval( parse(text = form_string) ),
                 data = dat )
       
@@ -1094,8 +1169,6 @@ fit_regression = function(form_string,
   
   # ~ IPW  ---------------------
   
-  #bm: check through this code and add ps_string output to DAG :)
-  # then run it again for Ilya's DAG
   if ( miss_method == "IPW" ) {
     
     #@THIS IMPLEMENTATION IS QUICK AND DIRTY. FOR EXAMPLE:
@@ -1112,7 +1185,7 @@ fit_regression = function(form_string,
       
       if ( nuni(dat$Y) <= 2 ) stop("You have a binary outcome but are fitting OLS with model-based SEs; need to allow robust SEs")
       
-      # could replace with patterwise approach, as in Sun & ETT
+      # could replace with patternwise approach, as in Sun & ETT
       # i.e., for pattern where (A,Y) are missing, regress 1{being in that pattern} on C alone
       # for pattern where A alone is missing, regress 1{being in that pattern} on C,Y
       
@@ -1222,6 +1295,74 @@ fit_regression = function(form_string,
     if ( model == "logistic" ) {
       stop("Logistic case not implemented")
     }
+    
+    return( list( stats = data.frame( bhat = mod_hc0$est,
+                                      bhat_lo = mod_hc0$lo,
+                                      bhat_hi = mod_hc0$hi,
+                                      bhat_width = mod_hc0$hi - mod_hc0$lo ) ) ) 
+  }
+  
+  
+  # ~ IPW-custom  ---------------------
+  
+  # customized for each DAG
+  if ( miss_method == "IPW-custom" ) {
+    
+    if ( p$dag_name == "6A" ) {
+      
+      dat = du
+      
+      # make pattern indicator, M
+      dat$M = NA
+      dat$M[ du$RC == 0 & du$RB == 0 ] = 3
+      dat$M[ du$RC == 1 & du$RB == 0 ] = 2
+      dat$M[ du$RC == 1 & du$RB == 1 ] = 1
+
+      # complete cases for analysis model that includes C
+      dc = dat %>% filter(!is.na(B) & !is.na(C))
+      
+      # probability of R=3 pattern (RC = RY = 0)
+      ( m_R3 = glm( I(M == 3) ~ A + W, data = dat ) )
+      
+      
+      # conditional probability of R=2 pattern (RC = 1, RY = 0)
+      ( m_R2 = glm( I(M == 2) ~ A + W + C, data = dat %>% filter(M <= 2) ) )
+      
+      # probability of R=1 (only need to predict this for complete cases, since they're the only ones to 
+      #  be analyzed)
+      phat_R3 = predict(newdata = dc, object = m_R3, type = "response")
+      phat_R2 = predict(newdata = dc, object = m_R2, type = "response")
+      phat_R1 = (1 - phat_R3) * (1 - phat_R2)
+      
+      
+      # Marginal p(R=1)
+      mnum = mean(dat$M == 1)
+      
+      dc$wt = mnum / phat_R1
+      
+      
+      # PS-weighted outcome model
+      mod_wls = lm( eval( parse(text = form_string) ),
+                    data = dc,
+                    weights = wt)
+      # to get robust SEs:
+      mod_hc0 = my_ols_hc0(coefName = "A",
+                           ols = mod_wls)
+      
+      # # from Ross code
+      # # exactly equivalent estimates and CIs :)
+      # ( mod = geeglm( eval(parse(text = form_string)), data = dc,
+      #                 weights = wt, id=1:nrow(dc), corstr="independence") )
+      # # from Ross code
+      # rd = coef(mod)[[2]]
+      # lcl = tidy(mod, conf.int=T, exp = F)[[2,"conf.low"]]
+      # ucl = tidy(mod, conf.int=T, exp = F)[[2,"conf.high"]]
+    
+      
+    } else {
+      stop("IPW-custom not implemented for that DAG")
+    }
+
     
     return( list( stats = data.frame( bhat = mod_hc0$est,
                                       bhat_lo = mod_hc0$lo,

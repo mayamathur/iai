@@ -128,7 +128,7 @@ if ( run.local == TRUE ) {
   
   scen.params = tidyr::expand_grid(
     
-    rep.methods = "gold ; CC ; MICE-std ; Am-std ; adj-form-4-cate", 
+    rep.methods = "gold ; CC ; MICE-std ; Am-std ; IPW-custom ; adj-form-4-cate", 
     #rep.methods = "gold ; CC ; MICE-std ; Am-std", 
     
     model = "OLS", 
@@ -561,6 +561,22 @@ for ( scen in scens_to_run ) {
                                   .rep.res = rep.res )
       }
       
+      if (run.local == TRUE) srr(rep.res)
+      
+      # ~~ IPW-custom ----
+      if ( "IPW-custom" %in% all.methods ) {
+        rep.res = run_method_safe(method.label = c("IPW-custom"),
+                                  
+                                  method.fn = function(x) fit_regression(form_string = form_string,
+                                                                         model = p$model,
+                                                                         coef_of_interest = coef_of_interest,
+                                                                         miss_method = "IPW-custom",
+                                                                         du = du,
+                                                                         imps = NULL),
+                                  .rep.res = rep.res )
+      }
+      
+      if (run.local == TRUE) srr(rep.res)
       
       # ~~ G-formula ----
       if ( "g-form" %in% all.methods ) {
