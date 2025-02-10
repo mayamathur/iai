@@ -128,8 +128,8 @@ if ( run.local == TRUE ) {
   
   scen.params = tidyr::expand_grid(
     
-    rep.methods = "gold ; CC ; MICE-std ; Am-std ; IPW-custom ; adj-form-4-cate", 
-    #rep.methods = "gold ; CC ; MICE-std ; Am-std", 
+    #rep.methods = "gold ; CC ; MICE-std ; Am-std ; IPW-custom ; adj-form-4-cate", 
+    rep.methods = "gold ; CC ; MICE-std ; IPW-custom", 
     
     model = "OLS", 
     coef_of_interest = "A",
@@ -147,7 +147,7 @@ if ( run.local == TRUE ) {
     # N = c(100),
     
     #dag_name = c( "1B", "1D", "1G", "1H" ),
-    dag_name = "6A"
+    dag_name = "3B-bin-mono"
   )
   
   
