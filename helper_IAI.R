@@ -614,10 +614,10 @@ sim_data = function(.p) {
     if ( .p$coef_of_interest == "A" ){ 
       
       # regression strings
-      form_string = "B ~ A + C"
+      form_string = "B ~ A * C"
       
       # gold-standard model uses underlying variables
-      gold_form_string = "B1 ~ A1 + C1"
+      gold_form_string = "B1 ~ A1 * C1"
       
       beta = coef1
       
@@ -1640,6 +1640,7 @@ fit_regression = function(form_string,
       
     } else if ( p$dag_name == "3B-bin-mono" ) {
       
+      #bm
       dat = du
       
       # make pattern indicator, M
