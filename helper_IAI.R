@@ -1971,9 +1971,8 @@ fit_regression = function(form_string,
                            ols = mod_wls)
       
       
-    } else if ( p$dag_name == "7A" ) {
+    } else if ( p$dag_name %in% c("7A", "7A-bin") ) {
       
-      #bm
       dat = du
       
       # make pattern indicator, M
@@ -1987,7 +1986,7 @@ fit_regression = function(form_string,
       
       # probability of each pattern under faulty MAR assumption
       ( m_R3 = glm( I(M == 3) ~ C, data = dat %>% filter(M <= 3) ) )
-      ( m_R2 = glm( I(M == 2) ~ C + A, data = dat %>% filter(M <= 2) ) )
+      ( m_R2 = glm( I(M == 2) ~ C * A, data = dat %>% filter(M <= 2) ) )
       
       # probability of R=1 (only need to predict this for complete cases, since they're the only ones to 
       #  be analyzed)
@@ -2011,9 +2010,8 @@ fit_regression = function(form_string,
                            ols = mod_wls)
       
       
-    } else if ( p$dag_name == "7B" ) {
+    } else if ( p$dag_name %in% c("7B", "7B-bin" ) ) {
       
-      #bm
       dat = du
       
       # make pattern indicator, M
@@ -2027,7 +2025,7 @@ fit_regression = function(form_string,
       
       # probability of each pattern under faulty MAR assumption
       ( m_R3 = glm( I(M == 3) ~ C, data = dat %>% filter(M <= 3) ) )
-      ( m_R2 = glm( I(M == 2) ~ C + B, data = dat %>% filter(M <= 2) ) )
+      ( m_R2 = glm( I(M == 2) ~ C * B, data = dat %>% filter(M <= 2) ) )
       
       # probability of R=1 (only need to predict this for complete cases, since they're the only ones to 
       #  be analyzed)
