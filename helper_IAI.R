@@ -1424,17 +1424,32 @@ sim_data = function(.p) {
                            size = 1,
                            prob = expit( -1.2 + log(6)*C1 ) ),
               
+              # NEW
               B1 = rbinom( n = 1,
                            size = 1,
-                           prob = expit( -1.2 + log(8)*A1 + log(6)*C1 + log(4)*A1*C1 ) ),
+                           prob = expit( -1.2 + log(7)*A1 + log(2)*C1 + log(2)*A1*C1 ) ),
               
               RB = rbinom( n = 1,
                            size = 1,
-                           prob = expit(0 + 3*A1) ),
+                           prob = ifelse(A1 == 1, 0.8, 0.2) ),
               
               RA = rbinom(n = 1,
                           size = 1,
-                          prob = expit(0 + 3*A1) ),
+                          prob = ifelse(A1 == 1, 0.8, 0.2) ),
+              
+              
+              # as in 2025-02-12 sims (first round):
+              # B1 = rbinom( n = 1,
+              #              size = 1,
+              #              prob = expit( -1.2 + log(8)*A1 + log(6)*C1 + log(4)*A1*C1 ) ),
+              # 
+              # RB = rbinom( n = 1,
+              #              size = 1,
+              #              prob = expit(0 + 3*A1) ),
+              # 
+              # RA = rbinom(n = 1,
+              #             size = 1,
+              #             prob = expit(0 + 3*A1) ),
               
               RC = 1 )
     
@@ -1449,7 +1464,7 @@ sim_data = function(.p) {
     # missmap(du %>% select(A, B, C))
     
     colMeans(du)
-    cor(du %>% select(A1, B1, C1, RB, RC) )
+    cor(du %>% select(A1, B1, C1, RA, RB) )
     
     
     # make dataset for imputation (standard way: all measured variables)
@@ -2191,6 +2206,9 @@ fit_regression = function(form_string,
       # probability of each pattern under faulty MAR assumption
       ( m_R3 = glm( I(M == 3) ~ C, data = dat %>% filter(M <= 3) ) )
       ( m_R2 = glm( I(M == 2) ~ C * B, data = dat %>% filter(M <= 2) ) )
+      # c.f. truth
+      # glm( I(M == 3) ~ C1 * A1 * B1, data = dat %>% filter(M <= 3) )
+      # glm( I(M == 2) ~ C1 * A1 * B1, data = dat %>% filter(M <= 2) )
       
       # probability of R=1 (only need to predict this for complete cases, since they're the only ones to 
       #  be analyzed)
