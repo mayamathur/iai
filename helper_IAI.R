@@ -1346,14 +1346,14 @@ sim_data = function(.p) {
     
     du = data.frame( C1 = rbinom( n = .p$N,
                                   size = 1, 
-                                  prob = 0.5 ), 
-                     
-                     A1 = rbinom( n = .p$N, 
-                                  size = 1, 
                                   prob = 0.5 ) )  
     
     du = du %>% rowwise() %>%
-      mutate( B1 = rbinom( n = 1,
+      mutate( A1 = rbinom( n = 1,
+                           size = 1,
+                           prob = expit( -1.2 + log(6)*C1 ) ),
+        
+              B1 = rbinom( n = 1,
                            size = 1,
                           prob = expit( -1.2 + log(8)*A1 + log(6)*C1 + log(4)*A1*C1 ) ),
               
@@ -1417,14 +1417,14 @@ sim_data = function(.p) {
     
     du = data.frame( C1 = rbinom( n = .p$N,
                                   size = 1, 
-                                  prob = 0.5 ), 
-                     
-                     A1 = rbinom( n = .p$N, 
-                                  size = 1, 
                                   prob = 0.5 ) )  
     
     du = du %>% rowwise() %>%
-      mutate( B1 = rbinom( n = 1,
+      mutate( A1 = rbinom( n = 1,
+                           size = 1,
+                           prob = expit( -1.2 + log(6)*C1 ) ),
+              
+              B1 = rbinom( n = 1,
                            size = 1,
                            prob = expit( -1.2 + log(8)*A1 + log(6)*C1 + log(4)*A1*C1 ) ),
               
@@ -1482,6 +1482,79 @@ sim_data = function(.p) {
   
   
   
+  
+  
+  
+  
+  # ~ DAG 8A -----------------------------
+  
+  # all variables binary to avoid possible PS model misspecification
+  
+  if ( .p$dag_name == "8A" ) {
+    
+    du = data.frame( C1 = rbinom( n = .p$N,
+                                  size = 1, 
+                                  prob = 0.5 ), 
+                     
+                     W1 = rbinom( n = .p$N, 
+                                  size = 1, 
+                                  prob = 0.5 ) )  
+    
+    du = du %>% rowwise() %>%
+      mutate( B1 = rbinom( n = 1,
+                           size = 1,
+                           prob = expit( -1.2 + log(8)*A1 + log(6)*C1 + log(4)*A1*C1 ) ),
+              
+              RB = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(0 + 3*A1) ),
+              
+              RA = rbinom(n = 1,
+                          size = 1,
+                          prob = expit(0 + 3*A1) ),
+              
+              RC = 1 )
+    
+    # monotone missingness RA -> RB
+    du$RB[ du$RA == 0 ] = 0
+    
+    du = du %>% rowwise() %>%
+      mutate( A = ifelse(RA == 1, A1, NA),
+              B = ifelse(RB == 1, B1, NA),
+              C = ifelse(RC == 1, C1, NA) )
+    
+    # missmap(du %>% select(A, B, C))
+    
+    colMeans(du)
+    cor(du %>% select(A1, B1, C1, RB, RC) )
+    
+    
+    # make dataset for imputation (standard way: all measured variables)
+    di = du %>% select(B, C, A)
+    
+    
+    ### For just the intercept of A
+    if ( .p$coef_of_interest == "(Intercept)" ){ 
+      stop("Intercept not implemented for this DAG")
+    }
+    
+    
+    ### For the A-B association
+    if ( .p$coef_of_interest == "A" ){ 
+      
+      # regression strings
+      form_string = "B ~ A + C"
+      
+      # gold-standard model uses underlying variables
+      gold_form_string = "B1 ~ A1 + C1"
+      
+      beta = NA
+      
+      # custom predictor matrix for MICE-ours-pred
+      exclude_from_imp_model = NULL # B is in target law
+    }
+    
+  }  # end of .p$dag_name == "8A"
   
   
   # ~ Finish generating data ----------------
