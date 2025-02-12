@@ -1247,10 +1247,10 @@ sim_data = function(.p) {
     if ( .p$coef_of_interest == "A" ){ 
       
       # regression strings
-      form_string = "B ~ A + C"
+      form_string = "B ~ A * C"
       
       # gold-standard model uses underlying variables
-      gold_form_string = "B1 ~ A1 + C1"
+      gold_form_string = "B1 ~ A1 * C1"
       
       beta = NA
       
@@ -1477,7 +1477,7 @@ sim_data = function(.p) {
       exclude_from_imp_model = NULL # B is in target law
     }
     
-  }  # end of .p$dag_name == "7A"
+  }  # end of .p$dag_name == "7B-bin"
   
   
   
@@ -1507,7 +1507,7 @@ sim_data = function(.p) {
                 
               B1 = rbinom( n = 1,
                            size = 1,
-                           prob = expit( -1.2 + log(8)*A1 + log(6)*C1 + log(6)*W1 + log(4)*A1*C1*W1 ) ),
+                           prob = expit( -1.5 + log(8)*A1 + log(6)*C1 + log(6)*W1 + log(6)*A1*C1*W1 ) ),
               
               RC = rbinom( n = 1,
                            size = 1,
@@ -1523,9 +1523,9 @@ sim_data = function(.p) {
               
               RA = 1 )
     
-    # monotone missingness RA -> RB
-    du$RB[ du$RW == 0 ] = 0
+    # monotone missingness RC -> RW -> RB
     du$RW[ du$RC == 0 ] = 0
+    du$RB[ du$RW == 0 ] = 0
     
     du = du %>% rowwise() %>%
       mutate( A = ifelse(RA == 1, A1, NA),
@@ -1565,6 +1565,88 @@ sim_data = function(.p) {
     }
     
   }  # end of .p$dag_name == "8A"
+  
+  
+  # ~ DAG 8B -----------------------------
+  
+  # all variables binary to avoid possible PS model misspecification
+  # same as 8A, but direction of monotone pattern is reversed
+  
+  if ( .p$dag_name == "8B" ) {
+    
+    du = data.frame( C1 = rbinom( n = .p$N,
+                                  size = 1, 
+                                  prob = 0.5 ), 
+                     
+                     W1 = rbinom( n = .p$N, 
+                                  size = 1, 
+                                  prob = 0.5 ) )  
+    
+    du = du %>% rowwise() %>%
+      mutate( A1 = rbinom( n = 1,
+                           size = 1,
+                           prob = expit( -1.2 + log(6)*C1 ) ),
+              
+              B1 = rbinom( n = 1,
+                           size = 1,
+                           prob = expit( -1.5 + log(8)*A1 + log(6)*C1 + log(6)*W1 + log(6)*A1*C1*W1 ) ),
+              
+              RC = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(-1 + 3*C1) ),
+              
+              RB = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(-1 + 3*W1) ),
+              
+              RW = rbinom( n = 1,
+                           size = 1,
+                           prob = 0.5 ),
+              
+              RA = 1 )
+    
+    # monotone missingness RB -> RW -> RC
+    du$RW[ du$RB == 0 ] = 0
+    du$RC[ du$RW == 0 ] = 0
+    
+    du = du %>% rowwise() %>%
+      mutate( A = ifelse(RA == 1, A1, NA),
+              B = ifelse(RB == 1, B1, NA),
+              C = ifelse(RC == 1, C1, NA),
+              W = ifelse(RW == 1, W1, NA) )
+    
+    # missmap(du %>% select(A, B, C, W))
+    
+    colMeans(du)
+    cor(du %>% select(A1, B1, C1, W1, RB, RC, RW) )
+    
+    
+    # make dataset for imputation (standard way: all measured variables)
+    di = du %>% select(B, C, A, W)
+    
+    
+    ### For just the intercept of A
+    if ( .p$coef_of_interest == "(Intercept)" ){ 
+      stop("Intercept not implemented for this DAG")
+    }
+    
+    
+    ### For the A-B association
+    if ( .p$coef_of_interest == "A" ){ 
+      
+      # regression strings
+      form_string = "B ~ A * C"
+      
+      # gold-standard model uses underlying variables
+      gold_form_string = "B1 ~ A1 * C1"
+      
+      beta = NA
+      
+      # custom predictor matrix for MICE-ours-pred
+      exclude_from_imp_model = NULL # B is in target law
+    }
+    
+  }  # end of .p$dag_name == "8B"
   
   
   # ~ Finish generating data ----------------
@@ -2132,8 +2214,9 @@ fit_regression = function(form_string,
                            ols = mod_wls)
       
       
-    } else if ( p$dag_name %in% c("8A", "8B" ) ) {
+    } else if ( p$dag_name == "8A" ) {
       
+
       dat = du
       
       # make pattern indicator, M
@@ -2142,6 +2225,7 @@ fit_regression = function(form_string,
       dat$M[ du$RC == 1 & du$RW == 0 & du$RB == 0 ] = 3
       dat$M[ du$RC == 1 & du$RW == 1 & du$RB == 0 ] = 2
       dat$M[ du$RC == 1 & du$RW == 1 & du$RB == 1 ] = 1
+      if ( any(is.na(dat$M)) ) stop("Something is wrong with pattern coding")
       
       # complete cases for analysis model 
       dc = dat %>% filter( !is.na(B) & !is.na(W) & !is.na(C) )
@@ -2150,6 +2234,49 @@ fit_regression = function(form_string,
       ( m_R4 = glm( I(M == 4) ~ A, data = dat ) )
       ( m_R3 = glm( I(M == 3) ~ A * C, data = dat %>% filter(M <= 3) ) )
       ( m_R2 = glm( I(M == 2) ~ A * C * W, data = dat %>% filter(M <= 2) ) )
+      
+      # probability of R=1 (only need to predict this for complete cases, since they're the only ones to 
+      #  be analyzed)
+      phat_R4 = predict(newdata = dc, object = m_R4, type = "response")
+      phat_R3 = predict(newdata = dc, object = m_R3, type = "response")
+      phat_R2 = predict(newdata = dc, object = m_R2, type = "response")
+      phat_R1 = (1 - phat_R4) * (1 - phat_R3) * (1 - phat_R2)
+      
+      
+      # Marginal p(R=1)
+      mnum = mean(dat$M == 1)
+      
+      dc$wt = mnum / phat_R1
+      
+      
+      # PS-weighted outcome model
+      ( mod_wls = lm( eval( parse(text = form_string) ),
+                      data = dc,
+                      weights = wt) )
+      # to get robust SEs:
+      mod_hc0 = my_ols_hc0(coefName = "A",
+                           ols = mod_wls)
+      
+      
+    } else if ( p$dag_name == "8B" ) {
+      
+      dat = du
+      
+      # make pattern indicator, M
+      dat$M = NA
+      dat$M[ du$RB == 0 & du$RW == 0 & du$RC == 0 ] = 4
+      dat$M[ du$RB == 1 & du$RW == 0 & du$RC == 0 ] = 3
+      dat$M[ du$RB == 1 & du$RW == 1 & du$RC == 0 ] = 2
+      dat$M[ du$RB == 1 & du$RW == 1 & du$RC == 1 ] = 1
+      if ( any(is.na(dat$M)) ) stop("Something is wrong with pattern coding")
+      
+      # complete cases for analysis model 
+      dc = dat %>% filter( !is.na(B) & !is.na(W) & !is.na(C) )
+      
+      # probability of each pattern under faulty MAR assumption
+      ( m_R4 = glm( I(M == 4) ~ A, data = dat ) )
+      ( m_R3 = glm( I(M == 3) ~ A * B, data = dat %>% filter(M <= 3) ) )
+      ( m_R2 = glm( I(M == 2) ~ A * B * W, data = dat %>% filter(M <= 2) ) )
       
       # probability of R=1 (only need to predict this for complete cases, since they're the only ones to 
       #  be analyzed)

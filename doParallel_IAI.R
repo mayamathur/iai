@@ -147,7 +147,7 @@ if ( run.local == TRUE ) {
     # N = c(100),
     
     #dag_name = c( "1B", "1D", "1G", "1H" ),
-    dag_name = "8A"
+    dag_name = "8B"
   )
   
   
@@ -245,7 +245,7 @@ for ( scen in scens_to_run ) {
       if ( coef_of_interest == "(Intercept)" ){
         coef_of_interest_gold = "(Intercept)"
         
-      } else if ( coef_of_interest == "A:C"){
+      } else if ( coef_of_interest == "A:C" ){
         coef_of_interest_gold = "A1:C1"
       } else {
         # *this assumes coef_of_interest is always the factual variable
@@ -858,7 +858,6 @@ if ( run.local == TRUE ) {
     mutate( beta = ifelse( !is.na(beta),
                            beta,
                            beta_emp$beta[ beta_emp$scen.name == scen.name ] ) )
-  
   
   
   t = rs_all_scens %>% group_by(method) %>%
