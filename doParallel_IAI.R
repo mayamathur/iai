@@ -20,7 +20,7 @@ run.local = FALSE
 interactive.cluster.run = FALSE
 
 # should lots of output be printed for each sim rep?
-verbose = FALSE
+verbose = TRUE
 
 # ~~ Packages -----------------------------------------------
 toLoad = c("crayon",
@@ -147,7 +147,7 @@ if ( run.local == TRUE ) {
     # N = c(100),
     
     #dag_name = c( "1B", "1D", "1G", "1H" ),
-    dag_name = "7C-bin"
+    dag_name = "3C-bin-mono"
   )
   
   
@@ -158,7 +158,7 @@ if ( run.local == TRUE ) {
   start.at = 1  # scen name to start at
   scen.params$scen = start.at:( nrow(scen.params) + start.at - 1 )
   
-  sim.reps = 1  # reps to run in this iterate
+  sim.reps = 500  # reps to run in this iterate
   
   # set the number of local cores
   registerDoParallel(cores=8)
@@ -217,7 +217,7 @@ for ( scen in scens_to_run ) {
       coef_of_interest = p$coef_of_interest
       
       # show beginning of dataset
-      if ( i == 1 & verbose == TRUE) cat("\n\nDIM AND HEAD OF P (SINGLE ROW OF SCEN.PARAMS):\n")
+      #if ( i == 1 & verbose == TRUE) cat("\n\nDIM AND HEAD OF P (SINGLE ROW OF SCEN.PARAMS):\n")
       
       # parse methods string
       ( all.methods = unlist( strsplit( x = p$rep.methods,
@@ -225,6 +225,10 @@ for ( scen in scens_to_run ) {
       
       
       # ~ Simulate Dataset ------------------------------
+      
+      
+      #if ( i == 1 ) cat("\n\nABOUT TO SIMULATE DATA:\n") print( head(du) )
+      
       
       sim_obj = sim_data(.p = p)
       
@@ -236,6 +240,8 @@ for ( scen in scens_to_run ) {
       ( exclude_from_imp_model = as.character( sim_obj$exclude_from_imp_model ) )
       
 
+      #if ( i == 1 ) cat("\n\nHEAD OF DU:\n") print( head(du) )
+      
       
       # check number of complete cases
       # sum(complete.cases(du))

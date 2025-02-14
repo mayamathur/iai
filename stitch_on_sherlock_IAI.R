@@ -21,6 +21,7 @@ library(data.table)
 library(dplyr)
 library(testthat)
 library(xlsx)
+library(xtable)
 
 
 .results.singles.path = "/home/groups/manishad/IAI/long_results"
@@ -126,8 +127,7 @@ t = s2 %>% group_by(dag_name, coef_of_interest, method) %>%
     Bhat = meanNA(bhat),
     BhatBias = meanNA(bhat - beta),
     BhatRelBias = meanNA( (bhat - beta)/beta ),
-    BhatLo = meanNA(bhat_lo),
-    BhatHi = meanNA(bhat_hi),
+    BhatWidth = meanNA(bhat_hi - bhat_lo),
     BhatRMSE = sqrt( meanNA( (bhat - beta)^2 ) ),
     BhatCover = meanNA( covers(truth = beta,
                                lo = bhat_lo,
@@ -142,13 +142,17 @@ t = s2 %>% group_by(dag_name, coef_of_interest, method) %>%
 as.data.frame(t)
 
 
+
+# save agg data
 path = "/home/groups/manishad/IAI/overall_stitched"
 setwd(path)
 write.xlsx(as.data.frame(t),
            paste(Sys.Date(), "agg.xlsx") )
 
 
-
+# xtable
+t2 = t %>% ungroup() %>% select(dag_name, method, Bhat, BhatBias, BhatCover, BhatWidth, BhatRMSE)
+xtable( print(t2, include.rownames = FALSE ) )
 
 
 

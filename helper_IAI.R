@@ -667,8 +667,8 @@ sim_data = function(.p) {
     
     
     # monotone missingness: conditionally overwrite indicator
-    du$RC[ du$RY == 0 ] = 0
-    du$RA[ du$RC == 0 ] = 0
+    du$RA[ du$RB == 0 ] = 0
+    du$RC[ du$RA == 0 ] = 0
     
     du = du %>% rowwise() %>%
       mutate( A = ifelse(RA == 1, A1, NA),
@@ -681,7 +681,6 @@ sim_data = function(.p) {
     
     
     # make dataset for imputation (standard way: all measured variables)
-    #di = du[ !( is.na(du$A) & is.na(du$B) & is.na(du$C) ), ]  # remove any rows that are all NA
     di = du %>% select(B, C, A)
     
     
@@ -700,7 +699,7 @@ sim_data = function(.p) {
       # gold-standard model uses underlying variables
       gold_form_string = "B1 ~ A1 * C1"
       
-      beta = coef1
+      beta = NA
       
       # custom predictor matrix for MICE-ours-pred
       exclude_from_imp_model = NULL # B is in target law
@@ -2293,7 +2292,50 @@ fit_regression = function(form_string,
       # probability of each pattern under faulty MAR assumption
       ( m_R4 = glm( I(M == 4) ~ 1, data = dat ) )
       ( m_R3 = glm( I(M == 3) ~ C, data = dat %>% filter(M <= 3) ) )
-      ( m_R2 = glm( I(M == 2) ~ C + A, data = dat %>% filter(M <= 2) ) )
+      ( m_R2 = glm( I(M == 2) ~ C * A, data = dat %>% filter(M <= 2) ) )
+      
+      # probability of R=1 (only need to predict this for complete cases, since they're the only ones to 
+      #  be analyzed)
+      phat_R4 = predict(newdata = dc, object = m_R4, type = "response")
+      phat_R3 = predict(newdata = dc, object = m_R3, type = "response")
+      phat_R2 = predict(newdata = dc, object = m_R2, type = "response")
+      phat_R1 = (1 - phat_R4) * (1 - phat_R3) * (1 - phat_R2)
+      
+      
+      # Marginal p(R=1)
+      mnum = mean(dat$M == 1)
+      
+      dc$wt = mnum / phat_R1
+      
+      
+      # PS-weighted outcome model
+      ( mod_wls = lm( eval( parse(text = form_string) ),
+                      data = dc,
+                      weights = wt) )
+      # to get robust SEs:
+      mod_hc0 = my_ols_hc0(coefName = "A",
+                           ols = mod_wls)
+      
+      
+    } else if ( p$dag_name == "3C-bin-mono" ) {
+      #bm
+      dat = du
+      
+      # make pattern indicator, M
+      dat$M = NA
+      dat$M[ du$RC == 0 & du$RA == 0 & du$RB == 0 ] = 4
+      dat$M[ du$RC == 0 & du$RA == 0 & du$RB == 1 ] = 3
+      dat$M[ du$RC == 0 & du$RA == 1 & du$RB == 1 ] = 2
+      dat$M[ du$RC == 1 & du$RA == 1 & du$RB == 1 ] = 1
+      if ( any(is.na(dat$M)) ) stop("Something is wrong with pattern coding")
+      
+      # complete cases for analysis model 
+      dc = dat %>% filter( !is.na(B) & !is.na(A) & !is.na(C) )
+      
+      # probability of each pattern under faulty MAR assumption
+      ( m_R4 = glm( I(M == 4) ~ 1, data = dat ) )
+      ( m_R3 = glm( I(M == 3) ~ B, data = dat %>% filter(M <= 3) ) )
+      ( m_R2 = glm( I(M == 2) ~ B * A, data = dat %>% filter(M <= 2) ) )
       
       # probability of R=1 (only need to predict this for complete cases, since they're the only ones to 
       #  be analyzed)
@@ -2327,6 +2369,7 @@ fit_regression = function(form_string,
       dat$M[ du$RC == 1 & du$RA == 0 & du$RB == 0 ] = 3
       dat$M[ du$RC == 1 & du$RA == 1 & du$RB == 0 ] = 2
       dat$M[ du$RC == 1 & du$RA == 1 & du$RB == 1 ] = 1
+      if ( any(is.na(dat$M)) ) stop("Something is wrong with pattern coding")
       
       # complete cases for analysis model 
       dc = dat %>% filter( !is.na(B) & !is.na(A) & !is.na(C) )
@@ -2366,6 +2409,7 @@ fit_regression = function(form_string,
       dat$M[ du$RC == 1 & du$RA == 0 & du$RB == 0 ] = 3
       dat$M[ du$RC == 1 & du$RA == 0 & du$RB == 1 ] = 2
       dat$M[ du$RC == 1 & du$RA == 1 & du$RB == 1 ] = 1
+      if ( any(is.na(dat$M)) ) stop("Something is wrong with pattern coding")
       
       # complete cases for analysis model 
       dc = dat %>% filter( !is.na(B) & !is.na(A) & !is.na(C) )
@@ -2408,6 +2452,7 @@ fit_regression = function(form_string,
       dat$M[ du$RC == 1 & du$RA == 0 & du$RB == 0 ] = 3
       dat$M[ du$RC == 1 & du$RA == 0 & du$RB == 1 ] = 2
       dat$M[ du$RC == 1 & du$RA == 1 & du$RB == 1 ] = 1
+      if ( any(is.na(dat$M)) ) stop("Something is wrong with pattern coding")
       
       # complete cases for analysis model 
       dc = dat %>% filter( !is.na(B) & !is.na(A) & !is.na(C) )
