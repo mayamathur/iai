@@ -628,6 +628,87 @@ sim_data = function(.p) {
   }  # end of .p$dag_name == "3B-bin-mono"
   
   
+  
+  
+  
+  # ~ DAG 3C-bin-mono -------------------------------------------------
+  # like 3B-bin, but reversing direction of monotonicity
+  
+  if ( .p$dag_name == "3C-bin-mono" ) {
+    
+    du = data.frame( C1 = rbinom( n = .p$N,
+                                  size = 1, 
+                                  prob = 0.5 ) ) 
+    
+    
+    coef1 = 2
+    coef2 = 1.6
+    
+    du = du %>% rowwise() %>%
+      mutate( A1 = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(-1 + 3*C1) ),
+              
+              # add edge from C1 -> B1
+              B1 = rnorm( n = 1,
+                          mean = coef1*A1 + coef1*C1 + A1*C1),
+              
+              RA = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(-1 + 3*C1) ),
+              
+              RB = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(-1 + 3*C1) ),
+              
+              RC = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(-1 + 3*C1) ) )
+    
+    
+    # monotone missingness: conditionally overwrite indicator
+    du$RC[ du$RY == 0 ] = 0
+    du$RA[ du$RC == 0 ] = 0
+    
+    du = du %>% rowwise() %>%
+      mutate( A = ifelse(RA == 1, A1, NA),
+              B = ifelse(RB == 1, B1, NA),
+              C = ifelse(RC == 1, C1, NA) )
+    
+    
+    colMeans(du)
+    cor(du %>% select(A1, B1, C1, RB, RC) )
+    
+    
+    # make dataset for imputation (standard way: all measured variables)
+    #di = du[ !( is.na(du$A) & is.na(du$B) & is.na(du$C) ), ]  # remove any rows that are all NA
+    di = du %>% select(B, C, A)
+    
+    
+    ### For just the intercept of A
+    if ( .p$coef_of_interest == "(Intercept)" ){ 
+      stop("Intercept not implemented for this DAG")
+    }
+    
+    
+    ### For the A-B association
+    if ( .p$coef_of_interest == "A" ){ 
+      
+      # regression strings
+      form_string = "B ~ A * C"
+      
+      # gold-standard model uses underlying variables
+      gold_form_string = "B1 ~ A1 * C1"
+      
+      beta = coef1
+      
+      # custom predictor matrix for MICE-ours-pred
+      exclude_from_imp_model = NULL # B is in target law
+    }
+    
+  }  # end of .p$dag_name == "3C-bin-mono"
+  
+  
   # ~ DAG 4A -----------------------------
   
   # for adjustment formula 4, CATE version
@@ -1424,32 +1505,18 @@ sim_data = function(.p) {
                            size = 1,
                            prob = expit( -1.2 + log(6)*C1 ) ),
               
-              # NEW
+              # as in 2025-02-12 sims (first round):
               B1 = rbinom( n = 1,
                            size = 1,
-                           prob = expit( -1.2 + log(7)*A1 + log(2)*C1 + log(2)*A1*C1 ) ),
-              
+                           prob = expit( -1.2 + log(8)*A1 + log(6)*C1 + log(4)*A1*C1 ) ),
+
               RB = rbinom( n = 1,
                            size = 1,
-                           prob = ifelse(A1 == 1, 0.8, 0.2) ),
-              
+                           prob = expit(0 + 3*A1) ),
+
               RA = rbinom(n = 1,
                           size = 1,
-                          prob = ifelse(A1 == 1, 0.8, 0.2) ),
-              
-              
-              # as in 2025-02-12 sims (first round):
-              # B1 = rbinom( n = 1,
-              #              size = 1,
-              #              prob = expit( -1.2 + log(8)*A1 + log(6)*C1 + log(4)*A1*C1 ) ),
-              # 
-              # RB = rbinom( n = 1,
-              #              size = 1,
-              #              prob = expit(0 + 3*A1) ),
-              # 
-              # RA = rbinom(n = 1,
-              #             size = 1,
-              #             prob = expit(0 + 3*A1) ),
+                          prob = expit(0 + 3*A1) ),
               
               RC = 1 )
     
@@ -1496,7 +1563,108 @@ sim_data = function(.p) {
   
   
   
+  # ~ DAG 7C-bin -----------------------------
   
+  # experimenting with 7B-bin to try to break IPMW
+  
+  if ( .p$dag_name == "7C-bin" ) {
+    
+    
+    
+    # EXPERIMENTING
+    du = data.frame( C1 = rbinom( n = .p$N,
+                                  size = 1, 
+                                  prob = 0.5 ) )  
+    
+    du = du %>% rowwise() %>%
+      mutate( 
+        
+        A1 = rbinom( n = 1,
+                     size = 1,
+                     prob = 0.5 ),
+        
+        B1 = rbinom( n = 1,
+                     size = 1,
+                     prob = ifelse(A1 == 1, 0.9, 0.2) ),
+        
+        RB = rbinom( n = 1,
+                     size = 1,
+                     prob = ifelse(A1 == 1, 0.9, 0.2) ),
+        
+        RA = rbinom(n = 1,
+                    size = 1,
+                    prob = ifelse(A1 == 1, 0.9, 0.2) ),
+        
+        RC = 1 )
+    
+    
+    # # WORKS REASONABLY WELL - SAVE!
+    # du = data.frame( C1 = rbinom( n = .p$N,
+    #                               size = 1, 
+    #                               prob = 0.5 ) )  
+    # 
+    # du = du %>% rowwise() %>%
+    #   mutate( 
+    #     
+    #     A1 = rbinom( n = 1,
+    #                        size = 1,
+    #                        prob = expit( 0 - log(8)*C1 ) ),
+    #     
+    #     B1 = rbinom( n = 1,
+    #                  size = 1,
+    #                  prob = expit( -1.2 + log(8)*A1 + log(6)*C1 ) ),
+    #     RB = rbinom( n = 1,
+    #                  size = 1,
+    #                  prob = ifelse(A1 == 1, 0.9, 0.5) ),
+    #     
+    #     RA = rbinom(n = 1,
+    #                 size = 1,
+    #                 prob = ifelse(A1 == 1, 0.9, 0.5) ),
+    #           
+    #     RC = 1 )
+    # # END STUFF TO SAVE
+    
+    
+    # monotone missingness RA -> RB
+    du$RA[ du$RB == 0 ] = 0
+    
+    du = du %>% rowwise() %>%
+      mutate( A = ifelse(RA == 1, A1, NA),
+              B = ifelse(RB == 1, B1, NA),
+              C = ifelse(RC == 1, C1, NA) )
+    
+    # missmap(du %>% select(A, B, C))
+    
+    colMeans(du)
+    cor(du %>% select(A1, B1, C1, RA, RB) )
+    
+    
+    # make dataset for imputation (standard way: all measured variables)
+    di = du %>% select(B, C, A)
+    
+    
+    ### For just the intercept of A
+    if ( .p$coef_of_interest == "(Intercept)" ){ 
+      stop("Intercept not implemented for this DAG")
+    }
+    
+    
+    ### For the A-B association
+    if ( .p$coef_of_interest == "A" ){ 
+      
+      # regression strings
+      form_string = "B ~ A + C"
+      
+      # gold-standard model uses underlying variables
+      gold_form_string = "B1 ~ A1 + C1"
+      
+      beta = NA
+      
+      # custom predictor matrix for MICE-ours-pred
+      exclude_from_imp_model = NULL # B is in target law
+    }
+    
+  }  # end of .p$dag_name == "7C-bin"
   
   
   
@@ -2110,7 +2278,6 @@ fit_regression = function(form_string,
       
     } else if ( p$dag_name == "3B-bin-mono" ) {
       
-      #bm
       dat = du
       
       # make pattern indicator, M
@@ -2167,6 +2334,48 @@ fit_regression = function(form_string,
       # probability of each pattern under faulty MAR assumption
       ( m_R3 = glm( I(M == 3) ~ C, data = dat %>% filter(M <= 3) ) )
       ( m_R2 = glm( I(M == 2) ~ C * A, data = dat %>% filter(M <= 2) ) )
+      
+      # probability of R=1 (only need to predict this for complete cases, since they're the only ones to 
+      #  be analyzed)
+      phat_R3 = predict(newdata = dc, object = m_R3, type = "response")
+      phat_R2 = predict(newdata = dc, object = m_R2, type = "response")
+      phat_R1 = (1 - phat_R3) * (1 - phat_R2)
+      
+      
+      # Marginal p(R=1)
+      mnum = mean(dat$M == 1)
+      
+      dc$wt = mnum / phat_R1
+      
+      
+      # PS-weighted outcome model
+      ( mod_wls = lm( eval( parse(text = form_string) ),
+                      data = dc,
+                      weights = wt) )
+      # to get robust SEs:
+      mod_hc0 = my_ols_hc0(coefName = "A",
+                           ols = mod_wls)
+      
+      
+    } else if ( p$dag_name %in% c("7C-bin" ) ) {
+      
+      dat = du
+      
+      # make pattern indicator, M
+      dat$M = NA
+      dat$M[ du$RC == 1 & du$RA == 0 & du$RB == 0 ] = 3
+      dat$M[ du$RC == 1 & du$RA == 0 & du$RB == 1 ] = 2
+      dat$M[ du$RC == 1 & du$RA == 1 & du$RB == 1 ] = 1
+      
+      # complete cases for analysis model 
+      dc = dat %>% filter( !is.na(B) & !is.na(A) & !is.na(C) )
+      
+      # probability of each pattern under faulty MAR assumption
+      ( m_R3 = glm( I(M == 3) ~ C, data = dat %>% filter(M <= 3) ) )
+      ( m_R2 = glm( I(M == 2) ~ C * B, data = dat %>% filter(M <= 2) ) )
+      # c.f. truth
+      # glm( I(M == 3) ~ C1 * A1 * B1, data = dat %>% filter(M <= 3) )
+      # glm( I(M == 2) ~ C1 * A1 * B1, data = dat %>% filter(M <= 2) )
       
       # probability of R=1 (only need to predict this for complete cases, since they're the only ones to 
       #  be analyzed)
