@@ -1831,6 +1831,212 @@ sim_data = function(.p) {
   }  # end of .p$dag_name == "8B"
   
   
+  # ~ DAG 9A -------------------------------------------------
+  # 3B-bin-mono + auxiliary W1
+  
+  if ( .p$dag_name == "9A" ) {
+    
+    du = data.frame( C1 = rbinom( n = .p$N,
+                                  size = 1, 
+                                  prob = 0.5 ),
+                     
+                     D1 = rbinom( n = .p$N,
+                                  size = 1, 
+                                  prob = 0.5 ) ) 
+    
+    
+    coef1 = 2
+    coef2 = 1.6
+    
+    du = du %>% rowwise() %>%
+      mutate( A1 = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(-1 + 3*C1) ),
+              
+              #bm
+              # original version
+              # IPW unexpectedly didn't work
+              B1 = rnorm( n = 1,
+                          mean = coef1*A1 + coef1*C1 + 1*D1 + A1*C1 + A1*D1),
+              
+              # # without A1*W1 interaction
+              # # now IPW works, but will the same be true for 9A?
+              # B1 = rnorm( n = 1,
+              #             mean = coef1*A1 + coef1*C1 + 1*W1 + A1*C1),
+              
+              
+              RC = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(2*C1 + 2*D1) ),
+              
+              RA = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(-1 + 2*C1 + 2*D1) ),
+              
+              RB = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(-2 + 2*C1 + 2*D1) ),
+              
+              RD = rbinom( n = 1,
+                           size = 1,
+                           prob = 0.7 ) )
+    
+    
+    # monotone missingness: conditionally overwrite indicator
+    du$RA[ du$RC == 0 ] = 0
+    du$RB[ du$RA == 0 ] = 0
+    du$RD[ du$RB == 0 ] = 0
+    
+    du = du %>% rowwise() %>%
+      mutate( A = ifelse(RA == 1, A1, NA),
+              B = ifelse(RB == 1, B1, NA),
+              C = ifelse(RC == 1, C1, NA),
+              D = ifelse(RD == 1, D1, NA) )
+    
+    
+    colMeans(du)
+    cor(du %>% select(A1, B1, C1, D1, RB, RC, RD) )
+    
+    
+    # make dataset for imputation (standard way: all measured variables)
+    #di = du[ !( is.na(du$A) & is.na(du$B) & is.na(du$C) ), ]  # remove any rows that are all NA
+    di = du %>% select(B, C, A, D)
+    
+    
+    ### For just the intercept of A
+    if ( .p$coef_of_interest == "(Intercept)" ){ 
+      stop("Intercept not implemented for this DAG")
+    }
+    
+    
+    ### For the A-B association
+    if ( .p$coef_of_interest == "A" ){ 
+      
+      # regression strings
+      form_string = "B ~ A * C * D"
+      
+      # gold-standard model uses underlying variables
+      gold_form_string = "B1 ~ A1 * C1 * D1"
+      
+      beta = NA
+      
+      # custom predictor matrix for MICE-ours-pred
+      exclude_from_imp_model = NULL # B is in target law
+    }
+    
+    
+  }  # end of .p$dag_name == "9A"
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  # ~ DAG 9B -------------------------------------------------
+  # reverse monotonicity direction c.f. 9A
+  
+  if ( .p$dag_name == "9B" ) {
+    
+    du = data.frame( C1 = rbinom( n = .p$N,
+                                  size = 1, 
+                                  prob = 0.5 ),
+                     
+                     D1 = rbinom( n = .p$N,
+                                  size = 1, 
+                                  prob = 0.5 ) ) 
+    
+    
+    coef1 = 2
+    coef2 = 1.6
+    
+    du = du %>% rowwise() %>%
+      mutate( A1 = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(-1 + 3*C1) ),
+              
+              #bm
+              # original version
+              # IPW unexpectedly didn't work
+              B1 = rnorm( n = 1,
+                          mean = coef1*A1 + coef1*C1 + 1*D1 + A1*C1 + A1*D1),
+              
+              # # without A1*W1 interaction
+              # # now IPW works, but will the same be true for 9A?
+              # B1 = rnorm( n = 1,
+              #             mean = coef1*A1 + coef1*C1 + 1*W1 + A1*C1),
+              
+              
+              RC = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(2*C1 + 2*D1) ),
+              
+              RA = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(-1 + 2*C1 + 2*D1) ),
+              
+              RB = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(-2 + 2*C1 + 2*D1) ),
+              
+              RD = rbinom( n = 1,
+                           size = 1,
+                           prob = 0.7 ) )
+    
+    
+    # monotone missingness: conditionally overwrite indicator
+    du$RA[ du$RC == 0 ] = 0
+    du$RD[ du$RA == 0 ] = 0
+    du$RB[ du$RD == 0 ] = 0
+    
+    du = du %>% rowwise() %>%
+      mutate( A = ifelse(RA == 1, A1, NA),
+              B = ifelse(RB == 1, B1, NA),
+              C = ifelse(RC == 1, C1, NA),
+              D = ifelse(RD == 1, D1, NA) )
+    
+    
+    colMeans(du)
+    cor(du %>% select(A1, B1, C1, D1, RB, RC, RD) )
+    
+    
+    # make dataset for imputation (standard way: all measured variables)
+    #di = du[ !( is.na(du$A) & is.na(du$B) & is.na(du$C) ), ]  # remove any rows that are all NA
+    di = du %>% select(B, C, A, D)
+    
+    
+    ### For just the intercept of A
+    if ( .p$coef_of_interest == "(Intercept)" ){ 
+      stop("Intercept not implemented for this DAG")
+    }
+    
+    
+    ### For the A-B association
+    if ( .p$coef_of_interest == "A" ){ 
+      
+      # regression strings
+      form_string = "B ~ A * C * D"
+      
+      # gold-standard model uses underlying variables
+      gold_form_string = "B1 ~ A1 * C1 * D1"
+      
+      beta = NA
+      
+      # custom predictor matrix for MICE-ours-pred
+      exclude_from_imp_model = NULL # B is in target law
+    }
+    
+  }  # end of .p$dag_name == "9A"
+  
+  
+  
+  
+  
+  
+  
+  
   # ~ Finish generating data ----------------
   
   # marginal prevalences
@@ -2099,6 +2305,8 @@ fit_regression = function(form_string,
   # customized for each DAG
   if ( miss_method == "IPW-custom" ) {
     
+    browser()
+    
     if ( p$dag_name == "6A" ) {
       
       dat = du
@@ -2318,7 +2526,7 @@ fit_regression = function(form_string,
       
       
     } else if ( p$dag_name == "3C-bin-mono" ) {
-      #bm
+      
       dat = du
       
       # make pattern indicator, M
@@ -2556,6 +2764,102 @@ fit_regression = function(form_string,
       phat_R3 = predict(newdata = dc, object = m_R3, type = "response")
       phat_R2 = predict(newdata = dc, object = m_R2, type = "response")
       phat_R1 = (1 - phat_R4) * (1 - phat_R3) * (1 - phat_R2)
+      
+      
+      # Marginal p(R=1)
+      mnum = mean(dat$M == 1)
+      
+      dc$wt = mnum / phat_R1
+      
+      
+      # PS-weighted outcome model
+      ( mod_wls = lm( eval( parse(text = form_string) ),
+                      data = dc,
+                      weights = wt) )
+      # to get robust SEs:
+      mod_hc0 = my_ols_hc0(coefName = "A",
+                           ols = mod_wls)
+      
+      
+    } else if ( p$dag_name == "9A" ) {
+
+      dat = du
+      
+      # make pattern indicator, M
+      dat$M = NA
+      dat$M[ du$RC == 0 & du$RA == 0 & du$RB == 0 & du$RD == 0 ] = 5
+      dat$M[ du$RC == 1 & du$RA == 0 & du$RB == 0 & du$RD == 0 ] = 4
+      dat$M[ du$RC == 1 & du$RA == 1 & du$RB == 0 & du$RD == 0 ] = 3
+      dat$M[ du$RC == 1 & du$RA == 1 & du$RB == 1 & du$RD == 0 ] = 2
+      dat$M[ du$RC == 1 & du$RA == 1 & du$RB == 1 & du$RD == 1 ] = 1
+      if ( any(is.na(dat$M)) ) stop("Something is wrong with pattern coding")
+  
+      
+      # complete cases for analysis model 
+      dc = dat %>% filter( !is.na(B) & !is.na(A) & !is.na(C) & !is.na(D) )
+      
+      # probability of each pattern under faulty MAR assumption
+      ( m_R5 = glm( I(M == 5) ~ 1, data = dat ) )
+      ( m_R4 = glm( I(M == 4) ~ C, data = dat %>% filter(M <= 4) ) )
+      ( m_R3 = glm( I(M == 3) ~ C * A, data = dat %>% filter(M <= 3) ) )
+      ( m_R2 = glm( I(M == 2) ~ C * A * B, data = dat %>% filter(M <= 2) ) )
+      
+      # probability of R=1 (only need to predict this for complete cases, since they're the only ones to 
+      #  be analyzed)
+      phat_R5 = predict(newdata = dc, object = m_R5, type = "response")
+      phat_R4 = predict(newdata = dc, object = m_R4, type = "response")
+      phat_R3 = predict(newdata = dc, object = m_R3, type = "response")
+      phat_R2 = predict(newdata = dc, object = m_R2, type = "response")
+      phat_R1 = (1 - phat_R5) * (1 - phat_R4) * (1 - phat_R3) * (1 - phat_R2)
+      
+      
+      # Marginal p(R=1)
+      mnum = mean(dat$M == 1)
+      
+      dc$wt = mnum / phat_R1
+      
+      
+      # PS-weighted outcome model
+      ( mod_wls = lm( eval( parse(text = form_string) ),
+                      data = dc,
+                      weights = wt) )
+      # to get robust SEs:
+      mod_hc0 = my_ols_hc0(coefName = "A",
+                           ols = mod_wls)
+      
+      
+    } else if ( p$dag_name == "9B" ) {
+      
+      #bm
+      
+      dat = du
+      
+      # make pattern indicator, M
+      dat$M = NA
+      dat$M[ du$RC == 0 & du$RA == 0 & du$RB == 0 & du$RD == 0 ] = 5
+      dat$M[ du$RC == 1 & du$RA == 0 & du$RB == 0 & du$RD == 0 ] = 4
+      dat$M[ du$RC == 1 & du$RA == 1 & du$RB == 0 & du$RD == 0 ] = 3
+      dat$M[ du$RC == 1 & du$RA == 1 & du$RB == 0 & du$RD == 1 ] = 2
+      dat$M[ du$RC == 1 & du$RA == 1 & du$RB == 1 & du$RD == 1 ] = 1
+      if ( any(is.na(dat$M)) ) stop("Something is wrong with pattern coding")
+      
+      
+      # complete cases for analysis model 
+      dc = dat %>% filter( !is.na(B) & !is.na(A) & !is.na(C) & !is.na(D) )
+      
+      # probability of each pattern under faulty MAR assumption
+      ( m_R5 = glm( I(M == 5) ~ 1, data = dat ) )
+      ( m_R4 = glm( I(M == 4) ~ C, data = dat %>% filter(M <= 4) ) )
+      ( m_R3 = glm( I(M == 3) ~ C * A, data = dat %>% filter(M <= 3) ) )
+      ( m_R2 = glm( I(M == 2) ~ C * A * D, data = dat %>% filter(M <= 2) ) )
+      
+      # probability of R=1 (only need to predict this for complete cases, since they're the only ones to 
+      #  be analyzed)
+      phat_R5 = predict(newdata = dc, object = m_R5, type = "response")
+      phat_R4 = predict(newdata = dc, object = m_R4, type = "response")
+      phat_R3 = predict(newdata = dc, object = m_R3, type = "response")
+      phat_R2 = predict(newdata = dc, object = m_R2, type = "response")
+      phat_R1 = (1 - phat_R5) * (1 - phat_R4) * (1 - phat_R3) * (1 - phat_R2)
       
       
       # Marginal p(R=1)

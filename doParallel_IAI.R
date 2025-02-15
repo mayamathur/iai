@@ -147,7 +147,7 @@ if ( run.local == TRUE ) {
     # N = c(100),
     
     #dag_name = c( "1B", "1D", "1G", "1H" ),
-    dag_name = "3C-bin-mono"
+    dag_name = "9A"
   )
   
   
@@ -180,6 +180,8 @@ if ( run.local == TRUE ) {
 # mimic Sherlock structure
 if (run.local == TRUE) ( scens_to_run = scen.params$scen )
 if (run.local == FALSE) ( scens_to_run = scen )  # from sbatch
+
+#  p = scen.params[ scen.params$scen == scen, names(scen.params) != "scen"]
 
 
 # BEGIN FOR-LOOP to run multiple scens locally
@@ -839,7 +841,7 @@ for ( scen in scens_to_run ) {
     setwd(data.dir)
     fwrite( rs,
             paste( "rs_scen_", scen, ".csv", sep = "" ) )
-    
+
     # also bind into new file
     if ( scen == scens_to_run[1] ) rs_all_scens = rs
     else rs_all_scens = bind_rows(rs_all_scens, rs)
@@ -847,11 +849,9 @@ for ( scen in scens_to_run ) {
   
 }  # END FOR-LOOP to run multiple scens locally
 
-
-
 if ( run.local == TRUE ) {
-  View(rs_all_scens)
-  dim(rs_all_scens)
+  # View(rs_all_scens)
+  # dim(rs_all_scens)
   
   
   # fill in true beta
@@ -881,11 +881,7 @@ if ( run.local == TRUE ) {
     mutate_if(is.numeric, function(x) round(x,2)) 
   
   as.data.frame(t)
-  
-  mean(rs_all_scens$sancheck.mean_RB)
-  mean(rs_all_scens$sancheck.mean_RC)
-  
-  
+
   # setwd(data.dir)
   # fwrite( rs_all_scens,
   #         paste( "stitched_local.csv", sep = "" ) )
