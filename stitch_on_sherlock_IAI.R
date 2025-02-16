@@ -152,7 +152,7 @@ write.xlsx(as.data.frame(t),
 
 # xtable
 t2 = t %>% ungroup() %>% select(dag_name, method, Bhat, BhatBias, BhatCover, BhatWidth, BhatRMSE)
-xtable( print(t2, include.rownames = FALSE ) )
+print( xtable(t2), include.rownames = FALSE )
 
 
 
