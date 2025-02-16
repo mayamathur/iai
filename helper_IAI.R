@@ -1854,15 +1854,11 @@ sim_data = function(.p) {
                            prob = expit(-1 + 3*C1) ),
               
               #bm
-              # original version
-              # IPW unexpectedly didn't work
+              # as in "2025-02-16a - 9A and 9B without A*W interaction on Y" sims
+              # does have A*D interaction on Y, and yet IPMW works for both 9A and 9B
               B1 = rnorm( n = 1,
                           mean = coef1*A1 + coef1*C1 + 1*D1 + A1*C1 + A1*D1),
               
-              # # without A1*W1 interaction
-              # # now IPW works, but will the same be true for 9A?
-              # B1 = rnorm( n = 1,
-              #             mean = coef1*A1 + coef1*C1 + 1*W1 + A1*C1),
               
               
               RC = rbinom( n = 1,
@@ -1958,16 +1954,10 @@ sim_data = function(.p) {
                            prob = expit(-1 + 3*C1) ),
               
               #bm
-              # original version
-              # IPW unexpectedly didn't work
+              # as in "2025-02-16a - 9A and 9B without A*W interaction on Y" sims
+              # does have A*D interaction on Y, and yet IPMW works for both 9A and 9B
               B1 = rnorm( n = 1,
                           mean = coef1*A1 + coef1*C1 + 1*D1 + A1*C1 + A1*D1),
-              
-              # # without A1*W1 interaction
-              # # now IPW works, but will the same be true for 9A?
-              # B1 = rnorm( n = 1,
-              #             mean = coef1*A1 + coef1*C1 + 1*W1 + A1*C1),
-              
               
               RC = rbinom( n = 1,
                            size = 1,
