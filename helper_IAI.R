@@ -807,7 +807,7 @@ sim_data = function(.p) {
     
     du = data.frame( C1 = rnorm( n = .p$N ),
                      D1 = rnorm( n = .p$N ) ) 
-
+    
     
     du = du %>% rowwise() %>%
       mutate( A1 = rbinom( n = 1,
@@ -822,21 +822,21 @@ sim_data = function(.p) {
               
               # following Steve's code, these are the complements of my R's 
               RA_comp = rbinom( n = 1,
-                           size = 1,
-                           prob = 0.3 ),
+                                size = 1,
+                                prob = 0.3 ),
               
               RW_comp = rbinom( n = 1,
-                           size = 1,
-                           prob = 0.3 ),
+                                size = 1,
+                                prob = 0.3 ),
               
               RC_comp = rbinom( n = 1,
-                           size = 1,
-                           # note: C is not self-censoring as in 4A
-                           prob = 0.3 ),
+                                size = 1,
+                                # note: C is not self-censoring as in 4A
+                                prob = 0.3 ),
               
               RB_comp = rbinom( n = 1,
-                           size = 1,
-                           prob = 1 / (1 + exp(-( -log(1/.3-1) + log(2) * W1))) ),
+                                size = 1,
+                                prob = 1 / (1 + exp(-( -log(1/.3-1) + log(2) * W1))) ),
               
               RA = (RA_comp == 0),
               RW = (RW_comp == 0),
@@ -902,7 +902,7 @@ sim_data = function(.p) {
                      C1 = rbinom( n = .p$N,
                                   size = 1, 
                                   prob = 0.5 ),
-
+                     
                      W1 = rbinom( n = .p$N,
                                   size = 1, 
                                   prob = 0.5 ) ) 
@@ -1134,7 +1134,7 @@ sim_data = function(.p) {
     du = data.frame( C1 = rbinom( n = .p$N,
                                   size = 1, 
                                   prob = 0.5 ), 
-
+                     
                      A1 = rbinom( n = .p$N, 
                                   size = 1, 
                                   prob = 0.5 ) )  
@@ -1205,8 +1205,8 @@ sim_data = function(.p) {
   if ( .p$dag_name %in% c( "1-AY" ) ) {
     
     du = data.frame( W1 = rbinom( n = .p$N,
-                                 size = 1,
-                                 prob = 0.5),
+                                  size = 1,
+                                  prob = 0.5),
                      
                      A1 = rbinom( n = .p$N,
                                   size = 1,
@@ -1214,7 +1214,7 @@ sim_data = function(.p) {
     
     du = du %>% rowwise() %>%
       mutate( B1 = rnorm( n = 1,
-                         mean = 3 * W1 + A1 ),
+                          mean = 3 * W1 + A1 ),
               
               RA = rbinom( n = 1,
                            size = 1,
@@ -1228,7 +1228,7 @@ sim_data = function(.p) {
               
               R = RA * RB)
     
-
+    
     # monotone missingness: conditionally overwrite indicator
     du$RB[ du$RA == 0 ] = 0
     
@@ -1301,7 +1301,7 @@ sim_data = function(.p) {
     
     # monotone missingness RA -> RB
     du$RB[ du$RA == 0 ] = 0
-
+    
     du = du %>% rowwise() %>%
       mutate( A = ifelse(RA == 1, A1, NA),
               B = ifelse(RB == 1, B1, NA),
@@ -1432,10 +1432,10 @@ sim_data = function(.p) {
       mutate( A1 = rbinom( n = 1,
                            size = 1,
                            prob = expit( -1.2 + log(6)*C1 ) ),
-        
+              
               B1 = rbinom( n = 1,
                            size = 1,
-                          prob = expit( -1.2 + log(8)*A1 + log(6)*C1 + log(4)*A1*C1 ) ),
+                           prob = expit( -1.2 + log(8)*A1 + log(6)*C1 + log(4)*A1*C1 ) ),
               
               RB = rbinom( n = 1,
                            size = 1,
@@ -1508,11 +1508,11 @@ sim_data = function(.p) {
               B1 = rbinom( n = 1,
                            size = 1,
                            prob = expit( -1.2 + log(8)*A1 + log(6)*C1 + log(4)*A1*C1 ) ),
-
+              
               RB = rbinom( n = 1,
                            size = 1,
                            prob = expit(0 + 3*A1) ),
-
+              
               RA = rbinom(n = 1,
                           size = 1,
                           prob = expit(0 + 3*A1) ),
@@ -1686,7 +1686,7 @@ sim_data = function(.p) {
       mutate( A1 = rbinom( n = 1,
                            size = 1,
                            prob = expit( -1.2 + log(6)*C1 ) ),
-                
+              
               B1 = rbinom( n = 1,
                            size = 1,
                            prob = expit( -1.5 + log(8)*A1 + log(6)*C1 + log(6)*W1 + log(6)*A1*C1*W1 ) ),
@@ -2114,9 +2114,17 @@ fit_regression = function(form_string,
                  family = binomial(link = "logit") )
     }
     
+    if ( model == "log" ) {
+      mod = glm( eval( parse(text = form_string) ),
+                 data = dat,
+                 family = binomial(link = "log") )
+    }
+    
     bhats = coef(mod)
     CI = as.numeric( confint(mod)[coef_of_interest,] )
     
+    
+    # TEMP
     if ( p$dag_name == "9A" & miss_method == "gold" ) {
       EY_prediction = as.numeric( predict(object = mod, newdata = data.frame(A1 = 1,
                                                                              C1 = 1,
@@ -2317,7 +2325,7 @@ fit_regression = function(form_string,
       dat$M[ du$RC == 0 & du$RB == 0 ] = 3
       dat$M[ du$RC == 1 & du$RB == 0 ] = 2
       dat$M[ du$RC == 1 & du$RB == 1 ] = 1
-
+      
       # complete cases for analysis model that includes C
       dc = dat %>% filter(!is.na(B) & !is.na(C))
       
@@ -2334,21 +2342,6 @@ fit_regression = function(form_string,
       phat_R2 = predict(newdata = dc, object = m_R2, type = "response")
       phat_R1 = (1 - phat_R3) * (1 - phat_R2)
       
-      
-      # Marginal p(R=1)
-      mnum = mean(dat$M == 1)
-      
-      dc$wt = mnum / phat_R1
-      
-      
-      # PS-weighted outcome model
-      mod_wls = lm( eval( parse(text = form_string) ),
-                    data = dc,
-                    weights = wt)
-      # to get robust SEs:
-      mod_hc0 = my_ols_hc0(coefName = "A",
-                           ols = mod_wls)
-      
       # # from Ross code
       # # exactly equivalent estimates and CIs :)
       # ( mod = geeglm( eval(parse(text = form_string)), data = dc,
@@ -2357,7 +2350,7 @@ fit_regression = function(form_string,
       # rd = coef(mod)[[2]]
       # lcl = tidy(mod, conf.int=T, exp = F)[[2,"conf.low"]]
       # ucl = tidy(mod, conf.int=T, exp = F)[[2,"conf.high"]]
-    
+      
       
     }  else if ( p$dag_name == "1-AY" ) {
       
@@ -2388,100 +2381,33 @@ fit_regression = function(form_string,
       phat_R1 = (1 - phat_R3) * (1 - phat_R2)
       
       
-      # Marginal p(R=1)
-      mnum = mean(dat$M == 1)
-      
-      dc$wt = mnum / phat_R1
-      
-      
-      # PS-weighted outcome model
-      ( mod_wls = lm( eval( parse(text = form_string) ),
-                    data = dc,
-                    weights = wt) )
-      # to get robust SEs:
-      mod_hc0 = my_ols_hc0(coefName = "A",
-                           ols = mod_wls)
-      
-      # sanity check: check equivalence with my iPad simplification
-      if (FALSE) {
-        
-        ### Need to have PS estimate for every row, not just CCs (for later expressions)
-        # refit models so they work with cfactual vars (makes no difference except in calling predict)
-        ( m_R3_b = glm( I(M == 3) ~ W1, data = dat ) )
-        ( m_R2_b = glm( I(M == 2) ~ A1 + W1, data = dat %>% filter(M <= 2) ) )
-        phat_R3_b = predict(newdata = dat, object = m_R3_b, type = "response")
-        phat_R2_b = predict(newdata = dat, object = m_R2_b, type = "response")
-        dat$phat_R1_b = (1 - phat_R3_b) * (1 - phat_R2_b)
-        
-        
-        ### Estimate E[Y(a)]
-        a = 1
-        
-        dat$phat_R1 = NA; dat$phat_R1[ dat$M == 1 ] = phat_R1
-    
-        #### Eq. (1)
-        dat$wt = 0  # for the incomplete cases
-        dat$wt[ dat$M == 1 ] = 1 / dat$phat_R1[ dat$M == 1 ]
-        # Eq (1) on Overleaf: E[Y(a)]
-        ( EY1 = sum( dat$wt * dat$B1 * (dat$A1 == 1) ) /  sum( dat$wt * (dat$A1 == 1) ) )
-        ( EY0 = sum( dat$wt * dat$B1 * (dat$A1 == 0) ) /  sum( dat$wt * (dat$A1 == 0) ) )
-        EY1 - EY0
-        # yes!!! agrees with mod_wls :D (both are wrong)
-        
-        ### Eq. (9)
-        # first need to get correct model for p(R=1 | B1, A1, C1)
-        mod_R = glm( I(M == 1) ~ B1 + A1 + W1, data = dat )
-        
-        ### with completely wrong weights: DOESN'T MATCH
-        wt_fake = sample(dc$wt)
-        ( mod_wls = lm( eval( parse(text = form_string) ),
-                        data = dc,
-                        weights = wt_fake) )
-        
-      }
-      
     } else if ( p$dag_name == "1-AY" ) {
-        
-        dat = du
-        
-        # make pattern indicator, M
-        dat$M = NA
-        dat$M[ du$RA == 0 & du$RB == 0 ] = 3
-        dat$M[ du$RA == 1 & du$RB == 0 ] = 2
-        dat$M[ du$RA == 1 & du$RB == 1 ] = 1
-        
-        # complete cases for analysis model 
-        dc = dat %>% filter(!is.na(B) & !is.na(A))
-        
-        # probability of R=3 pattern (RA = RB = 0)
-        # this model will be wrong because also depends on A
-        ( m_R3 = glm( I(M == 3) ~ W, data = dat ) )
-        
-        
-        # conditional probability of R=2 pattern (RA = 1, RB = 0)
-        # this model is right
-        ( m_R2 = glm( I(M == 2) ~ A + W, data = dat %>% filter(M <= 2) ) )
-        
-        # probability of R=1 (only need to predict this for complete cases, since they're the only ones to 
-        #  be analyzed)
-        phat_R3 = predict(newdata = dc, object = m_R3, type = "response")
-        phat_R2 = predict(newdata = dc, object = m_R2, type = "response")
-        phat_R1 = (1 - phat_R3) * (1 - phat_R2)
-        
-        
-        # Marginal p(R=1)
-        mnum = mean(dat$M == 1)
-        
-        dc$wt = mnum / phat_R1
-        
-        
-        # PS-weighted outcome model
-        ( mod_wls = lm( eval( parse(text = form_string) ),
-                        data = dc,
-                        weights = wt) )
-        # to get robust SEs:
-        mod_hc0 = my_ols_hc0(coefName = "A",
-                             ols = mod_wls)
+      
+      dat = du
+      
+      # make pattern indicator, M
+      dat$M = NA
+      dat$M[ du$RA == 0 & du$RB == 0 ] = 3
+      dat$M[ du$RA == 1 & du$RB == 0 ] = 2
+      dat$M[ du$RA == 1 & du$RB == 1 ] = 1
+      
+      # complete cases for analysis model 
+      dc = dat %>% filter(!is.na(B) & !is.na(A))
+      
+      # probability of R=3 pattern (RA = RB = 0)
+      # this model will be wrong because also depends on A
+      ( m_R3 = glm( I(M == 3) ~ W, data = dat ) )
+      
+      
+      # conditional probability of R=2 pattern (RA = 1, RB = 0)
+      # this model is right
+      ( m_R2 = glm( I(M == 2) ~ A + W, data = dat %>% filter(M <= 2) ) )
+      
+      # probability of R=1 (only need to predict this for complete cases, since they're the only ones to 
+      #  be analyzed)
+      phat_R3 = predict(newdata = dc, object = m_R3, type = "response")
+      phat_R2 = predict(newdata = dc, object = m_R2, type = "response")
+      phat_R1 = (1 - phat_R3) * (1 - phat_R2)
       
       
     } else if ( p$dag_name == "3B-bin-mono" ) {
@@ -2509,21 +2435,6 @@ fit_regression = function(form_string,
       phat_R3 = predict(newdata = dc, object = m_R3, type = "response")
       phat_R2 = predict(newdata = dc, object = m_R2, type = "response")
       phat_R1 = (1 - phat_R4) * (1 - phat_R3) * (1 - phat_R2)
-      
-      
-      # Marginal p(R=1)
-      mnum = mean(dat$M == 1)
-      
-      dc$wt = mnum / phat_R1
-      
-      
-      # PS-weighted outcome model
-      ( mod_wls = lm( eval( parse(text = form_string) ),
-                      data = dc,
-                      weights = wt) )
-      # to get robust SEs:
-      mod_hc0 = my_ols_hc0(coefName = "A",
-                           ols = mod_wls)
       
       
     } else if ( p$dag_name == "3C-bin-mono" ) {
@@ -2554,21 +2465,6 @@ fit_regression = function(form_string,
       phat_R1 = (1 - phat_R4) * (1 - phat_R3) * (1 - phat_R2)
       
       
-      # Marginal p(R=1)
-      mnum = mean(dat$M == 1)
-      
-      dc$wt = mnum / phat_R1
-      
-      
-      # PS-weighted outcome model
-      ( mod_wls = lm( eval( parse(text = form_string) ),
-                      data = dc,
-                      weights = wt) )
-      # to get robust SEs:
-      mod_hc0 = my_ols_hc0(coefName = "A",
-                           ols = mod_wls)
-      
-      
     } else if ( p$dag_name %in% c("7A", "7A-bin") ) {
       
       dat = du
@@ -2592,22 +2488,6 @@ fit_regression = function(form_string,
       phat_R3 = predict(newdata = dc, object = m_R3, type = "response")
       phat_R2 = predict(newdata = dc, object = m_R2, type = "response")
       phat_R1 = (1 - phat_R3) * (1 - phat_R2)
-      
-      
-      # Marginal p(R=1)
-      mnum = mean(dat$M == 1)
-      
-      dc$wt = mnum / phat_R1
-      
-      
-      # PS-weighted outcome model
-      ( mod_wls = lm( eval( parse(text = form_string) ),
-                      data = dc,
-                      weights = wt) )
-      # to get robust SEs:
-      mod_hc0 = my_ols_hc0(coefName = "A",
-                           ols = mod_wls)
-      
       
     } else if ( p$dag_name %in% c("7C-bin" ) ) {
       
@@ -2635,22 +2515,6 @@ fit_regression = function(form_string,
       phat_R3 = predict(newdata = dc, object = m_R3, type = "response")
       phat_R2 = predict(newdata = dc, object = m_R2, type = "response")
       phat_R1 = (1 - phat_R3) * (1 - phat_R2)
-      
-      
-      # Marginal p(R=1)
-      mnum = mean(dat$M == 1)
-      
-      dc$wt = mnum / phat_R1
-      
-      
-      # PS-weighted outcome model
-      ( mod_wls = lm( eval( parse(text = form_string) ),
-                      data = dc,
-                      weights = wt) )
-      # to get robust SEs:
-      mod_hc0 = my_ols_hc0(coefName = "A",
-                           ols = mod_wls)
-      
       
     } else if ( p$dag_name %in% c("7B", "7B-bin" ) ) {
       
@@ -2680,24 +2544,9 @@ fit_regression = function(form_string,
       phat_R1 = (1 - phat_R3) * (1 - phat_R2)
       
       
-      # Marginal p(R=1)
-      mnum = mean(dat$M == 1)
-      
-      dc$wt = mnum / phat_R1
-      
-      
-      # PS-weighted outcome model
-      ( mod_wls = lm( eval( parse(text = form_string) ),
-                      data = dc,
-                      weights = wt) )
-      # to get robust SEs:
-      mod_hc0 = my_ols_hc0(coefName = "A",
-                           ols = mod_wls)
-      
-      
     } else if ( p$dag_name == "8A" ) {
       
-
+      
       dat = du
       
       # make pattern indicator, M
@@ -2722,22 +2571,6 @@ fit_regression = function(form_string,
       phat_R3 = predict(newdata = dc, object = m_R3, type = "response")
       phat_R2 = predict(newdata = dc, object = m_R2, type = "response")
       phat_R1 = (1 - phat_R4) * (1 - phat_R3) * (1 - phat_R2)
-      
-      
-      # Marginal p(R=1)
-      mnum = mean(dat$M == 1)
-      
-      dc$wt = mnum / phat_R1
-      
-      
-      # PS-weighted outcome model
-      ( mod_wls = lm( eval( parse(text = form_string) ),
-                      data = dc,
-                      weights = wt) )
-      # to get robust SEs:
-      mod_hc0 = my_ols_hc0(coefName = "A",
-                           ols = mod_wls)
-      
       
     } else if ( p$dag_name == "8B" ) {
       
@@ -2766,25 +2599,8 @@ fit_regression = function(form_string,
       phat_R2 = predict(newdata = dc, object = m_R2, type = "response")
       phat_R1 = (1 - phat_R4) * (1 - phat_R3) * (1 - phat_R2)
       
-      
-      # Marginal p(R=1)
-      mnum = mean(dat$M == 1)
-      
-      dc$wt = mnum / phat_R1
-      
-      
-      # PS-weighted outcome model
-      ( mod_wls = lm( eval( parse(text = form_string) ),
-                      data = dc,
-                      weights = wt) )
-      # to get robust SEs:
-      mod_hc0 = my_ols_hc0(coefName = "A",
-                           ols = mod_wls)
-      
-      
     } else if ( p$dag_name == "9A" ) {
-
-      #bm
+      
       dat = du
       
       # make pattern indicator, M
@@ -2795,7 +2611,7 @@ fit_regression = function(form_string,
       dat$M[ du$RC == 1 & du$RA == 1 & du$RB == 1 & du$RD == 0 ] = 2
       dat$M[ du$RC == 1 & du$RA == 1 & du$RB == 1 & du$RD == 1 ] = 1
       if ( any(is.na(dat$M)) ) stop("Something is wrong with pattern coding")
-  
+      
       
       # complete cases for analysis model 
       dc = dat %>% filter( !is.na(B) & !is.na(A) & !is.na(C) & !is.na(D) )
@@ -2813,27 +2629,6 @@ fit_regression = function(form_string,
       phat_R3 = predict(newdata = dc, object = m_R3, type = "response")
       phat_R2 = predict(newdata = dc, object = m_R2, type = "response")
       phat_R1 = (1 - phat_R5) * (1 - phat_R4) * (1 - phat_R3) * (1 - phat_R2)
-      
-      
-      # Marginal p(R=1)
-      mnum = mean(dat$M == 1)
-      
-      dc$wt = mnum / phat_R1
-      
-      
-      # PS-weighted outcome model
-      ( mod_wls = lm( eval( parse(text = form_string) ),
-                      data = dc,
-                      weights = wt) )
-      
-      # experiment
-      EY_prediction = as.numeric( predict(object = mod_wls, newdata = data.frame(A = 1,
-                                                                                 C = 1,
-                                                                                 D = 1) ) )
-      
-      # to get robust SEs:
-      mod_hc0 = my_ols_hc0(coefName = "A",
-                           ols = mod_wls)
       
       
     } else if ( p$dag_name == "9B" ) {
@@ -2869,26 +2664,49 @@ fit_regression = function(form_string,
       phat_R2 = predict(newdata = dc, object = m_R2, type = "response")
       phat_R1 = (1 - phat_R5) * (1 - phat_R4) * (1 - phat_R3) * (1 - phat_R2)
       
-      
-      # Marginal p(R=1)
-      mnum = mean(dat$M == 1)
-      
-      dc$wt = mnum / phat_R1
-      
-      
+    } else {
+      stop("IPW-custom not implemented for that DAG")
+    }
+    
+    
+    ### Fit PS-weighted outcome model
+    # marginal p(R=1)
+    mnum = mean(dat$M == 1)
+    
+    dc$wt = mnum / phat_R1
+    
+    if ( model == "OLS" ) {
       # PS-weighted outcome model
       ( mod_wls = lm( eval( parse(text = form_string) ),
                       data = dc,
                       weights = wt) )
-      # to get robust SEs:
-      mod_hc0 = my_ols_hc0(coefName = "A",
-                           ols = mod_wls)
       
-      
-    } else {
-      stop("IPW-custom not implemented for that DAG")
     }
-
+    
+    if ( model == "logistic" ) {
+      ( mod_wls = glm( eval( parse(text = form_string) ),
+                       data = dc,
+                       weights = wt,
+                       family = binomial(link = "logit") ) )
+    }
+    
+    if ( model == "log" ) {
+      ( mod_wls = glm( eval( parse(text = form_string) ),
+                       data = dc,
+                       weights = wt,
+                       family = binomial(link = "log") ) )
+    }
+    
+    # to get robust SEs:
+    mod_hc0 = my_ols_hc0(coefName = "A",
+                         ols = mod_wls)
+    
+    ### Experiment
+    if ( p$dag_name == "9A") {
+      EY_prediction = as.numeric( predict(object = mod_wls, newdata = data.frame(A = 1,
+                                                                                 C = 1,
+                                                                                 D = 1) ) )
+    }
     
     return( list( stats = data.frame( bhat = mod_hc0$est,
                                       bhat_lo = mod_hc0$lo,
