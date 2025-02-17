@@ -10,7 +10,7 @@ logit = function(p) p / (1-p)
 
 sim_data = function(.p) {
   
-  if (.p$model != "OLS" ) stop("Only handles model OLS for now")
+  #if (.p$model != "OLS" ) stop("Only handles model OLS for now")
   
   # ~ DAG 1A -----------------------------
   # conceptually replicates Dowd's Figure 2, upper left panel
@@ -2022,6 +2022,91 @@ sim_data = function(.p) {
   
   
   
+  # ~ DAG 9A-bin -------------------------------------------------
+  # like 9A, but outcome B is also binary
+  
+  if ( .p$dag_name == "9A-bin" ) {
+    
+    du = data.frame( C1 = rbinom( n = .p$N,
+                                  size = 1, 
+                                  prob = 0.5 ),
+                     
+                     D1 = rbinom( n = .p$N,
+                                  size = 1, 
+                                  prob = 0.5 ) ) 
+    
+    
+    du = du %>% rowwise() %>%
+      mutate( A1 = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(-1 + 3*C1) ),
+              
+              B1 = rbinom( n = 1,
+                           size = 1,
+                           prob = expit( -2 + A1 + C1 + D1 + A1*C1 + A1*D1 ) ),
+              
+              RC = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(2*C1 + 2*D1) ),
+              
+              RA = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(-1 + 2*C1 + 2*D1) ),
+              
+              RB = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(-2 + 2*C1 + 2*D1) ),
+              
+              RD = rbinom( n = 1,
+                           size = 1,
+                           prob = 0.7 ) )
+    
+    
+    # monotone missingness: conditionally overwrite indicator
+    du$RA[ du$RC == 0 ] = 0
+    du$RB[ du$RA == 0 ] = 0
+    du$RD[ du$RB == 0 ] = 0
+    
+    du = du %>% rowwise() %>%
+      mutate( A = ifelse(RA == 1, A1, NA),
+              B = ifelse(RB == 1, B1, NA),
+              C = ifelse(RC == 1, C1, NA),
+              D = ifelse(RD == 1, D1, NA) )
+    
+    
+    colMeans(du)
+    cor(du %>% select(A1, B1, C1, D1, RB, RC, RD) )
+    
+    
+    # make dataset for imputation (standard way: all measured variables)
+    #di = du[ !( is.na(du$A) & is.na(du$B) & is.na(du$C) ), ]  # remove any rows that are all NA
+    di = du %>% select(B, C, A, D)
+    
+    
+    ### For just the intercept of A
+    if ( .p$coef_of_interest == "(Intercept)" ){ 
+      stop("Intercept not implemented for this DAG")
+    }
+    
+    
+    ### For the A-B association
+    if ( .p$coef_of_interest == "A" ){ 
+      
+      # regression strings
+      form_string = "B ~ A * C * D"
+      
+      # gold-standard model uses underlying variables
+      gold_form_string = "B1 ~ A1 * C1 * D1"
+      
+      beta = NA
+      
+      # custom predictor matrix for MICE-ours-pred
+      exclude_from_imp_model = NULL # B is in target law
+    }
+    
+  }  # end of .p$dag_name == "9A-bin"
+  
+  
   
   
   
@@ -2081,7 +2166,7 @@ fit_regression = function(form_string,
                           ps_string = NA,
                           du,
                           imps) {
-  
+
   
   # # test only
   # form_string = CC_adj_form_string
@@ -2092,8 +2177,6 @@ fit_regression = function(form_string,
   # only used for certain DAGs and used to check if these means could be wrong even though CATE is correct
   EY_prediction = NA
   
-  
-  #if ( miss_method %in% c("CC", "IPW") ) dat = dm
   if ( miss_method == "MI" ) dat = imps
   if ( miss_method %in% c("gold", "CC", "IPW") ) dat = du
   
@@ -2101,8 +2184,6 @@ fit_regression = function(form_string,
   if ( miss_method %in% c("CC", "gold") ) {
     
     if ( model == "OLS" ) {
-      #if ( nuni(dat$Y) <= 2 ) stop("You have a binary outcome but are fitting OLS with model-based SEs; need to allow robust SEs")
-      
       mod = lm( eval( parse(text = form_string) ),
                 data = dat )
       
@@ -2120,21 +2201,31 @@ fit_regression = function(form_string,
                  family = binomial(link = "log") )
     }
     
+    
     bhats = coef(mod)
-    CI = as.numeric( confint(mod)[coef_of_interest,] )
+    
+    
+    # robust SEs in case we're fitting OLS with binary outcome
+    mod_hc0 = my_ols_hc0(coefName = "A",
+                         ols = mod_wls)
+    
+    # previous: model-based CIs
+    #CI = as.numeric( confint(mod)[coef_of_interest,] )
     
     
     # TEMP
-    if ( p$dag_name == "9A" & miss_method == "gold" ) {
+    if ( p$dag_name %in% c("9A", "9A-bin", "9B", "9B-bin") ) {
       EY_prediction = as.numeric( predict(object = mod, newdata = data.frame(A1 = 1,
                                                                              C1 = 1,
                                                                              D1 = 1) ) )
     }
     
     return( list( stats = data.frame( bhat = as.numeric( bhats[coef_of_interest] ),
-                                      bhat_lo = CI[1],
-                                      bhat_hi = CI[2],
-                                      bhat_width = CI[2] - CI[1],
+                                    
+                                      bhat_lo = mod_hc0$lo,
+                                      bhat_hi = mod_hc0$hi,
+                                      bhat_width = mod_hc0$hi - mod_hc0$lo,
+                                      
                                       EY_prediction = EY_prediction ) ) )
   }
   
@@ -2157,7 +2248,14 @@ fit_regression = function(form_string,
                       family = binomial(link = "logit") ) )
     }
     
-    #browser()
+    
+    if ( model == "log" ) {
+      mod = with(imps,
+                 glm( eval( parse(text = form_string) ),
+                      family = binomial(link = "log") ) )
+    }
+    
+    
     mod_pool = mice::pool(mod)
     summ = summary(mod_pool, conf.int = TRUE)
     
@@ -2170,145 +2268,7 @@ fit_regression = function(form_string,
                                       bhat_width = bhat_hi - bhat_lo ) ) )
   }
   
-  
-  
-  
-  # ~ IPW  ---------------------
-  
-  if ( miss_method == "IPW" ) {
-    
-    #@THIS IMPLEMENTATION IS QUICK AND DIRTY. FOR EXAMPLE:
-    #  - Inference ignores the fact that weights are estimated.
-    #  - I trimmed the weights in an ad hoc way.
-    #  - I didn't standardize the weights. 
-    #  - I didn't customize the PS model predictors to the DAG; just regressed on 
-    #      all non-missing vars.
-    
-    if ( is.na(ps_string) ) stop("Need to provide ps_string")
-    
-    
-    if ( model == "OLS" ) {
-      
-      if ( nuni(dat$Y) <= 2 ) stop("You have a binary outcome but are fitting OLS with model-based SEs; need to allow robust SEs")
-      
-      # could replace with patternwise approach, as in Sun & ETT
-      # i.e., for pattern where (A,Y) are missing, regress 1{being in that pattern} on C alone
-      # for pattern where A alone is missing, regress 1{being in that pattern} on C,Y
-      
-      mod_PS = glm( eval( parse(text = ps_string) ),
-                    data = dat,
-                    family = binomial(link = "logit") )
-      
-      
-      dat$pR = predict(mod_PS, type = "response")
-      # # trim extreme PS probabilities
-      # dat$p_miss = pmin( dat$p_miss, 0.90 )
-      # dat$p_miss = pmax( dat$p_miss, 0.10 )
-      
-      # ### TEMP: USE TRUE P(R=1) (FOR DAG)
-      # if ( dat$dag_name == "I" ) dat$pR = expit(dat$C1)
-      # if ( dat$dag_name == "III" ) dat$pR = expit(2*dat$C1)
-      # ### END TEMP
-      
-      
-      # estimated IP weights
-      # note that the latter weights, for incomplete cases, don't actually get used because 
-      #  only CCs (wrt the analysis variables) are included in regression below
-      dat$wt = dat$R*( 1/dat$pR ) + (1-dat$R)*( 1/(1-dat$pR) )
-      
-      # # sanity checks
-      # summary(dat$wt)
-      # # should be close to 2:
-      # sum(dat$wt)/nrow(dat)
-      
-      
-      # PS-weighted outcome model
-      mod_wls = lm( eval( parse(text = form_string) ),
-                    data = dat,
-                    weights = wt)
-      
-      #browser()
-      
-      # sanity check: WLS should always be consistent for this (DAG V)
-      if (FALSE) {
-        summary(dat$pR)
-        
-        lm( Y1 ~ A1,
-            data = dat)
-        
-        lm( Y ~ A,
-            data = dat)
-      }
-      
-      
-      # sanity check: reproduce WLS using simpler expectations
-      if (FALSE) {
-        
-        # temporarily dichotomize A
-        dat2 = dat
-        dat2$A = dat2$A > 0
-        dat2$A1 = dat2$A1 > 0
-        
-        # make weighted Y = [ 1/(P(R=1 | C)) ] * Y
-        dat2$Yw = (1/dat2$pR) * dat2$Y
-        # **critical step:
-        dat2$Yw[ is.na(dat2$Y) ] = 0  #@@IS THIS RIGHT??
-        any(is.na(dat2$Yw))
-        
-        dcc = dat2 %>% filter(R==1)
-        any(is.na(dcc$Yw))
-        
-        # 0. gold std with dichotomized A
-        lm(Y1 ~ A1, data = dat2)
-        
-        # 1. 
-        ( my_beta = mean( dcc$Yw[dcc$A == 1] ) - mean( dcc$Yw[dcc$A == 0] ) )
-        # 2. (agrees with 1)
-        lm( Yw ~ A, dat = dcc)  # if A binary, agrees with my_beta above
-        
-        # **1b. using dat instead of dcc
-        # **agrees with gold std, and 3-4, if you set dat2$Yw[ is.na(dat2$Y) ] = 0 
-        ( my_beta = meanNA( dat2$Yw[dat2$A == 1] ) - meanNA( dat2$Yw[dat2$A == 0] ) )
-        # 2b. agrees with 1b
-        lm( Yw ~ A, dat = dat2)
-        
-        # 3. refit mod_wls with dichotomized A
-        # also, this is close to gold std
-        lm( eval( parse(text = form_string) ),
-            data = dat,
-            weights = wt)
-        # 4. (agrees with 3, but not 1 & 2)
-        # and doesn't agree with 3 for DAG III
-        lm( Y ~ A, dat = dcc, weights = wt)  
-        
-        # 5. different from everything else
-        lm( (1 / sum(1 / dcc$pR)) * Yw ~ A, dat = dcc)
-        # end sanity check
-        
-      }
-      
-      
-      
-      
-      # to get robust SEs:
-      mod_hc0 = my_ols_hc0(coefName = "A",
-                           ols = mod_wls)
-      
-      
-      
-    }
-    
-    if ( model == "logistic" ) {
-      stop("Logistic case not implemented")
-    }
-    
-    return( list( stats = data.frame( bhat = mod_hc0$est,
-                                      bhat_lo = mod_hc0$lo,
-                                      bhat_hi = mod_hc0$hi,
-                                      bhat_width = mod_hc0$hi - mod_hc0$lo ) ) ) 
-  }
-  
-  
+
   # ~ IPW-custom  ---------------------
   
   # Note: this ignores the model argument passed to fit_regression
@@ -2599,7 +2559,7 @@ fit_regression = function(form_string,
       phat_R2 = predict(newdata = dc, object = m_R2, type = "response")
       phat_R1 = (1 - phat_R4) * (1 - phat_R3) * (1 - phat_R2)
       
-    } else if ( p$dag_name == "9A" ) {
+    } else if ( p$dag_name %in% c("9A", "9A-bin" ) ) {
       
       dat = du
       
@@ -2620,6 +2580,7 @@ fit_regression = function(form_string,
       ( m_R5 = glm( I(M == 5) ~ 1, data = dat ) )
       ( m_R4 = glm( I(M == 4) ~ C, data = dat %>% filter(M <= 4) ) )
       ( m_R3 = glm( I(M == 3) ~ C * A, data = dat %>% filter(M <= 3) ) )
+      # THIS ONE COULD BE MISSPECIFIED FOR 9A BECAUSE B IS CONTINUOUS:
       ( m_R2 = glm( I(M == 2) ~ C * A * B, data = dat %>% filter(M <= 2) ) )
       
       # probability of R=1 (only need to predict this for complete cases, since they're the only ones to 
@@ -2702,7 +2663,7 @@ fit_regression = function(form_string,
                          ols = mod_wls)
     
     ### Experiment
-    if ( p$dag_name == "9A") {
+    if ( p$dag_name %in% c("9A", "9A-bin", "9B", "9B-bin") ) {
       EY_prediction = as.numeric( predict(object = mod_wls, newdata = data.frame(A = 1,
                                                                                  C = 1,
                                                                                  D = 1) ) )

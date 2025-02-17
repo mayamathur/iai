@@ -147,7 +147,7 @@ if ( run.local == TRUE ) {
     # N = c(100),
     
     #dag_name = c( "1B", "1D", "1G", "1H" ),
-    dag_name = "9A"
+    dag_name = "9A-bin"
   )
   
   
@@ -158,7 +158,7 @@ if ( run.local == TRUE ) {
   start.at = 1  # scen name to start at
   scen.params$scen = start.at:( nrow(scen.params) + start.at - 1 )
   
-  sim.reps = 500  # reps to run in this iterate
+  sim.reps = 1  # reps to run in this iterate
   
   # set the number of local cores
   registerDoParallel(cores=8)
@@ -876,7 +876,8 @@ if ( run.local == TRUE ) {
       BhatRMSE = sqrt( meanNA( (bhat - beta)^2 ) ),
       BhatCover = meanNA( covers(truth = beta,
                                  lo = bhat_lo,
-                                 hi = bhat_hi) ) ) %>%
+                                 hi = bhat_hi) ),
+      EYpred = meanNA(EY_prediction) ) %>%
     arrange() %>%
     mutate_if(is.numeric, function(x) round(x,2)) 
   
