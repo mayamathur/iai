@@ -2088,6 +2088,10 @@ fit_regression = function(form_string,
   # model = "OLS"
   # miss_method = "CC"
   
+  # prediction for conditional mean E[Y | A=1, ...] for some choice of covariate values
+  # only used for certain DAGs and used to check if these means could be wrong even though CATE is correct
+  EY_prediction = NA
+  
   
   #if ( miss_method %in% c("CC", "IPW") ) dat = dm
   if ( miss_method == "MI" ) dat = imps
@@ -2113,10 +2117,17 @@ fit_regression = function(form_string,
     bhats = coef(mod)
     CI = as.numeric( confint(mod)[coef_of_interest,] )
     
+    if ( p$dag_name == "9A" & miss_method == "gold" ) {
+      EY_prediction = as.numeric( predict(object = mod, newdata = data.frame(A1 = 1,
+                                                                             C1 = 1,
+                                                                             D1 = 1) ) )
+    }
+    
     return( list( stats = data.frame( bhat = as.numeric( bhats[coef_of_interest] ),
                                       bhat_lo = CI[1],
                                       bhat_hi = CI[2],
-                                      bhat_width = CI[2] - CI[1] ) ) )
+                                      bhat_width = CI[2] - CI[1],
+                                      EY_prediction = EY_prediction ) ) )
   }
   
   # ~ MI  ---------------------
@@ -2292,10 +2303,10 @@ fit_regression = function(form_string,
   
   # ~ IPW-custom  ---------------------
   
+  # Note: this ignores the model argument passed to fit_regression
+  
   # customized for each DAG
   if ( miss_method == "IPW-custom" ) {
-    
-    browser()
     
     if ( p$dag_name == "6A" ) {
       
@@ -2773,6 +2784,7 @@ fit_regression = function(form_string,
       
     } else if ( p$dag_name == "9A" ) {
 
+      #bm
       dat = du
       
       # make pattern indicator, M
@@ -2813,6 +2825,12 @@ fit_regression = function(form_string,
       ( mod_wls = lm( eval( parse(text = form_string) ),
                       data = dc,
                       weights = wt) )
+      
+      # experiment
+      EY_prediction = as.numeric( predict(object = mod_wls, newdata = data.frame(A = 1,
+                                                                                 C = 1,
+                                                                                 D = 1) ) )
+      
       # to get robust SEs:
       mod_hc0 = my_ols_hc0(coefName = "A",
                            ols = mod_wls)
@@ -2875,7 +2893,8 @@ fit_regression = function(form_string,
     return( list( stats = data.frame( bhat = mod_hc0$est,
                                       bhat_lo = mod_hc0$lo,
                                       bhat_hi = mod_hc0$hi,
-                                      bhat_width = mod_hc0$hi - mod_hc0$lo ) ) ) 
+                                      bhat_width = mod_hc0$hi - mod_hc0$lo,
+                                      EY_prediction = EY_prediction ) ) ) 
   }
   
 }
