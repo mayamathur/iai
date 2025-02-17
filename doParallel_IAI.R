@@ -175,7 +175,8 @@ if ( run.local == TRUE ) {
 
 # RUN SIMULATION ------------------------------
 
-
+#bm: running 9A-bin for 500 reps with new HC0 even for gold std. 
+# I'm mystified as to why it seems to still be working for this graph, even for EY_prediction. Hmmm...???
 
 # mimic Sherlock structure
 if (run.local == TRUE) ( scens_to_run = scen.params$scen )

@@ -640,7 +640,6 @@ sim_data = function(.p) {
                                   size = 1, 
                                   prob = 0.5 ) ) 
     
-    
     coef1 = 2
     coef2 = 1.6
     
@@ -2107,7 +2106,89 @@ sim_data = function(.p) {
   }  # end of .p$dag_name == "9A-bin"
   
   
+  # ~ DAG 9B-bin -------------------------------------------------
+  # like 9B, but outcome B is also binary
   
+  if ( .p$dag_name == "9B-bin" ) {
+    
+    du = data.frame( C1 = rbinom( n = .p$N,
+                                  size = 1, 
+                                  prob = 0.5 ),
+                     
+                     D1 = rbinom( n = .p$N,
+                                  size = 1, 
+                                  prob = 0.5 ) ) 
+    
+    
+    du = du %>% rowwise() %>%
+      mutate( A1 = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(-1 + 3*C1) ),
+              
+              B1 = rbinom( n = 1,
+                           size = 1,
+                           prob = expit( -2 + A1 + C1 + D1 + A1*C1 + A1*D1 ) ),
+              
+              RC = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(2*C1 + 2*D1) ),
+              
+              RA = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(-1 + 2*C1 + 2*D1) ),
+              
+              RB = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(-2 + 2*C1 + 2*D1) ),
+              
+              RD = rbinom( n = 1,
+                           size = 1,
+                           prob = 0.7 ) )
+    
+    
+    # monotone missingness: conditionally overwrite indicator
+    du$RA[ du$RC == 0 ] = 0
+    du$RD[ du$RA == 0 ] = 0
+    du$RB[ du$RD == 0 ] = 0
+    
+    du = du %>% rowwise() %>%
+      mutate( A = ifelse(RA == 1, A1, NA),
+              B = ifelse(RB == 1, B1, NA),
+              C = ifelse(RC == 1, C1, NA),
+              D = ifelse(RD == 1, D1, NA) )
+    
+    
+    colMeans(du)
+    cor(du %>% select(A1, B1, C1, D1, RB, RC, RD) )
+    
+    
+    # make dataset for imputation (standard way: all measured variables)
+    #di = du[ !( is.na(du$A) & is.na(du$B) & is.na(du$C) ), ]  # remove any rows that are all NA
+    di = du %>% select(B, C, A, D)
+    
+    
+    ### For just the intercept of A
+    if ( .p$coef_of_interest == "(Intercept)" ){ 
+      stop("Intercept not implemented for this DAG")
+    }
+    
+    
+    ### For the A-B association
+    if ( .p$coef_of_interest == "A" ){ 
+      
+      # regression strings
+      form_string = "B ~ A * C * D"
+      
+      # gold-standard model uses underlying variables
+      gold_form_string = "B1 ~ A1 * C1 * D1"
+      
+      beta = NA
+      
+      # custom predictor matrix for MICE-ours-pred
+      exclude_from_imp_model = NULL # B is in target law
+    }
+    
+  }  # end of .p$dag_name == "9B-bin"
   
   
   
@@ -2166,6 +2247,8 @@ fit_regression = function(form_string,
                           ps_string = NA,
                           du,
                           imps) {
+  
+  #browser()
 
   
   # # test only
@@ -2206,19 +2289,26 @@ fit_regression = function(form_string,
     
     
     # robust SEs in case we're fitting OLS with binary outcome
-    mod_hc0 = my_ols_hc0(coefName = "A",
-                         ols = mod_wls)
+    mod_hc0 = my_ols_hc0(coefName = coef_of_interest,
+                         ols = mod)
     
     # previous: model-based CIs
     #CI = as.numeric( confint(mod)[coef_of_interest,] )
     
     
     # TEMP
-    if ( p$dag_name %in% c("9A", "9A-bin", "9B", "9B-bin") ) {
+    if ( p$dag_name %in% c("9A", "9A-bin", "9B", "9B-bin") & miss_method == "gold" ) {
       EY_prediction = as.numeric( predict(object = mod, newdata = data.frame(A1 = 1,
                                                                              C1 = 1,
                                                                              D1 = 1) ) )
     }
+    # TEMP
+    if ( p$dag_name %in% c("9A", "9A-bin", "9B", "9B-bin") & miss_method == "CC" ) {
+      EY_prediction = as.numeric( predict(object = mod, newdata = data.frame(A = 1,
+                                                                             C = 1,
+                                                                             D = 1) ) )
+    }
+    
     
     return( list( stats = data.frame( bhat = as.numeric( bhats[coef_of_interest] ),
                                     
@@ -2592,9 +2682,9 @@ fit_regression = function(form_string,
       phat_R1 = (1 - phat_R5) * (1 - phat_R4) * (1 - phat_R3) * (1 - phat_R2)
       
       
-    } else if ( p$dag_name == "9B" ) {
+    } else if ( p$dag_name %in% c("9B", "9B-bin") ) {
       
-      #bm
+      #bm: run this one!
       
       dat = du
       
