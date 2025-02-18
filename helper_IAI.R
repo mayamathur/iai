@@ -1850,10 +1850,14 @@ sim_data = function(.p) {
     #                               prob = 0.5 ) ) 
     
     
-    # new version: both confounders continuous and uncorrelated
-    du = data.frame( C1 = rnorm( n = .p$N ),
-                     
-                     D1 = rnorm( n = .p$N ) ) 
+    # # new version (2025-02-18b - 9A and 9B with continuous C): both confounders continuous and uncorrelated
+    # du = data.frame( C1 = rnorm( n = .p$N ),
+    #                  
+    #                  D1 = rnorm( n = .p$N ) ) 
+    
+    # new version (2025-02-18c - 9A and 9B with continuous C, correlated confounders): both confounders continuous *and* correlated
+    du = data.frame( C1 = rnorm( n = .p$N ) ) %>%
+      rowwise() %>% mutate( D1 = rnorm( n = 1, mean = C1 ) ) 
     
     
     coef1 = 2
@@ -1957,10 +1961,14 @@ sim_data = function(.p) {
     #                               prob = 0.5 ) ) 
     
     
-    # new version: both confounders continuous and uncorrelated
-    du = data.frame( C1 = rnorm( n = .p$N ),
-                     
-                     D1 = rnorm( n = .p$N ) ) 
+    # # new version (2025-02-18b - 9A and 9B with continuous C): both confounders continuous and uncorrelated
+    # du = data.frame( C1 = rnorm( n = .p$N ),
+    #                  
+    #                  D1 = rnorm( n = .p$N ) ) 
+    
+    # new version (2025-02-18c - 9A and 9B with continuous C, correlated confounders): both confounders continuous *and* correlated
+    du = data.frame( C1 = rnorm( n = .p$N ) ) %>%
+      rowwise() %>% mutate( D1 = rnorm( n = 1, mean = C1 ) ) 
     
     
     coef1 = 2
