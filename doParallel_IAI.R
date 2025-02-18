@@ -147,8 +147,7 @@ if ( run.local == TRUE ) {
     # N = c(100),
     
     #dag_name = c( "1B", "1D", "1G", "1H" ),
-    dag_name = "9A-bin"
-  )
+    dag_name = "3C-bin-mono" )
   
   
   # # remove combos that aren't implemented

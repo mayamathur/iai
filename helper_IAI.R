@@ -551,13 +551,15 @@ sim_data = function(.p) {
   
   # ~ DAG 3B-bin-mono -------------------------------------------------
   # monotone version of 3B-bin *and* has A*C interaction on Y
+  # IPMW should work
   
   if ( .p$dag_name == "3B-bin-mono" ) {
     
-    du = data.frame( C1 = rbinom( n = .p$N,
-                                  size = 1, 
-                                  prob = 0.5 ) ) 
-    
+    # previous version
+    # du = data.frame( C1 = rbinom( n = .p$N,
+    #                               size = 1, 
+    #                               prob = 0.5 ) ) 
+    du = data.frame( C1 = rnorm(n = .p$N) ) 
     
     coef1 = 2
     coef2 = 1.6
@@ -636,12 +638,15 @@ sim_data = function(.p) {
   
   if ( .p$dag_name == "3C-bin-mono" ) {
     
-    du = data.frame( C1 = rbinom( n = .p$N,
-                                  size = 1, 
-                                  prob = 0.5 ) ) 
+    # previous version
+    # du = data.frame( C1 = rbinom( n = .p$N,
+    #                               size = 1, 
+    #                               prob = 0.5 ) ) 
+    du = data.frame( C1 = rnorm(n = .p$N) ) 
     
     coef1 = 2
     coef2 = 1.6
+
     
     du = du %>% rowwise() %>%
       mutate( A1 = rbinom( n = 1,
@@ -2365,6 +2370,7 @@ fit_regression = function(form_string,
   
   # customized for each DAG
   if ( miss_method == "IPW-custom" ) {
+    
     
     if ( p$dag_name == "6A" ) {
       
