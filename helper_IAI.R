@@ -1840,13 +1840,20 @@ sim_data = function(.p) {
   
   if ( .p$dag_name == "9A" ) {
     
-    du = data.frame( C1 = rbinom( n = .p$N,
-                                  size = 1, 
-                                  prob = 0.5 ),
+    # # original version: both confounders binary and uncorrelated
+    # du = data.frame( C1 = rbinom( n = .p$N,
+    #                               size = 1, 
+    #                               prob = 0.5 ),
+    #                  
+    #                  D1 = rbinom( n = .p$N,
+    #                               size = 1, 
+    #                               prob = 0.5 ) ) 
+    
+    
+    # new version: both confounders continuous and uncorrelated
+    du = data.frame( C1 = rnorm( n = .p$N ),
                      
-                     D1 = rbinom( n = .p$N,
-                                  size = 1, 
-                                  prob = 0.5 ) ) 
+                     D1 = rnorm( n = .p$N ) ) 
     
     
     coef1 = 2
@@ -1940,13 +1947,20 @@ sim_data = function(.p) {
   
   if ( .p$dag_name == "9B" ) {
     
-    du = data.frame( C1 = rbinom( n = .p$N,
-                                  size = 1, 
-                                  prob = 0.5 ),
+    # # original version: both confounders binary and uncorrelated
+    # du = data.frame( C1 = rbinom( n = .p$N,
+    #                               size = 1, 
+    #                               prob = 0.5 ),
+    #                  
+    #                  D1 = rbinom( n = .p$N,
+    #                               size = 1, 
+    #                               prob = 0.5 ) ) 
+    
+    
+    # new version: both confounders continuous and uncorrelated
+    du = data.frame( C1 = rnorm( n = .p$N ),
                      
-                     D1 = rbinom( n = .p$N,
-                                  size = 1, 
-                                  prob = 0.5 ) ) 
+                     D1 = rnorm( n = .p$N ) ) 
     
     
     coef1 = 2

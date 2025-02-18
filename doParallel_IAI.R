@@ -146,8 +146,7 @@ if ( run.local == TRUE ) {
     # imp_maxit = 5,
     # N = c(100),
     
-    #dag_name = c( "1B", "1D", "1G", "1H" ),
-    dag_name = "3C-bin-mono" )
+    dag_name = c("9A", "9B") )
   
   
   # # remove combos that aren't implemented

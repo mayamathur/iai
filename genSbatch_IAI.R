@@ -53,7 +53,7 @@ scen.params = tidyr::expand_grid(
   # N = c(100),
   
   #dag_name = c( "1B", "1D", "1G", "1H" ),
-  dag_name = c( "3B-bin-mono", "3C-bin-mono" )
+  dag_name = c( "9A", "9B" )
 )
 
 # # remove combos that aren't implemented
