@@ -1840,26 +1840,27 @@ sim_data = function(.p) {
   
   if ( .p$dag_name == "9A" ) {
     
-    # # original version: both confounders binary and uncorrelated
-    # du = data.frame( C1 = rbinom( n = .p$N,
-    #                               size = 1, 
-    #                               prob = 0.5 ),
-    #                  
-    #                  D1 = rbinom( n = .p$N,
-    #                               size = 1, 
-    #                               prob = 0.5 ) ) 
+    # original version: both confounders binary and uncorrelated
+    du = data.frame( C1 = rbinom( n = .p$N,
+                                  size = 1,
+                                  prob = 0.5 ),
+
+                     D1 = rbinom( n = .p$N,
+                                  size = 1,
+                                  prob = 0.5 ) )
     
     
     # # new version (2025-02-18b - 9A and 9B with continuous C): both confounders continuous and uncorrelated
+    # also as in 2025-02-18d - 9A and 9B with continuous C, uncorrelated confounders, RD self-censors:
     # du = data.frame( C1 = rnorm( n = .p$N ),
     #                  
     #                  D1 = rnorm( n = .p$N ) ) 
     
-    # new version (2025-02-18c - 9A and 9B with continuous C, correlated confounders): both confounders continuous *and* correlated
-    du = data.frame( C1 = rnorm( n = .p$N ) ) %>%
-      rowwise() %>% mutate( D1 = rnorm( n = 1, mean = C1 ) ) 
+    # # new version (2025-02-18c - 9A and 9B with continuous C, correlated confounders): both confounders continuous *and* correlated
+    # du = data.frame( C1 = rnorm( n = .p$N ) ) %>%
+    #   rowwise() %>% mutate( D1 = rnorm( n = 1, mean = C1 ) ) 
     
-    
+  
     coef1 = 2
     coef2 = 1.6
     
@@ -1869,11 +1870,15 @@ sim_data = function(.p) {
                            prob = expit(-1 + 3*C1) ),
               
               #bm
-              # as in "2025-02-16a - 9A and 9B without A*W interaction on Y" sims
-              # does have A*D interaction on Y, and yet IPMW works for both 9A and 9B
-              B1 = rnorm( n = 1,
-                          mean = coef1*A1 + coef1*C1 + 1*D1 + A1*C1 + A1*D1),
+              # # as in "2025-02-16a - 9A and 9B without A*W interaction on Y" sims
+              # # does have A*D interaction on Y, and yet IPMW works for both 9A and 9B
+              # B1 = rnorm( n = 1,
+              #             mean = coef1*A1 + coef1*C1 + 1*D1 + A1*C1 + A1*D1),
               
+              # as in "2025-02-18c - 9A and 9B with continuous C, uncorrelated confounders, RD self-censors, interaction"
+              # added C1*D1 interaction on B1
+              B1 = rnorm( n = 1,
+                          mean = coef1*A1 + coef1*C1 + 1*D1 + A1*C1 + A1*D1 + C1*D1),
               
               
               RC = rbinom( n = 1,
@@ -1888,9 +1893,18 @@ sim_data = function(.p) {
                            size = 1,
                            prob = expit(-2 + 2*C1 + 2*D1) ),
               
+              # # original version
+              # RD = rbinom( n = 1,
+              #              size = 1,
+              #              prob = 0.7 )
+              
+              # as in 2025-02-18d - 9A and 9B with continuous C, uncorrelated confounders, RD self-censors
               RD = rbinom( n = 1,
                            size = 1,
-                           prob = 0.7 ) )
+                           prob = expit(2*C1 + 2*D1) )
+              )
+    
+    
     
     
     # monotone missingness: conditionally overwrite indicator
@@ -1951,24 +1965,25 @@ sim_data = function(.p) {
   
   if ( .p$dag_name == "9B" ) {
     
-    # # original version: both confounders binary and uncorrelated
-    # du = data.frame( C1 = rbinom( n = .p$N,
-    #                               size = 1, 
-    #                               prob = 0.5 ),
-    #                  
-    #                  D1 = rbinom( n = .p$N,
-    #                               size = 1, 
-    #                               prob = 0.5 ) ) 
+    # original version: both confounders binary and uncorrelated
+    du = data.frame( C1 = rbinom( n = .p$N,
+                                  size = 1,
+                                  prob = 0.5 ),
+                     
+                     D1 = rbinom( n = .p$N,
+                                  size = 1,
+                                  prob = 0.5 ) )
     
     
     # # new version (2025-02-18b - 9A and 9B with continuous C): both confounders continuous and uncorrelated
+    # also as in 2025-02-18d - 9A and 9B with continuous C, uncorrelated confounders, RD self-censors:
     # du = data.frame( C1 = rnorm( n = .p$N ),
     #                  
     #                  D1 = rnorm( n = .p$N ) ) 
     
-    # new version (2025-02-18c - 9A and 9B with continuous C, correlated confounders): both confounders continuous *and* correlated
-    du = data.frame( C1 = rnorm( n = .p$N ) ) %>%
-      rowwise() %>% mutate( D1 = rnorm( n = 1, mean = C1 ) ) 
+    # # new version (2025-02-18c - 9A and 9B with continuous C, correlated confounders): both confounders continuous *and* correlated
+    # du = data.frame( C1 = rnorm( n = .p$N ) ) %>%
+    #   rowwise() %>% mutate( D1 = rnorm( n = 1, mean = C1 ) ) 
     
     
     coef1 = 2
@@ -1980,10 +1995,16 @@ sim_data = function(.p) {
                            prob = expit(-1 + 3*C1) ),
               
               #bm
-              # as in "2025-02-16a - 9A and 9B without A*W interaction on Y" sims
-              # does have A*D interaction on Y, and yet IPMW works for both 9A and 9B
+              # # as in "2025-02-16a - 9A and 9B without A*W interaction on Y" sims
+              # # does have A*D interaction on Y, and yet IPMW works for both 9A and 9B
+              # B1 = rnorm( n = 1,
+              #             mean = coef1*A1 + coef1*C1 + 1*D1 + A1*C1 + A1*D1),
+              
+              # as in "2025-02-18c - 9A and 9B with continuous C, uncorrelated confounders, RD self-censors, interaction"
+              # added C1*D1 interaction on B1
               B1 = rnorm( n = 1,
-                          mean = coef1*A1 + coef1*C1 + 1*D1 + A1*C1 + A1*D1),
+                          mean = coef1*A1 + coef1*C1 + 1*D1 + A1*C1 + A1*D1 + C1*D1),
+              
               
               RC = rbinom( n = 1,
                            size = 1,
@@ -1997,9 +2018,17 @@ sim_data = function(.p) {
                            size = 1,
                            prob = expit(-2 + 2*C1 + 2*D1) ),
               
+              # # original version
+              # RD = rbinom( n = 1,
+              #              size = 1,
+              #              prob = 0.7 )
+              
+              # as in 2025-02-18d - 9A and 9B with continuous C, uncorrelated confounders, RD self-censors
               RD = rbinom( n = 1,
                            size = 1,
-                           prob = 0.7 ) )
+                           prob = expit(2*C1 + 2*D1) )
+      )
+    
     
     
     # monotone missingness: conditionally overwrite indicator
