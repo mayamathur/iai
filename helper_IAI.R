@@ -1893,19 +1893,21 @@ sim_data = function(.p) {
                            size = 1,
                            prob = expit(-2 + 2*C1 + 2*D1) ),
               
-              # # original version
+              # #** original version
               # RD = rbinom( n = 1,
               #              size = 1,
               #              prob = 0.7 )
               
-              # as in 2025-02-18d - 9A and 9B with continuous C, uncorrelated confounders, RD self-censors
+              # # as in 2025-02-18d - 9A and 9B with continuous C, uncorrelated confounders, RD self-censors
+              # RD = rbinom( n = 1,
+              #              size = 1,
+              #              prob = expit(2*C1 + 2*D1) )
+              
+              # as in 2025-04-02a - RD strongly self-censors
               RD = rbinom( n = 1,
                            size = 1,
-                           prob = expit(2*C1 + 2*D1) )
+                           prob = expit(5*D1) )
               )
-    
-    
-    
     
     # monotone missingness: conditionally overwrite indicator
     du$RA[ du$RC == 0 ] = 0
@@ -1951,12 +1953,6 @@ sim_data = function(.p) {
     
     
   }  # end of .p$dag_name == "9A"
-  
-  
-  
-  
-  
-  
   
   
   
@@ -2018,15 +2014,20 @@ sim_data = function(.p) {
                            size = 1,
                            prob = expit(-2 + 2*C1 + 2*D1) ),
               
-              # # original version
+              # # ***original version
               # RD = rbinom( n = 1,
               #              size = 1,
               #              prob = 0.7 )
               
-              # as in 2025-02-18d - 9A and 9B with continuous C, uncorrelated confounders, RD self-censors
+              # # as in 2025-02-18d - 9A and 9B with continuous C, uncorrelated confounders, RD self-censors
+              # RD = rbinom( n = 1,
+              #              size = 1,
+              #              prob = expit(2*C1 + 2*D1) )
+              
+              # as in 2025-04-02a - RD strongly self-censors
               RD = rbinom( n = 1,
                            size = 1,
-                           prob = expit(2*C1 + 2*D1) )
+                           prob = expit(5*D1) )
       )
     
     
@@ -2076,6 +2077,8 @@ sim_data = function(.p) {
   }  # end of .p$dag_name == "9A"
   
   
+  
+
   
   # ~ DAG 9A-bin -------------------------------------------------
   # like 9A, but outcome B is also binary
@@ -2245,6 +2248,8 @@ sim_data = function(.p) {
     }
     
   }  # end of .p$dag_name == "9B-bin"
+  
+  
   
   
   

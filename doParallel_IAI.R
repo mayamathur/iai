@@ -156,8 +156,6 @@ if ( run.local == TRUE ) {
   start.at = 1  # scen name to start at
   scen.params$scen = start.at:( nrow(scen.params) + start.at - 1 )
   
-  sim.reps = 1  # reps to run in this iterate
-  
   # set the number of local cores
   registerDoParallel(cores=8)
   
@@ -176,10 +174,13 @@ if ( run.local == TRUE ) {
 #bm: running 9A-bin for 500 reps with new HC0 even for gold std. 
 # I'm mystified as to why it seems to still be working for this graph, even for EY_prediction. Hmmm...???
 
+
+
 # mimic Sherlock structure
 if (run.local == TRUE) ( scens_to_run = scen.params$scen )
 if (run.local == FALSE) ( scens_to_run = scen )  # from sbatch
 
+if (run.local == TRUE) sim.reps = 500
 #  p = scen.params[ scen.params$scen == scen, names(scen.params) != "scen"]
 
 
@@ -836,10 +837,10 @@ for ( scen in scens_to_run ) {
   
   
   if ( run.local == TRUE ) {
-    # save locally and organize after this scen
-    setwd(data.dir)
-    fwrite( rs,
-            paste( "rs_scen_", scen, ".csv", sep = "" ) )
+    # # save locally and organize after this scen
+    # setwd(data.dir)
+    # fwrite( rs,
+    #         paste( "rs_scen_", scen, ".csv", sep = "" ) )
 
     # also bind into new file
     if ( scen == scens_to_run[1] ) rs_all_scens = rs
@@ -847,6 +848,11 @@ for ( scen in scens_to_run ) {
   }
   
 }  # END FOR-LOOP to run multiple scens locally
+
+
+
+
+
 
 if ( run.local == TRUE ) {
   # View(rs_all_scens)

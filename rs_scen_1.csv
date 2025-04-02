@@ -1,0 +1,4 @@
+job.name,scen.name,rep.name,rep.methods,model,coef_of_interest,N,imp_m,imp_maxit,mice_method,dag_name,method.1,method,overall.error,beta,form_string,gold_form_string,sancheck.prop_complete,sancheck.mean_RB,sancheck.mean_RC
+job_1,1,1,gold ; CC ; IPW-custom,OLS,A,10000,5,100,pmm,9A,gold,gold,object 'p' not found,,B ~ A * C * D,B1 ~ A1 * C1 * D1,0.3318,0.3754,0.8103
+job_1,1,1,gold ; CC ; IPW-custom,OLS,A,10000,5,100,pmm,9A,CC,CC,object 'p' not found,,B ~ A * C * D,B1 ~ A1 * C1 * D1,0.3318,0.3754,0.8103
+job_1,1,1,gold ; CC ; IPW-custom,OLS,A,10000,5,100,pmm,9A,IPW-custom,IPW-custom,object 'p' not found,,B ~ A * C * D,B1 ~ A1 * C1 * D1,0.3318,0.3754,0.8103
