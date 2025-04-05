@@ -1990,7 +1990,6 @@ sim_data = function(.p) {
                            size = 1,
                            prob = expit(-1 + 3*C1) ),
               
-              #bm
               # # as in "2025-02-16a - 9A and 9B without A*W interaction on Y" sims
               # # does have A*D interaction on Y, and yet IPMW works for both 9A and 9B
               # B1 = rnorm( n = 1,
@@ -2248,6 +2247,345 @@ sim_data = function(.p) {
     }
     
   }  # end of .p$dag_name == "9B-bin"
+  
+  
+  
+  
+  
+  
+  
+  # ~ DAG 10A -------------------------------------------------
+  
+  if ( .p$dag_name == "10A" ) {
+    
+    # original version: both confounders binary and uncorrelated
+    du = data.frame( C1 = rbinom( n = .p$N,
+                                  size = 1,
+                                  prob = 0.5 ),
+                     
+                     D1 = rbinom( n = .p$N,
+                                  size = 1,
+                                  prob = 0.5 ) )
+    
+    coef1 = 2
+    coef2 = 1.6
+    
+    du = du %>% rowwise() %>%
+      mutate( A1 = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(-1 + 3*C1) ),
+              
+              B1 = rnorm( n = 1,
+                          mean = coef1*A1 + coef1*C1 + D1 + A1*C1 + A1*D1 + C1*D1),
+              
+              
+              RC = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(2*C1) ),
+              
+              RA = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(-1 + 2*C1) ),
+              
+              RB = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(-2 + 2*C1) ),
+              
+              # as in 2025-04-02a - RD strongly self-censors
+              RD = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(-2 + 4*D1) )
+      )
+    
+    # monotone missingness: conditionally overwrite indicator
+    du$RA[ du$RC == 0 ] = 0
+    du$RB[ du$RA == 0 ] = 0
+    du$RD[ du$RB == 0 ] = 0
+    
+    # sanity check: will last model in PS model depend on Y?
+    #glm(RD ~ A1*C1*B1 + RB, data = du)
+
+    
+    du = du %>% rowwise() %>%
+      mutate( A = ifelse(RA == 1, A1, NA),
+              B = ifelse(RB == 1, B1, NA),
+              C = ifelse(RC == 1, C1, NA),
+              D = ifelse(RD == 1, D1, NA) )
+    
+    
+    colMeans(du)
+    cor(du %>% select(A1, B1, C1, D1, RB, RC, RD) )
+    
+    
+    # make dataset for imputation (standard way: all measured variables)
+    #di = du[ !( is.na(du$A) & is.na(du$B) & is.na(du$C) ), ]  # remove any rows that are all NA
+    di = du %>% select(B, C, A, D)
+    
+    
+    ### For just the intercept of A
+    if ( .p$coef_of_interest == "(Intercept)" ){ 
+      stop("Intercept not implemented for this DAG")
+    }
+    
+    
+    ### For the A-B association
+    if ( .p$coef_of_interest == "A" ){ 
+      
+      # regression strings
+      form_string = "B ~ A * C * D"
+      
+      # gold-standard model uses underlying variables
+      gold_form_string = "B1 ~ A1 * C1 * D1"
+      
+      beta = NA
+      
+      # custom predictor matrix for MICE-ours-pred
+      exclude_from_imp_model = NULL # B is in target law
+    }
+    
+    
+  }  # end of .p$dag_name == "10A"
+  
+  
+  
+  
+  # ~ DAG 11A -------------------------------------------------
+  
+  if ( .p$dag_name == "11A" ) {
+    
+    # original version: both confounders binary and uncorrelated
+    du = data.frame( A1 = rbinom( n = .p$N,
+                                  size = 1,
+                                  prob = 0.5 ),
+                     
+                     # not a confounder
+                     C1 = rbinom( n = .p$N,
+                                  size = 1,
+                                  prob = 0.5 ) )
+    
+    coef1 = 2
+    coef2 = 1.6
+    
+    du = du %>% rowwise() %>%
+      mutate( B1 = rnorm( n = 1,
+                          mean = coef1*A1 + coef1*C1 + A1*C1),
+              
+              RC = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(-2 + 4*C1) ),
+              
+              RB = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(-1 + 4*C1) ),
+              
+              RA = 1)
+    
+    # monotone missingness: conditionally overwrite indicator
+    du$RC[ du$RB == 0 ] = 0
+    
+    # sanity check: will last model in PS model depend on Y?
+    # glm(RC ~ B1, data = du %>% filter(RB == 1))
+
+    #bm: this one definitely won't work bc RY d-separates RD from Y!
+    # come up with a similarly simple DAG where it will break
+    
+    du = du %>% rowwise() %>%
+      mutate( A = ifelse(RA == 1, A1, NA),
+              B = ifelse(RB == 1, B1, NA),
+              C = ifelse(RC == 1, C1, NA) )
+    
+    
+    colMeans(du)
+    cor(du %>% select(A1, B1, C1, RB, RC) )
+    
+    
+    # make dataset for imputation (standard way: all measured variables)
+    #di = du[ !( is.na(du$A) & is.na(du$B) & is.na(du$C) ), ]  # remove any rows that are all NA
+    di = du %>% select(B, A, C)
+    
+    
+    ### For just the intercept of A
+    if ( .p$coef_of_interest == "(Intercept)" ){ 
+      stop("Intercept not implemented for this DAG")
+    }
+    
+    
+    ### For the A-B association
+    if ( .p$coef_of_interest == "A" ){ 
+      
+      # regression strings
+      form_string = "B ~ A * C"
+      
+      # gold-standard model uses underlying variables
+      gold_form_string = "B1 ~ A1 * C1"
+      #bm
+      
+      beta = NA
+      
+      # custom predictor matrix for MICE-ours-pred
+      exclude_from_imp_model = NULL # B is in target law
+    }
+    
+    
+  }  # end of .p$dag_name == "11A"
+  
+  
+  # ~ DAG 12A -----------------------------
+  # same as above, but has C1 -> Y1 edge
+  
+  if ( .p$dag_name == "12A" ) {
+    
+    du = data.frame( C1 = rbinom( n = .p$N,
+                                  size = 1, 
+                                  prob = 0.5 ),
+                     
+                     # called C^1_2 in IAI log; this is also in conditioning set
+                     D1 = rbinom( n = .p$N,
+                                  size = 1, 
+                                  prob = 0.5 ) ) 
+    
+    
+    
+    du = du %>% rowwise() %>%
+      mutate( A1 = rbinom( n = 1,
+                           size = 1,
+                           prob = 0.5),
+                           #prob = expit(-1 + 3*C1) ),
+              
+              # add edge from C1 -> B1
+              B1 = rnorm( n = 1,
+                          mean = 2*A1 + 2*D1 + A1*D1),
+              
+              RA = rbinom( n = 1,
+                           size = 1,
+                           prob = 0.75 ),
+              
+              RB = rbinom( n = 1,
+                           size = 1,
+                           prob = 0.75 ),
+              
+              RD = RB,
+              
+              RC = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(0 + 3*D1) ) )
+    
+    
+    # monotone missingness: conditionally overwrite indicator
+    du$RB[ du$RA == 0 ] = 0
+    du$RD = du$RB
+    du$RC[ du$RD == 0 ] = 0
+    
+    du = du %>% rowwise() %>%
+      mutate( A = ifelse(RA == 1, A1, NA),
+              B = ifelse(RB == 1, B1, NA),
+              C = ifelse(RC == 1, C1, NA),
+              D = ifelse(RD == 1, D1, NA) )
+    
+    #missmap( du %>% select(A, B, C, D) )
+    colMeans(du)
+    cor(du %>% select(A1, B1, C1, D1, RA, RB, RC, RD) )
+    #cor(du$B1, du$RC)  # this is the key path that must be strong enough to elicit bias
+    
+    
+    # make dataset for imputation (standard way: all measured variables)
+    #di = du[ !( is.na(du$A) & is.na(du$B) & is.na(du$C) ), ]  # remove any rows that are all NA
+    di = du %>% select(A, B, C, D)
+    
+    
+    ### For just the intercept of A
+    if ( .p$coef_of_interest == "(Intercept)" ){ 
+      stop("Intercept not implemented for this DAG")
+    }
+    
+    
+    ### For the A-B association
+    if ( .p$coef_of_interest == "A" ){ 
+      
+      # regression strings
+      form_string = "B ~ A * C * D"
+      
+      # gold-standard model uses underlying variables
+      gold_form_string = "B1 ~ A1 * C1 * D1"
+      
+      beta = 2
+      
+      # custom predictor matrix for MICE-ours-pred
+      exclude_from_imp_model = NULL # B is in target law
+    }
+    
+  }  # end of .p$dag_name == "12A"
+  
+  
+  
+  # ~ DAG 13A -----------------------------
+  
+  if ( .p$dag_name == "13A" ) {
+    
+    # C1 is unrelated to everything; only here to avoid having all-NA rows
+    du = data.frame( C1 = rbinom( n = .p$N,
+                                   size = 1, 
+                                   prob = 0.5 ),
+                     
+                     A1 = rbinom( n = .p$N,
+                                  size = 1, 
+                                  prob = 0.5 ) ) 
+    
+    du = du %>% rowwise() %>%
+      mutate( B1 = rnorm( n = 1,
+                          mean = 2*A1),
+              
+              RA = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(-1 + 3*A1) ),
+              
+              RB = rbinom( n = 1,
+                           size = 1,
+                           prob = 0.75 ),
+              
+              RC = 1)
+    
+    
+    du = du %>% rowwise() %>%
+      mutate( A = ifelse(RA == 1, A1, NA),
+              B = ifelse(RB == 1, B1, NA),
+              C = ifelse(RC == 1, C1, NA) )
+    
+    
+    # monotone missingness: conditionally overwrite indicator
+    du$RA[ du$RB == 0 ] = 0
+    
+    colMeans(du)
+    cor(du %>% select(A1, B1, RA, RB) )
+    
+    
+    # make dataset for imputation (standard way: all measured variables)
+    #di = du[ !( is.na(du$A) & is.na(du$B) & is.na(du$C) ), ]  # remove any rows that are all NA
+    di = du %>% select(B, C, A)
+    
+    
+    ### For just the intercept of A
+    if ( .p$coef_of_interest == "(Intercept)" ){ 
+      stop("Intercept not implemented for this DAG")
+    }
+    
+    
+    ### For the A-B association
+    if ( .p$coef_of_interest == "A" ){ 
+      
+      # regression strings
+      form_string = "B ~ A"
+      
+      # gold-standard model uses underlying variables
+      gold_form_string = "B1 ~ A1"
+      
+      beta = 2
+      
+      # custom predictor matrix for MICE-ours-pred
+      exclude_from_imp_model = NULL # B is in target law
+    }
+    
+  }  # end of .p$dag_name == "13A"
   
   
   
@@ -2711,7 +3049,7 @@ fit_regression = function(form_string,
       phat_R2 = predict(newdata = dc, object = m_R2, type = "response")
       phat_R1 = (1 - phat_R4) * (1 - phat_R3) * (1 - phat_R2)
       
-    } else if ( p$dag_name %in% c("9A", "9A-bin" ) ) {
+    } else if ( p$dag_name %in% c("9A", "9A-bin", "10A" ) ) {
       
       dat = du
       
@@ -2744,9 +3082,7 @@ fit_regression = function(form_string,
       phat_R1 = (1 - phat_R5) * (1 - phat_R4) * (1 - phat_R3) * (1 - phat_R2)
       
       
-    } else if ( p$dag_name %in% c("9B", "9B-bin") ) {
-      
-      #bm: run this one!
+    } else if ( p$dag_name %in% c("9B", "9B-bin", "10B") ) {
       
       dat = du
       
@@ -2776,6 +3112,88 @@ fit_regression = function(form_string,
       phat_R3 = predict(newdata = dc, object = m_R3, type = "response")
       phat_R2 = predict(newdata = dc, object = m_R2, type = "response")
       phat_R1 = (1 - phat_R5) * (1 - phat_R4) * (1 - phat_R3) * (1 - phat_R2)
+      
+    } else if ( p$dag_name %in% c("11A" ) ) {
+      
+      dat = du
+      
+      # make pattern indicator, M
+      dat$M = NA
+      dat$M[ du$RC == 0 & du$RB == 0 ] = 3
+      dat$M[ du$RC == 0 & du$RB == 1 ] = 2
+      dat$M[ du$RC == 1 & du$RB == 1 ] = 1
+      if ( any(is.na(dat$M)) ) stop("Something is wrong with pattern coding")
+      
+      
+      # complete cases for analysis model 
+      dc = dat %>% filter( !is.na(B) & !is.na(A) & !is.na(C) )
+      
+      # probability of each pattern under faulty MAR assumption
+      ( m_R3 = glm( I(M == 3) ~ 1, data = dat ) )
+      ( m_R2 = glm( I(M == 2) ~ B, data = dat %>% filter(M <= 2) ) )
+      
+      # probability of R=1 (only need to predict this for complete cases, since they're the only ones to 
+      #  be analyzed)
+      phat_R3 = predict(newdata = dc, object = m_R3, type = "response")
+      phat_R2 = predict(newdata = dc, object = m_R2, type = "response")
+      phat_R1 = (1 - phat_R3) * (1 - phat_R2)
+      
+      
+    } else if ( p$dag_name %in% c("12A" ) ) {
+      
+      dat = du
+      
+      # make pattern indicator, M
+      dat$M = NA
+      dat$M[ du$RA == 0 & du$RB == 0 & du$RD == 0 & du$RC == 0 ] = 4
+      dat$M[ du$RA == 1 & du$RB == 0 & du$RD == 0 & du$RC == 0 ] = 3
+      dat$M[ du$RA == 1 & du$RB == 1 & du$RD == 1 & du$RC == 0 ] = 2
+      dat$M[ du$RA == 1 & du$RB == 1 & du$RD == 1 & du$RC == 1 ] = 1
+
+      if ( any(is.na(dat$M)) ) stop("Something is wrong with pattern coding")
+      
+      
+      # complete cases for analysis model 
+      dc = dat %>% filter( !is.na(B) & !is.na(A) & !is.na(C) & !is.na(D) )
+      
+      # probability of each pattern under faulty MAR assumption
+      ( m_R4 = glm( I(M == 4) ~ 1, data = dat ) )
+      ( m_R3 = glm( I(M == 3) ~ A, data = dat %>% filter(M <= 3) ) )
+      ( m_R2 = glm( I(M == 2) ~ A * B * D, data = dat %>% filter(M <= 2) ) )
+      
+      # probability of R=1 (only need to predict this for complete cases, since they're the only ones to 
+      #  be analyzed)
+      phat_R4 = predict(newdata = dc, object = m_R4, type = "response")
+      phat_R3 = predict(newdata = dc, object = m_R3, type = "response")
+      phat_R2 = predict(newdata = dc, object = m_R2, type = "response")
+      phat_R1 = (1 - phat_R4) * (1 - phat_R3) * (1 - phat_R2)
+      
+      
+    } else if ( p$dag_name %in% c("13A" ) ) {
+      
+      dat = du
+      
+      # make pattern indicator, M
+      dat$M = NA
+      dat$M[ du$RA == 0 & du$RB == 0 ] = 3
+      dat$M[ du$RA == 0 & du$RB == 1 ] = 2
+      dat$M[ du$RA == 1 & du$RB == 1 ] = 1
+      
+      if ( any(is.na(dat$M)) ) stop("Something is wrong with pattern coding")
+      
+      
+      # complete cases for analysis model 
+      dc = dat %>% filter( !is.na(B) & !is.na(A) & !is.na(C) )
+      
+      # probability of each pattern under faulty MAR assumption
+      ( m_R3 = glm( I(M == 3) ~ 1, data = dat, family = binomial(link = "logit") ) )
+      ( m_R2 = glm( I(M == 2) ~ B, data = dat %>% filter(M <= 2), family = binomial(link = "logit") ) )
+      
+      # probability of R=1 (only need to predict this for complete cases, since they're the only ones to 
+      #  be analyzed)
+      phat_R3 = predict(newdata = dc, object = m_R3, type = "response")
+      phat_R2 = predict(newdata = dc, object = m_R2, type = "response")
+      phat_R1 = (1 - phat_R3) * (1 - phat_R2)
       
     } else {
       stop("IPW-custom not implemented for that DAG")

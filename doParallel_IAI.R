@@ -129,7 +129,7 @@ if ( run.local == TRUE ) {
   scen.params = tidyr::expand_grid(
     
     #rep.methods = "gold ; CC ; MICE-std ; Am-std ; IPW-custom ; adj-form-4-cate", 
-    rep.methods = "gold ; CC ; IPW-custom", 
+    rep.methods = "gold ; CC ; MICE-std ; Am-std ; IPW-custom", 
     
     model = "OLS", 
     coef_of_interest = "A",
@@ -146,7 +146,7 @@ if ( run.local == TRUE ) {
     # imp_maxit = 5,
     # N = c(100),
     
-    dag_name = c("9A") )
+    dag_name = c("13A") )
   
   
   # # remove combos that aren't implemented
@@ -171,16 +171,12 @@ if ( run.local == TRUE ) {
 
 # RUN SIMULATION ------------------------------
 
-#bm: running 9A-bin for 500 reps with new HC0 even for gold std. 
-# I'm mystified as to why it seems to still be working for this graph, even for EY_prediction. Hmmm...???
-
-
 
 # mimic Sherlock structure
 if (run.local == TRUE) ( scens_to_run = scen.params$scen )
 if (run.local == FALSE) ( scens_to_run = scen )  # from sbatch
 
-if (run.local == TRUE) sim.reps = 500
+if (run.local == TRUE) sim.reps = 200
 #  p = scen.params[ scen.params$scen == scen, names(scen.params) != "scen"]
 
 
