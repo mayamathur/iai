@@ -85,6 +85,7 @@ library(mice)
 library(Hmisc)
 
 
+#bm: something is wrong with the nlm optimizer. it's heavily dependent on which init values I provide.
 
 # Function to implement IPMW for any dataset with variables A1, B1, C1, D1 (or subset)
 # Requires specifying:
@@ -92,7 +93,7 @@ library(Hmisc)
 # - outcome: the outcome variable name (e.g., "D1")
 # - exposure: the exposure variable name (e.g., "A1")
 # - adjustment: vector of variable names to adjust for in outcome model (e.g., c("B1", "C1"))
-ipmw_analysis <- function(data, outcome, exposure, adjustment = NULL) {
+ipmw_analysis <- function(data, outcome, exposure, adjustment = NULL, init_value = 0) {
   
   # Create a copy of the original data to work with
   original_data <- data
@@ -103,6 +104,8 @@ ipmw_analysis <- function(data, outcome, exposure, adjustment = NULL) {
   # Extract only needed variables
   working_data <- original_data %>%
     select(all_of(analysis_vars))
+  
+  working_data$id = 1:nrow(working_data)
   
   # Determine missingness patterns
   message("Analyzing missingness patterns...")
@@ -179,7 +182,6 @@ ipmw_analysis <- function(data, outcome, exposure, adjustment = NULL) {
     outcome_formula <- as.formula(paste(outcome, "~", exposure))
   }
   
-
   
   # ~ UMLE for IPMW if there are at least 2 patterns
   if(num_patterns > 1) {
@@ -248,15 +250,20 @@ ipmw_analysis <- function(data, outcome, exposure, adjustment = NULL) {
     }
     
     # Initial values: all zeros
-    init <- rep(0, total_params)
+    #init <- rep(0, total_params)
+    init <- rep(init_value, total_params)
     
-    # Optimize to find UMLE estimates
+    # *** Optimize to find UMLE estimates
     umlefit <- tryCatch({
       nlm(umleLogL, init, data = working_data)
     }, error = function(e) {
       message("Error in UMLE optimization: ", e$message)
       return(NULL)
     })
+    
+    # c.f. neglogL for initial values:
+    #init = c(-2, 0, -1, 0, -1)
+    umleLogL(init, working_data)
     
     if(!is.null(umlefit)) {
       gumle <- umlefit$estimate
@@ -303,9 +310,13 @@ ipmw_analysis <- function(data, outcome, exposure, adjustment = NULL) {
       message("IPMW summary:")
       print(summary(cc_umle$ipmw))
       
-      #**** Fit weighted outcome model with adjustment variables and interactions
+      # ***Fit weighted outcome model using geeglm
       uoutmod <- tryCatch({
-        lm(outcome_formula, data = cc_umle, weights = cc_umle$ipmw)
+        geeglm(outcome_formula, 
+               data = cc_umle, 
+               weights = cc_umle$ipmw, 
+               id = cc_umle$id, 
+               corstr = "independence")
       }, error = function(e) {
         message("Error in UMLE outcome model: ", e$message)
         return(NULL)
@@ -313,10 +324,11 @@ ipmw_analysis <- function(data, outcome, exposure, adjustment = NULL) {
       
       # ***added
       # Calculate simple treatment effect and return results
+      # Calculate treatment effect and return results
       if(!is.null(uoutmod)) {
-        # Just extract the coefficient for the exposure variable
+        # Extract the coefficient for the exposure variable
         treatment_effect <- coef(uoutmod)[[exposure]]
-        se <- summary(uoutmod)$coefficients[exposure, 2]
+        se <- coef(summary(uoutmod))[exposure, 2]
         
         results_umle <- tibble(
           estimate = treatment_effect,
@@ -328,12 +340,12 @@ ipmw_analysis <- function(data, outcome, exposure, adjustment = NULL) {
         message("UMLE-IPMW analysis results:")
         print(results_umle)
         
-        # Return results and model objects
+        # Return results
         return(list(
-          #cc_results = if(exists("results_cc")) results_cc else NULL,
+          cc_results = if(exists("results_cc")) results_cc else NULL,
           ipmw_results = results_umle,
           ipmw_model = uoutmod,
-          #cc_model = cc_out,
+          cc_model = cc_out,
           weighted_data = cc_umle,
           missingness_patterns = table(working_data$M),
           umle_parameters = gumle
@@ -348,16 +360,6 @@ ipmw_analysis <- function(data, outcome, exposure, adjustment = NULL) {
   
 }
   
-  
-# Example usage:
-# results <- ipmw_analysis(
-#   data = my_data,
-#   outcome = "D1",
-#   exposure = "A1",
-#   adjustment = c("B1", "C1")
-# )           
-                          
-
 res = ipmw_analysis(
    data = du,
    outcome = "B",
@@ -367,186 +369,35 @@ res = ipmw_analysis(
 res$ipmw_results
 
 
-# CHATGPT  -------------------------------------------------
+##### sanity checks:
 
-data = du
-
-# add pattern indicator
-# Generate missingness pattern variable M (1 = complete case)
-mat <- as.matrix(!is.na(data[, vars]))
-pattern_strings <- apply(mat, 1, paste0, collapse = "")
-unique_patterns <- unique(pattern_strings)
-mapping <- match(pattern_strings, unique_patterns)
-
-complete_pattern <- paste0(rep("1", length(vars)), collapse = "")
-complete_id <- which(unique_patterns == complete_pattern)
-if (length(complete_id) > 0 && complete_id != 1) {
-  mapping[mapping == 1] <- -1
-  mapping[mapping == complete_id] <- 1
-  mapping[mapping == -1] <- complete_id
-}
-data$M <- mapping
-
-# Relabel to ensure complete cases are M = 1
-pattern_matrix <- unique(apply(!is.na(data[, vars]), 1, function(r) paste0(as.integer(r), collapse = "")))
-complete_pattern <- paste0(rep(1, length(vars)), collapse = "")
-complete_id <- match(complete_pattern, pattern_matrix)
-M_map <- seq_along(pattern_matrix)
-M_map[complete_id] <- 1
-if (complete_id != 1) M_map[1] <- complete_id
-data$M <- M_map[data$M]
+# compare to existing results for manually implemented IPMW for monotone MAR (should agree)
+sim_obj = sim_data(.p = data.frame(N=10000,
+                                   coef_of_interest = "A",
+                                   dag_name = "6A" ) )
 
 
-umleLogL <- function(g, data) {
-  vars <- c("A", "B", "C", "D")
+du = sim_obj$du
 
-  Mvals <- sort(unique(data$M))
-  Mvals <- Mvals[Mvals != 1]
-  num_patterns <- length(Mvals)
-  
-  ilogL <- rep(NA, nrow(data))
-  sump_vec <- rep(0, nrow(data))
-  offset <- 0
-  
-  for (j in seq_along(Mvals)) {
-    m <- Mvals[j]
-    rows_m <- which(data$M == m)
-    obs_vars <- names(which(colMeans(!is.na(data[rows_m, vars])) == 1))
-    
-    if (length(obs_vars) == 0) {
-      # Intercept-only model
-      eta <- rep(g[offset + 1], length(rows_m))
-      offset <- offset + 1
-    } else {
-      rhs <- paste(obs_vars, collapse = "*")
-      fml <- as.formula(paste("~", rhs))
-      subdata <- data[rows_m, obs_vars, drop = FALSE]
-      subdata[is.na(subdata)] <- 0  # safe fallback
-      X <- model.matrix(fml, data = subdata)
-      k <- ncol(X)
-      coefs <- g[(offset + 1):(offset + k)]
-      offset <- offset + k
-      eta <- X %*% matrix(coefs, ncol = 1)
-    }
-    
-    probs <- plogis(eta)
-    sump_vec[rows_m] <- sump_vec[rows_m] + probs
-    ilogL[rows_m] <- log(probs)
-  }
-  
-  # Clamp sump to ensure valid log(1 - sump)
-  sump_vec <- pmin(sump_vec, 1 - 1e-8)
-  ilogL[data$M == 1] <- log(1 - sump_vec[data$M == 1])
-  
-  # Return negative log-likelihood
-  return(-sum(ilogL, na.rm = TRUE))
-}
+# with init values of 0
+# res = ipmw_analysis(
+#   data = du,
+#   outcome = "B",
+#   exposure = "A",
+#   adjustment = c("C") )
+# 
+# res$ipmw_results
+# res$umle_parameters
 
+res = ipmw_analysis(
+  data = du,
+  outcome = "B",
+  exposure = "A",
+  adjustment = c("C"),
+  init_value = -2)
 
-# Minimize negative log-likelihood
-init <- c(0,0,0,0) #starting values
-umlefit <- nlm(umleLogL, init, data=data) # need to use data instead of du bc needs to have M added
-( gumle <- umlefit$est ) #umle gamma estimates
+res$ipmw_results
+res$umle_parameters
 
+# with these init values, it comes up with more reasonable umle_parameters, but still overestimates the CATE. hmmmm.
 
-# Obtain marginal pr R=1
-( mnum <- mean(withmiss$R1) )
-
-# Obtain probability of complete case
-cc_umle <- withmiss %>%
-  filter(R==1) %>%
-  mutate(p2 = plogis(gumle[1] + gumle[2]*z + gumle[3]*x             ),
-         p3 = plogis(gumle[4]              + gumle[5]*x             ),
-         p4 = plogis(gumle[6]              + gumle[7]*x + gumle[8]*y),
-         p1 = 1 - p2 - p3 - p4,
-         ipmw = mnum/p1)
-
-summary(cc_umle$ipmw)
-sum(cc_umle$ipmw)
-
-
-
-
-
-# PART 2: in progress
-
-
-# Compute marginal probability of complete case
-mnum <- mean(data$M == 1)
-
-# Get all non-complete missingness patterns
-Mvals <- sort(unique(data$M))
-Mvals <- Mvals[Mvals != 1]
-
-# Restrict to complete cases
-cc_rows <- which(data$M == 1)
-cc_data <- data[cc_rows, ]
-n_cc <- nrow(cc_data)
-
-# Initialize matrix of pattern probabilities
-pattern_probs <- matrix(0, nrow = n_cc, ncol = length(Mvals))
-offset <- 0
-
-for (j in seq_along(Mvals)) {
-  m <- Mvals[j]
-  obs_vars <- names(which(colMeans(!is.na(data[data$M == m, vars])) == 1))
-  
-  if (length(obs_vars) == 0) {
-    eta <- rep(gumle[offset + 1], n_cc)
-    offset <- offset + 1
-  } else {
-    rhs <- paste(obs_vars, collapse = "*")
-    fml <- as.formula(paste("~", rhs))
-    subdata <- cc_data[, obs_vars, drop = FALSE]
-    subdata[is.na(subdata)] <- 0
-    X <- model.matrix(fml, data = subdata)
-    k <- ncol(X)
-    coefs <- gumle[(offset + 1):(offset + k)]
-    offset <- offset + k
-    eta <- X %*% matrix(coefs, ncol = 1)
-  }
-  
-  pattern_probs[, j] <- plogis(eta)
-}
-
-# Compute p1 and IPMW for complete cases only
-sump <- rowSums(pattern_probs)
-sump <- pmin(sump, 1 - 1e-8)
-p1 <- 1 - sump
-ipmw <- mnum / p1
-
-# Attach IPMW to complete-case data frame
-cc_umle = cc_data
-cc_umle$ipmw = ipmw
-ipmw = ipmw
-
-summary(cc_umle$ipmw)
-sum(cc_umle$ipmw)
-
-#bm: issue now is that every entry of sump and hence ipmw is NA! 
-# you got this!! 
-
-
-
-
-# NOT UPDATED YET
-# Fit weighted propensity score model
-upsmodel <- glm(x ~ z, data=cc_umle, family='binomial', weights = cc_umle$ipmw)
-
-# Create iptw and combine weights
-uwithweight <- cc_umle %>%
-  mutate(pscore = predict(upsmodel, ., type="response"),
-         iptw = x/pscore + (1-x)/(1-pscore),
-         ipw = ipmw*iptw)
-
-
-# Fit weighted linear-binomial outcome model
-uoutmod <- geeglm(y ~ x, family=binomial("identity"), data=uwithweight, 
-                  weights=uwithweight$ipw, id=id, corstr="independence")
-
-# Results
-results_umle <- tibble(rd = coef(uoutmod)[[2]],
-                       se = coef(summary(uoutmod))[[2,2]],
-                       lcl = tidy(uoutmod, conf.int=T, exp = F)[[2,"conf.low"]],
-                       ucl = tidy(uoutmod, conf.int=T, exp = F)[[2,"conf.high"]])
-results_umle
