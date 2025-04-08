@@ -129,7 +129,7 @@ if ( run.local == TRUE ) {
   scen.params = tidyr::expand_grid(
     
     #rep.methods = "gold ; CC ; MICE-std ; Am-std ; IPW-custom ; adj-form-4-cate", 
-    rep.methods = "gold ; CC ; MICE-std ; Am-std ; IPW-custom", 
+    rep.methods = "gold ; CC ; MICE-std ; Am-std", 
     
     model = "OLS", 
     coef_of_interest = "A",
@@ -146,7 +146,7 @@ if ( run.local == TRUE ) {
     # imp_maxit = 5,
     # N = c(100),
     
-    dag_name = c("13A") )
+    dag_name = c("12B") )
   
   
   # # remove combos that aren't implemented
@@ -176,7 +176,7 @@ if ( run.local == TRUE ) {
 if (run.local == TRUE) ( scens_to_run = scen.params$scen )
 if (run.local == FALSE) ( scens_to_run = scen )  # from sbatch
 
-if (run.local == TRUE) sim.reps = 200
+if (run.local == TRUE) sim.reps = 1
 #  p = scen.params[ scen.params$scen == scen, names(scen.params) != "scen"]
 
 

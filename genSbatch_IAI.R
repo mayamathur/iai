@@ -35,7 +35,7 @@ lapply( allPackages,
 scen.params = tidyr::expand_grid(
   
   #rep.methods = "gold ; CC ; MICE-std ; Am-std ; IPW-custom ; adj-form-4-cate",
-  rep.methods = "gold ; CC ; MICE-std ; Am-std ; IPW-custom",
+  rep.methods = "gold ; CC ; MICE-std ; Am-std",
   
   model = "OLS",
   coef_of_interest = "A",
@@ -53,7 +53,7 @@ scen.params = tidyr::expand_grid(
   # N = c(100),
   
   #dag_name = c( "1B", "1D", "1G", "1H" ),
-  dag_name = c( "12A", "13A" )
+  dag_name = c( "12A", "12B", "12C" )
 )
 
 # # remove combos that aren't implemented
@@ -123,7 +123,7 @@ n.files
 # run them all
 path = "/home/groups/manishad/IAI"
 setwd( paste(path, "/sbatch_files", sep="") )
-for (i in 51:100) {
+for (i in 1:150) {
   system( paste("sbatch -p qsu,owners,normal /home/groups/manishad/IAI/sbatch_files/", i, ".sbatch", sep="") )
 }
 

@@ -8,9 +8,33 @@ sim_obj = sim_data(.p = data.frame(N=1000,
 du = sim_obj$du
 
 
+# PACKAGE  -------------------------------------------------
+
+library(NMMIPW)
+
+nmm_fit(data = du, O = cbind(du$RA, du$RB, du$RC), formula = B ~ A * C, func = lm)
+
+
+debug(nmm_fit)
+undebug(nmm_fit)
+
+
+# their example
+n = 100
+X = rnorm(n, 0, 1)
+Y = rnorm(n, 1 * X, 1)
+O1 = rbinom(n, 1, 1/(1 + exp(-1 - 0.5 * X)))
+O2 = rbinom(n, 1, 1/(1 + exp(+0.5 + 1 * Y)))
+O = cbind(O1, O2)
+df <- data.frame(Y = Y, X = X)
+fit <- nmm_fit(data = df, O = O, formula = Y ~ X, funct = lm)
+summary(fit)
+
+
+
 # CLAUDE  -------------------------------------------------
 
-
+# problem was that optimizers aren't finding the min -- not sure why
 
 ###########################################
 #
