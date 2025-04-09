@@ -129,7 +129,7 @@ if ( run.local == TRUE ) {
   scen.params = tidyr::expand_grid(
     
     #rep.methods = "gold ; CC ; MICE-std ; Am-std ; IPW-custom ; adj-form-4-cate", 
-    rep.methods = "gold ; CC ; MICE-std ; Am-std", 
+    rep.methods = "gold ; CC ; MICE-std ; Am-std ; IPW-nm", 
     
     model = "OLS", 
     coef_of_interest = "A",
@@ -146,7 +146,7 @@ if ( run.local == TRUE ) {
     # imp_maxit = 5,
     # N = c(100),
     
-    dag_name = c("12B") )
+    dag_name = c("3D-bin") )
   
   
   # # remove combos that aren't implemented
@@ -557,8 +557,11 @@ for ( scen in scens_to_run ) {
                                       m_man
                                       
                                     }
-                                    else {
-                                      stop("Custom method not implemented for that DAG")
+                                    else if (p$dag_name == "3D-bin") {
+                                      
+                                      #bm
+                                    
+                                    } else stop("Custom method not implemented for that DAG")
                                     }
                                     
                                   },
@@ -582,6 +585,19 @@ for ( scen in scens_to_run ) {
       
       if (run.local == TRUE) srr(rep.res)
       
+    
+      # IPW-nm ----
+      # Sun & ETT
+    if ( "IPW-nmm" %in% all.methods ) {
+      rep.res = run_method_safe(method.label = c("IPW-nmm"),
+                                
+                                method.fn = function(x) ross_ipmw_dag_3D(data = du),
+                                .rep.res = rep.res )
+    }
+    
+    if (run.local == TRUE) srr(rep.res)
+      
+    
       # ~~ G-formula ----
       if ( "g-form" %in% all.methods ) {
         rep.res = run_method_safe(method.label = c("g-form"),

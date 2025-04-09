@@ -646,7 +646,7 @@ sim_data = function(.p) {
     
     coef1 = 2
     coef2 = 1.6
-
+    
     
     du = du %>% rowwise() %>%
       mutate( A1 = rbinom( n = 1,
@@ -711,6 +711,80 @@ sim_data = function(.p) {
     
   }  # end of .p$dag_name == "3C-bin-mono"
   
+  
+  if ( .p$dag_name == "3D-bin" ) {
+    
+    # designed for using Ross' rjags code, so A needs to be complete
+    # has A*C interaction
+    du = data.frame( C1 = rbinom( n = .p$N,
+                                  size = 1, 
+                                  prob = 0.5 ) ) 
+    
+    
+    coef1 = 2
+    coef2 = 1.6
+    
+    du = du %>% rowwise() %>%
+      mutate( A1 = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(-1 + 3*C1) ),
+              
+              # add edge from C1 -> B1
+              B1 = rnorm( n = 1,
+                          mean = coef1*A1 + coef1*C1),
+              
+              RA = 1,
+              
+              # RA = rbinom( n = 1,
+              #              size = 1,
+              #              prob = expit(-1 + 3*C1) ),
+              
+              RB = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(-1 + 3*C1) ),
+              
+              RC = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(-1 + 3*C1) ) )
+    
+    
+    du = du %>% rowwise() %>%
+      mutate( A = ifelse(RA == 1, A1, NA),
+              B = ifelse(RB == 1, B1, NA),
+              C = ifelse(RC == 1, C1, NA) )
+    
+    
+    colMeans(du)
+    cor(du %>% select( A1, B1, C1, RB, RC) )
+    
+    
+    # make dataset for imputation (standard way: all measured variables)
+    #di = du[ !( is.na(du$A) & is.na(du$B) & is.na(du$C) ), ]  # remove any rows that are all NA
+    di = du %>% select(B, C, A)
+    
+    
+    ### For just the intercept of A
+    if ( .p$coef_of_interest == "(Intercept)" ){ 
+      stop("Intercept not implemented for this DAG")
+    }
+    
+    
+    ### For the A-B association
+    if ( .p$coef_of_interest == "A" ){ 
+      
+      # regression strings
+      form_string = "B ~ A * C"
+      
+      # gold-standard model uses underlying variables
+      gold_form_string = "B1 ~ A1 * C1"
+      
+      beta = coef1
+      
+      # custom predictor matrix for MICE-ours-pred
+      exclude_from_imp_model = NULL # B is in target law
+    }
+    
+  }  # end of .p$dag_name == "3D-bin"
   
   # ~ DAG 4A -----------------------------
   
@@ -1844,7 +1918,7 @@ sim_data = function(.p) {
     du = data.frame( C1 = rbinom( n = .p$N,
                                   size = 1,
                                   prob = 0.5 ),
-
+                     
                      D1 = rbinom( n = .p$N,
                                   size = 1,
                                   prob = 0.5 ) )
@@ -1860,7 +1934,7 @@ sim_data = function(.p) {
     # du = data.frame( C1 = rnorm( n = .p$N ) ) %>%
     #   rowwise() %>% mutate( D1 = rnorm( n = 1, mean = C1 ) ) 
     
-  
+    
     coef1 = 2
     coef2 = 1.6
     
@@ -1869,7 +1943,7 @@ sim_data = function(.p) {
                            size = 1,
                            prob = expit(-1 + 3*C1) ),
               
-              #bm
+              
               # # as in "2025-02-16a - 9A and 9B without A*W interaction on Y" sims
               # # does have A*D interaction on Y, and yet IPMW works for both 9A and 9B
               # B1 = rnorm( n = 1,
@@ -1907,7 +1981,7 @@ sim_data = function(.p) {
               RD = rbinom( n = 1,
                            size = 1,
                            prob = expit(5*D1) )
-              )
+      )
     
     # monotone missingness: conditionally overwrite indicator
     du$RA[ du$RC == 0 ] = 0
@@ -2077,7 +2151,7 @@ sim_data = function(.p) {
   
   
   
-
+  
   
   # ~ DAG 9A-bin -------------------------------------------------
   # like 9A, but outcome B is also binary
@@ -2304,7 +2378,7 @@ sim_data = function(.p) {
     
     # sanity check: will last model in PS model depend on Y?
     #glm(RD ~ A1*C1*B1 + RB, data = du)
-
+    
     
     du = du %>% rowwise() %>%
       mutate( A = ifelse(RA == 1, A1, NA),
@@ -2385,8 +2459,8 @@ sim_data = function(.p) {
     
     # sanity check: will last model in PS model depend on Y?
     # glm(RC ~ B1, data = du %>% filter(RB == 1))
-
-    #bm: this one definitely won't work bc RY d-separates RD from Y!
+    
+    #this one definitely won't work bc RY d-separates RD from Y!
     # come up with a similarly simple DAG where it will break
     
     du = du %>% rowwise() %>%
@@ -2418,7 +2492,6 @@ sim_data = function(.p) {
       
       # gold-standard model uses underlying variables
       gold_form_string = "B1 ~ A1 * C1"
-      #bm
       
       beta = NA
       
@@ -2453,7 +2526,7 @@ sim_data = function(.p) {
       mutate( A1 = rbinom( n = 1,
                            size = 1,
                            prob = 0.5),
-                           #prob = expit(-1 + 3*C1) ),
+              #prob = expit(-1 + 3*C1) ),
               
               # add edge from C1 -> B1
               B1 = rnorm( n = 1,
@@ -2729,8 +2802,8 @@ sim_data = function(.p) {
     
     # C1 is unrelated to everything; only here to avoid having all-NA rows
     du = data.frame( C1 = rbinom( n = .p$N,
-                                   size = 1, 
-                                   prob = 0.5 ),
+                                  size = 1, 
+                                  prob = 0.5 ),
                      
                      A1 = rbinom( n = .p$N,
                                   size = 1, 
@@ -2853,7 +2926,7 @@ fit_regression = function(form_string,
                           imps) {
   
   #browser()
-
+  
   
   # # test only
   # form_string = CC_adj_form_string
@@ -2915,7 +2988,7 @@ fit_regression = function(form_string,
     
     
     return( list( stats = data.frame( bhat = as.numeric( bhats[coef_of_interest] ),
-                                    
+                                      
                                       bhat_lo = mod_hc0$lo,
                                       bhat_hi = mod_hc0$hi,
                                       bhat_width = mod_hc0$hi - mod_hc0$lo,
@@ -2962,7 +3035,7 @@ fit_regression = function(form_string,
                                       bhat_width = bhat_hi - bhat_lo ) ) )
   }
   
-
+  
   # ~ IPW-custom  ---------------------
   
   # Note: this ignores the model argument passed to fit_regression
@@ -3354,7 +3427,7 @@ fit_regression = function(form_string,
       dat$M[ du$RA == 1 & du$RB == 0 & du$RD == 0 & du$RC == 0 ] = 3
       dat$M[ du$RA == 1 & du$RB == 1 & du$RD == 1 & du$RC == 0 ] = 2
       dat$M[ du$RA == 1 & du$RB == 1 & du$RD == 1 & du$RC == 1 ] = 1
-
+      
       if ( any(is.na(dat$M)) ) stop("Something is wrong with pattern coding")
       
       
@@ -3401,57 +3474,195 @@ fit_regression = function(form_string,
       phat_R1 = (1 - phat_R3) * (1 - phat_R2)
       
     } else {
-      stop("IPW-custom not implemented for that DAG")
-    }
-    
-    #bm: add 12A with nonmonotone
-    
-    
-    ### Fit PS-weighted outcome model
-    # marginal p(R=1)
-    mnum = mean(dat$M == 1)
-    
-    dc$wt = mnum / phat_R1
-    
-    if ( model == "OLS" ) {
-      # PS-weighted outcome model
-      ( mod_wls = lm( eval( parse(text = form_string) ),
-                      data = dc,
-                      weights = wt) )
-      
-    }
-    
-    if ( model == "logistic" ) {
-      ( mod_wls = glm( eval( parse(text = form_string) ),
-                       data = dc,
-                       weights = wt,
-                       family = binomial(link = "logit") ) )
-    }
-    
-    if ( model == "log" ) {
-      ( mod_wls = glm( eval( parse(text = form_string) ),
-                       data = dc,
-                       weights = wt,
-                       family = binomial(link = "log") ) )
-    }
-    
-    # to get robust SEs:
-    mod_hc0 = my_ols_hc0(coefName = "A",
-                         ols = mod_wls)
-    
-    ### Experiment
-    if ( p$dag_name %in% c("9A", "9A-bin", "9B", "9B-bin") ) {
-      EY_prediction = as.numeric( predict(object = mod_wls, newdata = data.frame(A = 1,
-                                                                                 C = 1,
-                                                                                 D = 1) ) )
-    }
-    
-    return( list( stats = data.frame( bhat = mod_hc0$est,
-                                      bhat_lo = mod_hc0$lo,
-                                      bhat_hi = mod_hc0$hi,
-                                      bhat_width = mod_hc0$hi - mod_hc0$lo,
-                                      EY_prediction = EY_prediction ) ) ) 
+    stop("IPW-custom not implemented for that DAG")
   }
+  
+  
+  ### Fit PS-weighted outcome model
+  # marginal p(R=1)
+  mnum = mean(dat$M == 1)
+  
+  dc$wt = mnum / phat_R1
+  
+  if ( model == "OLS" ) {
+    # PS-weighted outcome model
+    ( mod_wls = lm( eval( parse(text = form_string) ),
+                    data = dc,
+                    weights = wt) )
+    
+  }
+  
+  if ( model == "logistic" ) {
+    ( mod_wls = glm( eval( parse(text = form_string) ),
+                     data = dc,
+                     weights = wt,
+                     family = binomial(link = "logit") ) )
+  }
+  
+  if ( model == "log" ) {
+    ( mod_wls = glm( eval( parse(text = form_string) ),
+                     data = dc,
+                     weights = wt,
+                     family = binomial(link = "log") ) )
+  }
+  
+  # to get robust SEs:
+  mod_hc0 = my_ols_hc0(coefName = "A",
+                       ols = mod_wls)
+  
+  ### Experiment
+  if ( p$dag_name %in% c("9A", "9A-bin", "9B", "9B-bin") ) {
+    EY_prediction = as.numeric( predict(object = mod_wls, newdata = data.frame(A = 1,
+                                                                               C = 1,
+                                                                               D = 1) ) )
+  }
+  
+  return( list( stats = data.frame( bhat = mod_hc0$est,
+                                    bhat_lo = mod_hc0$lo,
+                                    bhat_hi = mod_hc0$hi,
+                                    bhat_width = mod_hc0$hi - mod_hc0$lo,
+                                    EY_prediction = EY_prediction ) ) ) 
+}
+
+}
+
+
+
+
+ross_ipmw_dag_3D = function(data) {
+  
+  # prep dataset
+  # relabel variables
+  data$z = data$C
+  data$x = data$A
+  data$y = data$B
+  data$RZ = data$RC
+  data$RY = data$RB
+  
+  data$R = 1
+  data$R[ data$RZ == 1 & data$RY == 0 ] = 2
+  data$R[ data$RZ == 0 & data$RY == 0 ] = 3
+  data$R[ data$RZ == 0 & data$RY == 1 ] = 4
+  
+  data$id = 1:nrow(data)
+  
+  table(data$R)
+  
+  # only for compatibility with below code
+  data$R1 = (data$R==1)
+  data = tibble(data)
+  
+  
+  ################################################################
+  # Implement ST IPW CBE by adaptive Gibbs sampling using R2jags   
+  ################################################################
+  
+  # standardize the data
+  scale_rmna <- function(data,x){ #function ignores missing data in standardizing
+    mean <- mean(data[[x]],na.rm=TRUE)
+    sd <- sd(data[[x]], na.rm=TRUE)
+    (data[[x]]-mean)/sd
+  }
+  
+  scaled <- data %>% 
+    mutate(x = scale_rmna(.,"x"),
+           y = scale_rmna(.,"y"),
+           z = scale_rmna(.,"z"),
+           R = as.numeric(R))
+  
+  # Prepare data for JAGS
+  sorted <- as_tibble(scaled) %>% arrange(R) # Sort so that complete cases (R=1) are first
+  dat = as.list(sorted[,("R")])
+  dat$L = as.matrix(sorted[,c("z","x","y")]) 
+  dat$L[is.na(dat$L)] = -9999 # Replace NA to Inf
+  dat$N = length(dat$R)
+  dat$f = rep(1, dat$N) # Vector of 1s length N
+  dat$Nc = sum(dat$R==1) # Number of complete cases
+  dat$onesc = rep(1, dat$Nc) # Vector of 1s length of complete cases
+  dat$c = 10^-8 # As recommended by ST
+  
+  # Function for random starting values
+  initialvals <- function(numcoeff){
+    ints <- runif(3, min=-4,max=-1)
+    lim <- .06
+    c(ints[1],runif(numcoeff[1], min=-lim,max=lim),
+      ints[2],runif(numcoeff[2], min=-lim,max=lim),
+      ints[3],runif(numcoeff[3], min=-lim,max=lim))
+  }
+  
+  
+  # JAGS function
+  jmod <- function(){
+    for(i in 1:N){
+      f[i] ~ dbern(pmiss[i,R[i]]) # f = 1 for all obs 
+      #
+      logit(pmiss[i, 2]) <- g[1] + g[2]*L[i,1] + g[3]*L[i,2]         
+      logit(pmiss[i, 3]) <- g[4]               + g[5]*L[i,2]           
+      logit(pmiss[i, 4]) <- g[6]               + g[7]*L[i,2] + g[8]*L[i,3] 
+      #
+      pmiss[i,1] <- 1 - pmiss[i,2] - pmiss[i,3] - pmiss[i,4] 
+    }
+    # constraint
+    for (j in 1:Nc){
+      onesc[j] ~ dbern(C[j]) 
+      C[j] <- step(pmiss[j,1]-c)
+    }
+    # priors
+    for(k in 1:8){
+      g[k] ~ dnorm(0,1/100) # diffuse prior as recommended by ST
+    }
+  }
+  
+  # Initial values for 3 chains
+  init <- list(list(g=initialvals(c(2,1,2))),
+               list(g=initialvals(c(2,1,2))),
+               list(g=initialvals(c(2,1,2))))
+  
+  # Run jags
+  jagsfit <- R2jags::jags(data=dat, inits = init, n.chains = 3,
+                          parameters.to.save='g',
+                          n.iter=1000, n.burnin=500, n.thin=1,
+                          model.file=jmod)
+  
+  jagsfit 
+  
+  # Store parameter estimates (medians)
+  gcbegibbs <- jagsfit$BUGSoutput$median$g
+  
+  # Obtain marginal Pr(R=1)
+  mnum <- mean(scaled$R1)
+  
+  # Obtain probability of complete case
+  cc_scaledgibbs <- scaled %>%
+    filter(R==1) %>%
+    mutate(p2 = plogis(gcbegibbs[1] + gcbegibbs[2]*z + gcbegibbs[3]*x                 ),
+           p3 = plogis(gcbegibbs[4]                  + gcbegibbs[5]*x                 ),
+           p4 = plogis(gcbegibbs[6]                  + gcbegibbs[7]*x + gcbegibbs[8]*y),
+           p1 = 1 - p2 - p3 - p4,
+           ipmw = mnum/p1)
+  
+  # Merge with unscaled data
+  cc_gibbs <- cc_scaledgibbs %>%
+    dplyr::select(id, ipmw) %>%
+    left_join(data, by = "id") 
+  
+  summary(cc_gibbs$ipmw)
+  sum(cc_gibbs$ipmw)
+  
+  # Fit weighted linear-binomial outcome model
+  cgoutmod <- geeglm(y ~ x * z, family = gaussian(link = "identity"), data=cc_gibbs, 
+                     weights=cc_gibbs$ipmw, id=id, corstr="independence")
+  
+  # # Results
+  # results_cbegibbs <- tibble(bhat = coef(cgoutmod)[["x"]],
+  #                            se = coef(summary(cgoutmod))[["x","Std.err"]],
+  #                            lo = tidy(cgoutmod, conf.int=T, exp = F)[[2,"conf.low"]],
+  #                            hi = tidy(cgoutmod, conf.int=T, exp = F)[[2,"conf.high"]] )
+  
+  return( list( stats = data.frame( bhat = as.numeric( coef(cgoutmod)[["x"]] ),
+                                    bhat_lo = tidy(cgoutmod, conf.int=T, exp = F)[[2,"conf.low"]],
+                                    bhat_hi = tidy(cgoutmod, conf.int=T, exp = F)[[2,"conf.high"]],
+                                    bhat_width = tidy(cgoutmod, conf.int=T, exp = F)[[2,"conf.high"]] - tidy(cgoutmod, conf.int=T, exp = F)[[2,"conf.low"]] ) ) )
   
 }
 
