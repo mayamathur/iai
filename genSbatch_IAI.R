@@ -35,7 +35,7 @@ lapply( allPackages,
 scen.params = tidyr::expand_grid(
   
   #rep.methods = "gold ; CC ; MICE-std ; Am-std ; IPW-custom ; adj-form-4-cate",
-  rep.methods = "gold ; CC ; MICE-std ; Am-std",
+  rep.methods = "gold ; CC ; MICE-std ; Am-std ; IPW-nm",
   
   model = "OLS",
   coef_of_interest = "A",
@@ -53,7 +53,7 @@ scen.params = tidyr::expand_grid(
   # N = c(100),
   
   #dag_name = c( "1B", "1D", "1G", "1H" ),
-  dag_name = c( "12A", "12B", "12C" )
+  dag_name = c( "3D-bin" )
 )
 
 # # remove combos that aren't implemented
@@ -84,6 +84,8 @@ source("helper_IAI.R")
 # number of sbatches to generate (i.e., iterations within each scenario)
 n.reps.per.scen = 500
 n.reps.in.doParallel = 10
+# n.reps.per.scen = 1
+# n.reps.in.doParallel = 1
 ( n.files = ( n.reps.per.scen / n.reps.in.doParallel ) * n.scen )
 
 
@@ -99,7 +101,7 @@ runfile_path = paste(path, "/testRunFile.R", sep="")
 sbatch_params <- data.frame(jobname,
                             outfile,
                             errorfile,
-                            jobtime = "00:40:00", 
+                            jobtime = "00:40:00",  # was using 0:40 when not running IPW-nm
                             quality = "normal",
                             node_number = 1,
                             mem_per_node = 64000,
@@ -123,7 +125,7 @@ n.files
 # run them all
 path = "/home/groups/manishad/IAI"
 setwd( paste(path, "/sbatch_files", sep="") )
-for (i in 1:150) {
+for (i in 1:50) {
   system( paste("sbatch -p qsu,owners,normal /home/groups/manishad/IAI/sbatch_files/", i, ".sbatch", sep="") )
 }
 

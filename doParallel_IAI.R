@@ -36,7 +36,8 @@ toLoad = c("crayon",
            "stringr",
            "mice",
            "Amelia",
-           #"sandwich",
+           "R2jags",  # only needed if running method IPW-nm. If removing, you can also remove "module load openblas/0.3.20" and "module load jags/4.3.1" from genSbatch.
+           "geepack", # also only for IPW-nm
            "MASS")
 
 if ( run.local == TRUE | interactive.cluster.run == TRUE ) toLoad = c(toLoad, "here")
@@ -92,7 +93,7 @@ if (run.local == FALSE ) {
   
   
   
-  # ~~*********** Set cluster sim reps ----------------
+  # ~~****** Cluster sim reps ----------------
   # simulation reps to run within this job
   # **this need to match n.reps.in.doParallel in the genSbatch script
   sim.reps = 10
@@ -176,7 +177,7 @@ if ( run.local == TRUE ) {
 if (run.local == TRUE) ( scens_to_run = scen.params$scen )
 if (run.local == FALSE) ( scens_to_run = scen )  # from sbatch
 
-if (run.local == TRUE) sim.reps = 1
+if (run.local == TRUE) sim.reps = 300
 #  p = scen.params[ scen.params$scen == scen, names(scen.params) != "scen"]
 
 
@@ -556,12 +557,7 @@ for ( scen in scens_to_run ) {
                                                              du = imp2)
                                       m_man
                                       
-                                    }
-                                    else if (p$dag_name == "3D-bin") {
-                                      
-                                      #bm
-                                    
-                                    } else stop("Custom method not implemented for that DAG")
+                                    } else { stop("Custom method not implemented for that DAG")
                                     }
                                     
                                   },
@@ -588,8 +584,8 @@ for ( scen in scens_to_run ) {
     
       # IPW-nm ----
       # Sun & ETT
-    if ( "IPW-nmm" %in% all.methods ) {
-      rep.res = run_method_safe(method.label = c("IPW-nmm"),
+    if ( "IPW-nm" %in% all.methods ) {
+      rep.res = run_method_safe(method.label = c("IPW-nm"),
                                 
                                 method.fn = function(x) ross_ipmw_dag_3D(data = du),
                                 .rep.res = rep.res )
