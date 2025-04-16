@@ -40,10 +40,10 @@ keepers = all.files[ grep( .name.prefix, all.files ) ]
 length(keepers)
 
 # grab variable names from first file
-names = names( read.csv(keepers[1] ) )
+names = names( read.csv(keepers) )
 
 # read in and rbind the keepers
-tables <- lapply( keepers, function(x) read.csv(x, header= TRUE) )
+tables <- lapply(keepers, function(x) read.csv(x, header = TRUE, colClasses = c(dag_name = "character")))
 
 # sanity check: do all files have the same names?
 # if not, could be because some jobs were killed early so didn't get doParallelTime

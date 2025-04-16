@@ -2283,9 +2283,6 @@ else if ( p$dag_name %in% c("11A" ) ) {
 }
 
 
-
-
-
 # IPMW-NM (AKA SUN'S IPW) -------------------------------------------------
 
 # versions from 2025-04-15
@@ -2528,14 +2525,14 @@ run_missingness_model <- function(data, vars) {
   # Create initial values for 3 chains
   # generalized initialization fn
   # generates one SET of coefficients for each chain
-  initialvals2 <- function(numcoeff) {
+  initialvals2 <- function(numcoeff, int_min = -5, int_max = -3) {
     # numcoeff: a numeric vector where each element represents the number of slope coefficients for that group.
     n_groups <- length(numcoeff)              # Determine the number of groups/patterns.
     
     #intercepts <- runif(n_groups, min = -4, max = -1)  # Generate one intercept per group.
     # *** If jags throws "invalid parent values", try making the intercepts more negative
     #  (maybe need to make them more negative as the number of patterns increases, to keep the complete-case probability from getting too low?)
-    intercepts <- runif(n_groups, min = -5, max = -3)  # Initialize an empty vector for storing the initial values.
+    intercepts <- runif(n_groups, min = int_min, max = int_max)  # Initialize an empty vector for storing the initial values.
     lim <- 0.06                               # Limit for the slope coefficients.
     
     init_values <- c()  # Initialize an empty vector for storing the initial values.
@@ -2551,7 +2548,7 @@ run_missingness_model <- function(data, vars) {
   # calculate the number of slope coeffs for each pattern M>1
   nCoeff = unlist( lapply(vars_per_pattern[2: length(vars_per_pattern)], length) )
   # init has one set of start vals per chain
-  nchains = 3  #TEMP: LATER USE AN ARG PASSED TO WRAPPER FN
+  nchains = 3 
   init <- lapply(1:nchains, function(i) list(g = initialvals2(nCoeff)))
   
   
