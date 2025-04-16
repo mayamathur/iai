@@ -96,8 +96,8 @@ if (run.local == FALSE ) {
   # ~~****** Cluster sim reps ----------------
   # simulation reps to run within this job
   # **this need to match n.reps.in.doParallel in the genSbatch script
-  sim.reps = 10
-  #sim.reps = 1
+  #sim.reps = 10
+  sim.reps = 1
   
   # set the number of cores
   registerDoParallel(cores=16)
@@ -149,7 +149,7 @@ if ( run.local == TRUE ) {
     # imp_maxit = 5,
     # N = c(100),
     
-    dag_name = c("12C") )
+    dag_name = c("4A") )
   
   
   # # remove combos that aren't implemented

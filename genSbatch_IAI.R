@@ -35,8 +35,8 @@ lapply( allPackages,
 scen.params = tidyr::expand_grid(
   
   #rep.methods = "gold ; CC ; MICE-std ; Am-std ; IPW-custom ; adj-form-4-cate",
-  rep.methods = "gold ; CC ; MICE-std ; Am-std ; IPW-nm",
-  #rep.methods = "IPW-nm",
+  #rep.methods = "gold ; CC ; MICE-std ; Am-std ; IPW-nm",
+  rep.methods = "IPW-nm",
   
   model = "OLS",
   coef_of_interest = "A",
@@ -53,8 +53,9 @@ scen.params = tidyr::expand_grid(
   # imp_maxit = 5,
   # N = c(100),
   
-  #dag_name = c( "1B", "1D", "1G", "1H" ),
-  dag_name = c( "13B", "3D-bin-mono" )
+  dag_name = c("1A", "1B", "2A", "3A", "3B", "3C", "4A", "6A",
+               "7A", "7B", "12A", "12B", "12C", "13A", "13B")
+  
 )
 
 # # remove combos that aren't implemented
@@ -83,10 +84,10 @@ write.csv( scen.params, "scen_params.csv", row.names = FALSE )
 source("helper_IAI.R")
 
 # number of sbatches to generate (i.e., iterations within each scenario)
-n.reps.per.scen = 500
-n.reps.in.doParallel = 10
-# n.reps.per.scen = 1
-# n.reps.in.doParallel = 1
+# n.reps.per.scen = 500
+# n.reps.in.doParallel = 10
+n.reps.per.scen = 1
+n.reps.in.doParallel = 1
 ( n.files = ( n.reps.per.scen / n.reps.in.doParallel ) * n.scen )
 
 
@@ -126,7 +127,7 @@ n.files
 # run them all
 path = "/home/groups/manishad/IAI"
 setwd( paste(path, "/sbatch_files", sep="") )
-for (i in 1:100) {
+for (i in 1:15) {
   system( paste("sbatch -p qsu,owners,normal /home/groups/manishad/IAI/sbatch_files/", i, ".sbatch", sep="") )
 }
 

@@ -440,6 +440,153 @@ sim_data = function(.p) {
   }  # end of .p$dag_name == "3C"
   
   
+  # ~ DAG 3D -----------------------------
+  if ( .p$dag_name == "3D" ) {
+    
+    # designed for using Ross' rjags code, so A needs to be complete
+    # has A*C interaction
+    du = data.frame( C1 = rbinom( n = .p$N,
+                                  size = 1, 
+                                  prob = 0.5 ) ) 
+    
+    
+    coef1 = 2
+    coef2 = 1.6
+    
+    
+    du = du %>% rowwise() %>%
+      mutate( A1 = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(-1 + 3*C1) ),
+              
+              # add edge from C1 -> B1
+              B1 = rnorm( n = 1,
+                          mean = coef1*A1 + coef1*C1 + coef1*A1*C1),
+              
+              RA = 1,
+
+              RB = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(-1 + 3*C1) ),
+              
+              RC = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(-1 + 3*C1) ) )
+    
+   
+    du = du %>% rowwise() %>%
+      mutate( A = ifelse(RA == 1, A1, NA),
+              B = ifelse(RB == 1, B1, NA),
+              C = ifelse(RC == 1, C1, NA) )
+    
+    
+    colMeans(du)
+    cor(du %>% select( A1, B1, C1, RB, RC) )
+    
+    
+    # make dataset for imputation (standard way: all measured variables)
+    di = du %>% select(B, C, A)
+    
+    
+    ### For just the intercept of A
+    if ( .p$coef_of_interest == "(Intercept)" ){ 
+      stop("Intercept not implemented for this DAG")
+    }
+    
+    
+    ### For the A-B association
+    if ( .p$coef_of_interest == "A" ){ 
+      
+      # regression strings
+      form_string = "B ~ A * C"
+      
+      # gold-standard model uses underlying variables
+      gold_form_string = "B1 ~ A1 * C1"
+      
+      beta = coef1
+      
+      # custom predictor matrix for MICE-ours-pred
+      exclude_from_imp_model = NULL # B is in target law
+    }
+    
+  }  # end of .p$dag_name == "3D"
+  
+  
+  # ~ DAG 3E -----------------------------
+  if ( .p$dag_name == "3E" ) {
+    
+    # designed for using Ross' rjags code, so A needs to be complete
+    # has A*C interaction
+    du = data.frame( C1 = rbinom( n = .p$N,
+                                  size = 1, 
+                                  prob = 0.5 ) ) 
+    
+    
+    coef1 = 2
+    coef2 = 1.6
+    
+    du = du %>% rowwise() %>%
+      mutate( A1 = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(-1 + 3*C1) ),
+              
+              # add edge from C1 -> B1
+              B1 = rnorm( n = 1,
+                          mean = coef1*A1 + coef1*C1 + coef1*A1*C1),
+              
+              RA = 1,
+              
+              RB = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(-1 + 3*C1) ),
+              
+              RC = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(-1 + 3*C1) ) )
+    
+
+    
+    # monotonicity
+    du$RB[ du$RC == 0] = 0
+    
+    
+    du = du %>% rowwise() %>%
+      mutate( A = ifelse(RA == 1, A1, NA),
+              B = ifelse(RB == 1, B1, NA),
+              C = ifelse(RC == 1, C1, NA) )
+    
+    
+    colMeans(du)
+    cor(du %>% select( A1, B1, C1, RB, RC) )
+    
+    
+    # make dataset for imputation (standard way: all measured variables)
+    #di = du[ !( is.na(du$A) & is.na(du$B) & is.na(du$C) ), ]  # remove any rows that are all NA
+    di = du %>% select(B, C, A)
+    
+    
+    ### For just the intercept of A
+    if ( .p$coef_of_interest == "(Intercept)" ){ 
+      stop("Intercept not implemented for this DAG")
+    }
+    
+    
+    ### For the A-B association
+    if ( .p$coef_of_interest == "A" ){ 
+      
+      # regression strings
+      form_string = "B ~ A * C"
+      
+      # gold-standard model uses underlying variables
+      gold_form_string = "B1 ~ A1 * C1"
+      
+      beta = coef1
+      
+      # custom predictor matrix for MICE-ours-pred
+      exclude_from_imp_model = NULL # B is in target law
+    }
+    
+  }  # end of .p$dag_name == "3E"
   
   
   
@@ -502,7 +649,7 @@ sim_data = function(.p) {
     cor(du %>% select(A1, B1, C1, W1, RA, RB, RC, RW) )
     
     
-    # make dataset for imputation (*note that W is latent)
+    # make dataset for imputation (exclude W because it's latent)
     di = du %>% select(A, B, C)
     
     
@@ -519,12 +666,12 @@ sim_data = function(.p) {
       form_string = "B ~ A * C"
       
       # gold-standard model uses underlying variables
-      gold_form_string = "B1 ~ A1 * C"
+      gold_form_string = "B1 ~ A1 * C1"
       
       beta = NA
       
       # custom predictor matrix for MICE-ours-pred
-      exclude_from_imp_model = NULL # B is in target law
+      exclude_from_imp_model = NULL
     }
     
   }  # end of .p$dag_name == "4A"
@@ -584,8 +731,8 @@ sim_data = function(.p) {
     cor(du %>% select(A1, B1, C1, W1, RB, RC) )
     
     
-    # make dataset for imputation (standard way: all measured variables)
-    di = du %>% select(B, C, A, W)
+    # make dataset for imputation (exclude W: treat as latent)
+    di = du %>% select(B, C, A)
     
     
     ### For just the intercept of A
@@ -1337,8 +1484,6 @@ fit_regression = function(form_string,
     
     #browser()
     
-    cat("\n ***** fit_regression flag2: form_string")
-    cat(form_string)
     
     ### Make wtd data by running generalized Sun fns
     # Ensure ID exists
@@ -1347,12 +1492,7 @@ fit_regression = function(form_string,
     }
     
     # Identify variables to be used in the analysis
-    
-    # Extract variable names from formula
     analysis_vars <- all.vars( as.formula(form_string) )
-    
-    cat("\n ***** fit_regression flag3: analysis_vars")
-    cat(analysis_vars)
 
     # Add pattern indicators
     data_with_patterns <- create_pattern_indicators(dat, analysis_vars)
