@@ -149,7 +149,7 @@ if ( run.local == TRUE ) {
     # imp_maxit = 5,
     # N = c(100),
     
-    dag_name = c("4A") )
+    dag_name = c("3A") )
   
   
   # # remove combos that aren't implemented

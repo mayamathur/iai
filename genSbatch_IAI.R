@@ -53,8 +53,9 @@ scen.params = tidyr::expand_grid(
   # imp_maxit = 5,
   # N = c(100),
   
-  dag_name = c("1A", "1B", "2A", "3A", "3B", "3C", "4A", "6A",
-               "7A", "7B", "12A", "12B", "12C", "13A", "13B")
+  dag_name = c("1A", "1B", "2A", "3A", "3B", "3C", "3D", "3E",
+               "4A", "6A", "7A", "7B", "12A", "12B", "12C",
+               "13A", "13B")
   
 )
 

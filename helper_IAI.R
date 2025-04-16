@@ -1482,9 +1482,6 @@ fit_regression = function(form_string,
   
   if ( miss_method == "IPW-nm" ) {
     
-    #browser()
-    
-    
     ### Make wtd data by running generalized Sun fns
     # Ensure ID exists
     if (!"id" %in% names(dat)) {
@@ -1595,6 +1592,8 @@ fit_regression = function(form_string,
   
   # customized for each DAG
   if ( miss_method == "IPW-custom" ) {
+    
+    stop("This code isn't UTD! DAG names may have changed, and there are lots of unused DAGs in here.")
     
     
     if ( p$dag_name == "6A" ) {
@@ -1944,7 +1943,211 @@ fit_regression = function(form_string,
       phat_R2 = predict(newdata = dc, object = m_R2, type = "response")
       phat_R1 = (1 - phat_R5) * (1 - phat_R4) * (1 - phat_R3) * (1 - phat_R2)
       
-    } else if ( p$dag_name %in% c("11A" ) ) {
+    } # ~ DAG 3D-bin -----------------------------
+  if ( .p$dag_name == "3D-bin" ) {
+    
+    # designed for using Ross' rjags code, so A needs to be complete
+    # has A*C interaction
+    du = data.frame( C1 = rbinom( n = .p$N,
+                                  size = 1, 
+                                  prob = 0.5 ) ) 
+    
+    
+    coef1 = 2
+    coef2 = 1.6
+    
+    
+    # 2025-04-11c - Same coef strengths as original, but add A*C interaction
+    du = du %>% rowwise() %>%
+      mutate( A1 = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(-1 + 3*C1) ),
+              
+              # add edge from C1 -> B1
+              B1 = rnorm( n = 1,
+                          mean = coef1*A1 + coef1*C1 + coef1*A1*C1),
+              
+              RA = 1,
+              
+              # RA = rbinom( n = 1,
+              #              size = 1,
+              #              prob = expit(-1 + 3*C1) ),
+              
+              RB = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(-1 + 3*C1) ),
+              
+              RC = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(-1 + 3*C1) ) )
+    
+    
+    du = du %>% rowwise() %>%
+      mutate( A = ifelse(RA == 1, A1, NA),
+              B = ifelse(RB == 1, B1, NA),
+              C = ifelse(RC == 1, C1, NA) )
+    
+    
+    colMeans(du)
+    cor(du %>% select( A1, B1, C1, RB, RC) )
+    
+    
+    # make dataset for imputation (standard way: all measured variables)
+    #di = du[ !( is.na(du$A) & is.na(du$B) & is.na(du$C) ), ]  # remove any rows that are all NA
+    di = du %>% select(B, C, A)
+    
+    
+    ### For just the intercept of A
+    if ( .p$coef_of_interest == "(Intercept)" ){ 
+      stop("Intercept not implemented for this DAG")
+    }
+    
+    
+    ### For the A-B association
+    if ( .p$coef_of_interest == "A" ){ 
+      
+      # regression strings
+      form_string = "B ~ A * C"
+      
+      # gold-standard model uses underlying variables
+      gold_form_string = "B1 ~ A1 * C1"
+      
+      beta = coef1
+      
+      # custom predictor matrix for MICE-ours-pred
+      exclude_from_imp_model = NULL # B is in target law
+    }
+    
+  }  # end of .p$dag_name == "3D-bin"
+  
+  
+  # ~ DAG 3D-bin-mono -----------------------------
+  if ( .p$dag_name == "3D-bin-mono" ) {
+    
+    # designed for using Ross' rjags code, so A needs to be complete
+    # has A*C interaction
+    du = data.frame( C1 = rbinom( n = .p$N,
+                                  size = 1, 
+                                  prob = 0.5 ) ) 
+    
+    
+    coef1 = 2
+    coef2 = 1.6
+    
+    # 2025-04-11c: Same coefs, but A*C interaction
+    du = du %>% rowwise() %>%
+      mutate( A1 = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(-1 + 3*C1) ),
+              
+              # add edge from C1 -> B1
+              B1 = rnorm( n = 1,
+                          mean = coef1*A1 + coef1*C1 + coef1*A1*C1),
+              
+              RA = 1,
+              
+              # RA = rbinom( n = 1,
+              #              size = 1,
+              #              prob = expit(-1 + 3*C1) ),
+              
+              RB = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(-1 + 3*C1) ),
+              
+              RC = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(-1 + 3*C1) ) )
+    
+    # # 2025-04-11b - Same but stronger coefs
+    # du = du %>% rowwise() %>%
+    #   mutate( A1 = rbinom( n = 1,
+    #                        size = 1,
+    #                        prob = expit(-1 + 3*C1) ),
+    #           
+    #           # add edge from C1 -> B1
+    #           B1 = rnorm( n = 1,
+    #                       mean = coef1*A1 + 3*C1 + 3*A1*C1),
+    #           
+    #           RA = 1,
+    #           
+    #           # RA = rbinom( n = 1,
+    #           #              size = 1,
+    #           #              prob = expit(-1 + 3*C1) ),
+    #           
+    #           RB = rbinom( n = 1,
+    #                        size = 1,
+    #                        prob = expit(-2 + 4*C1) ),
+    #           
+    #           RC = rbinom( n = 1,
+    #                        size = 1,
+    #                        prob = expit(-1 + 3*C1) ) )
+    
+    # # original version: with C1 -> A edge
+    # du = du %>% rowwise() %>%
+    #   mutate( A1 = rbinom( n = 1,
+    #                        size = 1,
+    #                        prob = expit(-1 + 3*C1) ),
+    # 
+    #           # add edge from C1 -> B1
+    #           B1 = rnorm( n = 1,
+    #                       mean = coef1*A1 + coef1*C1),
+    # 
+    #           RA = 1,
+    # 
+    #           # RA = rbinom( n = 1,
+    #           #              size = 1,
+    #           #              prob = expit(-1 + 3*C1) ),
+    # 
+    #           RB = rbinom( n = 1,
+    #                        size = 1,
+    #                        prob = expit(-1 + 3*C1) ),
+    # 
+    #           RC = rbinom( n = 1,
+    #                        size = 1,
+    #                        prob = expit(-1 + 3*C1) ) )
+    
+    # monotonicity
+    du$RB[ du$RC == 0] = 0
+    
+    
+    du = du %>% rowwise() %>%
+      mutate( A = ifelse(RA == 1, A1, NA),
+              B = ifelse(RB == 1, B1, NA),
+              C = ifelse(RC == 1, C1, NA) )
+    
+    
+    colMeans(du)
+    cor(du %>% select( A1, B1, C1, RB, RC) )
+    
+    
+    # make dataset for imputation (standard way: all measured variables)
+    #di = du[ !( is.na(du$A) & is.na(du$B) & is.na(du$C) ), ]  # remove any rows that are all NA
+    di = du %>% select(B, C, A)
+    
+    
+    ### For just the intercept of A
+    if ( .p$coef_of_interest == "(Intercept)" ){ 
+      stop("Intercept not implemented for this DAG")
+    }
+    
+    
+    ### For the A-B association
+    if ( .p$coef_of_interest == "A" ){ 
+      
+      # regression strings
+      form_string = "B ~ A * C"
+      
+      # gold-standard model uses underlying variables
+      gold_form_string = "B1 ~ A1 * C1"
+      
+      beta = coef1
+      
+      # custom predictor matrix for MICE-ours-pred
+      exclude_from_imp_model = NULL # B is in target law
+    }
+    
+  }  # end of .p$dag_name == "3D-bin"
+else if ( p$dag_name %in% c("11A" ) ) {
       
       dat = du
       
@@ -2081,143 +2284,6 @@ fit_regression = function(form_string,
 
 
 
-# obsolete given the newly generalized code
-# ross_ipmw_dag_3D = function(data) {
-#   
-#   # prep dataset
-#   # relabel variables
-#   data$z = data$C
-#   data$x = data$A
-#   data$y = data$B
-#   data$RZ = data$RC
-#   data$RY = data$RB
-#   
-#   data$R = 1
-#   data$R[ data$RZ == 1 & data$RY == 0 ] = 2
-#   data$R[ data$RZ == 0 & data$RY == 0 ] = 3
-#   data$R[ data$RZ == 0 & data$RY == 1 ] = 4
-#   
-#   data$id = 1:nrow(data)
-#   
-#   table(data$R)
-#   
-#   # only for compatibility with below code
-#   data$R1 = (data$R==1)
-#   data = tibble(data)
-#   
-#   
-#   ################################################################
-#   # Implement ST IPW CBE by adaptive Gibbs sampling using R2jags   
-#   ################################################################
-#   
-#   # standardize the data
-#   scale_rmna <- function(data,x){ #function ignores missing data in standardizing
-#     mean <- mean(data[[x]],na.rm=TRUE)
-#     sd <- sd(data[[x]], na.rm=TRUE)
-#     (data[[x]]-mean)/sd
-#   }
-#   
-#   scaled <- data %>% 
-#     mutate(x = scale_rmna(.,"x"),
-#            y = scale_rmna(.,"y"),
-#            z = scale_rmna(.,"z"),
-#            R = as.numeric(R))
-#   
-#   # Prepare data for JAGS
-#   sorted <- as_tibble(scaled) %>% arrange(R) # Sort so that complete cases (R=1) are first
-#   dat = as.list(sorted[,("R")])
-#   dat$L = as.matrix(sorted[,c("z","x","y")]) 
-#   dat$L[is.na(dat$L)] = -9999 # Replace NA to Inf
-#   dat$N = length(dat$R)
-#   dat$f = rep(1, dat$N) # Vector of 1s length N
-#   dat$Nc = sum(dat$R==1) # Number of complete cases
-#   dat$onesc = rep(1, dat$Nc) # Vector of 1s length of complete cases
-#   dat$c = 10^-8 # As recommended by ST
-#   
-#   # Function for random starting values
-#   initialvals <- function(numcoeff){
-#     ints <- runif(3, min=-4,max=-1)
-#     lim <- .06
-#     c(ints[1],runif(numcoeff[1], min=-lim,max=lim),
-#       ints[2],runif(numcoeff[2], min=-lim,max=lim),
-#       ints[3],runif(numcoeff[3], min=-lim,max=lim))
-#   }
-#   
-#   
-#   # JAGS function
-#   jmod <- function(){
-#     for(i in 1:N){
-#       f[i] ~ dbern(pmiss[i,R[i]]) # f = 1 for all obs 
-#       #
-#       logit(pmiss[i, 2]) <- g[1] + g[2]*L[i,1] + g[3]*L[i,2]         
-#       logit(pmiss[i, 3]) <- g[4]               + g[5]*L[i,2]           
-#       logit(pmiss[i, 4]) <- g[6]               + g[7]*L[i,2] + g[8]*L[i,3] 
-#       #
-#       pmiss[i,1] <- 1 - pmiss[i,2] - pmiss[i,3] - pmiss[i,4] 
-#     }
-#     # constraint
-#     for (j in 1:Nc){
-#       onesc[j] ~ dbern(C[j]) 
-#       C[j] <- step(pmiss[j,1]-c)
-#     }
-#     # priors
-#     for(k in 1:8){
-#       g[k] ~ dnorm(0,1/100) # diffuse prior as recommended by ST
-#     }
-#   }
-#   
-#   # Initial values for 3 chains
-#   init <- list(list(g=initialvals(c(2,1,2))),
-#                list(g=initialvals(c(2,1,2))),
-#                list(g=initialvals(c(2,1,2))))
-#   
-#   # Run jags
-#   jagsfit <- R2jags::jags(data=dat, inits = init, n.chains = 3,
-#                           parameters.to.save='g',
-#                           n.iter=1000, n.burnin=500, n.thin=1,
-#                           model.file=jmod)
-#   
-#   jagsfit 
-#   
-#   # Store parameter estimates (medians)
-#   gcbegibbs <- jagsfit$BUGSoutput$median$g
-#   
-#   # Obtain marginal Pr(R=1)
-#   mnum <- mean(scaled$R1)
-#   
-#   # Obtain probability of complete case
-#   cc_scaledgibbs <- scaled %>%
-#     filter(R==1) %>%
-#     mutate(p2 = plogis(gcbegibbs[1] + gcbegibbs[2]*z + gcbegibbs[3]*x                 ),
-#            p3 = plogis(gcbegibbs[4]                  + gcbegibbs[5]*x                 ),
-#            p4 = plogis(gcbegibbs[6]                  + gcbegibbs[7]*x + gcbegibbs[8]*y),
-#            p1 = 1 - p2 - p3 - p4,
-#            ipmw = mnum/p1)
-#   
-#   # Merge with unscaled data
-#   cc_gibbs <- cc_scaledgibbs %>%
-#     dplyr::select(id, ipmw) %>%
-#     left_join(data, by = "id") 
-#   
-#   summary(cc_gibbs$ipmw)
-#   sum(cc_gibbs$ipmw)
-#   
-#   # Fit weighted linear-binomial outcome model
-#   cgoutmod <- geeglm(y ~ x * z, family = gaussian(link = "identity"), data=cc_gibbs, 
-#                      weights=cc_gibbs$ipmw, id=id, corstr="independence")
-#   
-#   # # Results
-#   # results_cbegibbs <- tibble(bhat = coef(cgoutmod)[["x"]],
-#   #                            se = coef(summary(cgoutmod))[["x","Std.err"]],
-#   #                            lo = tidy(cgoutmod, conf.int=T, exp = F)[[2,"conf.low"]],
-#   #                            hi = tidy(cgoutmod, conf.int=T, exp = F)[[2,"conf.high"]] )
-#   
-#   return( list( stats = data.frame( bhat = as.numeric( coef(cgoutmod)[["x"]] ),
-#                                     bhat_lo = tidy(cgoutmod, conf.int=T, exp = F)[[2,"conf.low"]],
-#                                     bhat_hi = tidy(cgoutmod, conf.int=T, exp = F)[[2,"conf.high"]],
-#                                     bhat_width = tidy(cgoutmod, conf.int=T, exp = F)[[2,"conf.high"]] - tidy(cgoutmod, conf.int=T, exp = F)[[2,"conf.low"]] ) ) )
-#   
-# }
 
 
 # IPMW-NM (AKA SUN'S IPW) -------------------------------------------------
