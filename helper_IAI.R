@@ -350,7 +350,7 @@ sim_data = function(.p) {
       exclude_from_imp_model = NULL # B is in target law
     }
     
-  }  # end of .p$dag_name == "3B-bin"
+  }  # end of .p$dag_name == "3B"
   
   
   # ~ DAG 3C -------------------------------------------------
@@ -2647,6 +2647,7 @@ run_missingness_model <- function(data, vars) {
     vars_per_pattern = vars_per_pattern,
     model_text = jags_model_text
   )
+  browser()
   
   return(list(
     fit = jags_fit,
@@ -3570,7 +3571,7 @@ res1 = function() {
 
 make_agg_data = function(s) {
   
-  correct.order = c("gold", "CC", "Am-std", "Am-ours", "MICE-std", "MICE-ours", "MICE-ours-pred")
+  correct.order = c("gold", "CC", "Am-std", "Am-ours", "MICE-std", "MICE-ours", "MICE-ours-pred", "IPW-nm")
   s$method = factor(s$method, levels = correct.order)
   
   # fill in beta (where it's NA) using gold-standard
@@ -3595,6 +3596,7 @@ make_agg_data = function(s) {
   aggo = s2 %>% group_by(dag_name, coef_of_interest, method) %>%
     summarise( 
       reps = n(),
+      PropNA = mean(is.na(Bhat)),
       Bhat = meanNA(bhat),
       BhatBias = meanNA(bhat - beta),
       BhatLo = meanNA(bhat_lo),

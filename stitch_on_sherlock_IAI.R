@@ -120,10 +120,11 @@ as.data.frame( s2 %>% group_by(dag_name, coef_of_interest) %>%
                 summarise(beta[1]) )
 # end of filling in beta
 
-
-t = s2 %>% group_by(dag_name, coef_of_interest, method) %>%
+# in this case, don't need to group by coef_of_interest because they're all A
+t = s2 %>% group_by(dag_name, method) %>%
   summarise( 
     reps = n(),
+    PropNA = mean(is.na(bhat)),
     Bhat = meanNA(bhat),
     BhatBias = meanNA(bhat - beta),
     #BhatRelBias = meanNA( (bhat - beta)/beta ),
