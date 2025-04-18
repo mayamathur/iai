@@ -13,7 +13,7 @@ sim_data = function(.p) {
   #if (.p$model != "OLS" ) stop("Only handles model OLS for now")
   
   # ~ DAG 1A -----------------------------
-
+  
   if ( .p$dag_name == "1A" ) {
     
     du = data.frame( C1 = rbinom( n = .p$N,
@@ -144,9 +144,9 @@ sim_data = function(.p) {
   
   
   
-
+  
   # ~ DAG 2A -----------------------------
-
+  
   if ( .p$dag_name == "2A" ) {
     
     du = data.frame( C1 = rnorm( n = .p$N ) )  
@@ -206,7 +206,7 @@ sim_data = function(.p) {
   
   
   # ~ DAG 3A -----------------------------
-
+  
   if ( .p$dag_name == "3A" ) {
     
     du = data.frame( C1 = rbinom( n = .p$N,
@@ -278,7 +278,7 @@ sim_data = function(.p) {
   }  # end of .p$dag_name == "3A"
   
   
-
+  
   # ~ DAG 3B -----------------------------
   # same as above, but has C1 -> Y1 edge
   
@@ -354,7 +354,7 @@ sim_data = function(.p) {
   
   
   # ~ DAG 3C -------------------------------------------------
-
+  
   if ( .p$dag_name == "3C" ) {
     
     du = data.frame( C1 = rbinom( n = .p$N,
@@ -464,7 +464,7 @@ sim_data = function(.p) {
                           mean = coef1*A1 + coef1*C1 + coef1*A1*C1),
               
               RA = 1,
-
+              
               RB = rbinom( n = 1,
                            size = 1,
                            prob = expit(-1 + 3*C1) ),
@@ -473,7 +473,7 @@ sim_data = function(.p) {
                            size = 1,
                            prob = expit(-1 + 3*C1) ) )
     
-   
+    
     du = du %>% rowwise() %>%
       mutate( A = ifelse(RA == 1, A1, NA),
               B = ifelse(RB == 1, B1, NA),
@@ -544,7 +544,7 @@ sim_data = function(.p) {
                            size = 1,
                            prob = expit(-1 + 3*C1) ) )
     
-
+    
     
     # monotonicity
     du$RB[ du$RC == 0] = 0
@@ -590,7 +590,7 @@ sim_data = function(.p) {
   
   
   
-
+  
   # ~ DAG 4A -----------------------------
   
   # for adjustment formula 4, CATE version
@@ -678,7 +678,7 @@ sim_data = function(.p) {
   
   
   
-
+  
   # ~ DAG 6A -----------------------------
   
   # C1 -> RC -> RB (monotone)
@@ -905,7 +905,7 @@ sim_data = function(.p) {
     
   }  # end of .p$dag_name == "7B"
   
-
+  
   # ~ DAG 12A -----------------------------
   
   if ( .p$dag_name == "12A" ) {
@@ -1490,7 +1490,7 @@ fit_regression = function(form_string,
     
     # Identify variables to be used in the analysis
     analysis_vars <- all.vars( as.formula(form_string) )
-
+    
     # Add pattern indicators
     data_with_patterns <- create_pattern_indicators(dat, analysis_vars)
     
@@ -1503,9 +1503,17 @@ fit_regression = function(form_string,
     jags_results <- run_missingness_model(data_with_patterns, analysis_vars)
     message("Done running Bayesian model for missingness patterns.")
     
-    # Calculate IPMW weights
-    message("Calculating IPMW weights...")
-    weighted_data <- as.data.frame( calculate_ipmw_weights(jags_results, data_with_patterns) )
+    # # Calculate IPMW weights - original version
+    # message("Calculating IPMW weights...")
+    # weighted_data <- as.data.frame( calculate_ipmw_weights(jags_results, data_with_patterns) )
+    
+    # DEBUGGING ONLY
+    #View( weighted_data[ weighted_data$p1 < 0, ] )
+    
+    weighted_data2 <- as.data.frame( calculate_ipmw_weights2(jags_results, data_with_patterns) )
+    View( weighted_data2[ weighted_data2$p1 < 0, ] )
+    #bm
+    # END DEBUGGING
     
     message("IPMW weight summary:")
     print(summary(weighted_data$ipmw))
@@ -1944,210 +1952,210 @@ fit_regression = function(form_string,
       phat_R1 = (1 - phat_R5) * (1 - phat_R4) * (1 - phat_R3) * (1 - phat_R2)
       
     } # ~ DAG 3D-bin -----------------------------
-  if ( .p$dag_name == "3D-bin" ) {
-    
-    # designed for using Ross' rjags code, so A needs to be complete
-    # has A*C interaction
-    du = data.frame( C1 = rbinom( n = .p$N,
-                                  size = 1, 
-                                  prob = 0.5 ) ) 
-    
-    
-    coef1 = 2
-    coef2 = 1.6
-    
-    
-    # 2025-04-11c - Same coef strengths as original, but add A*C interaction
-    du = du %>% rowwise() %>%
-      mutate( A1 = rbinom( n = 1,
-                           size = 1,
-                           prob = expit(-1 + 3*C1) ),
-              
-              # add edge from C1 -> B1
-              B1 = rnorm( n = 1,
-                          mean = coef1*A1 + coef1*C1 + coef1*A1*C1),
-              
-              RA = 1,
-              
-              # RA = rbinom( n = 1,
-              #              size = 1,
-              #              prob = expit(-1 + 3*C1) ),
-              
-              RB = rbinom( n = 1,
-                           size = 1,
-                           prob = expit(-1 + 3*C1) ),
-              
-              RC = rbinom( n = 1,
-                           size = 1,
-                           prob = expit(-1 + 3*C1) ) )
-    
-    
-    du = du %>% rowwise() %>%
-      mutate( A = ifelse(RA == 1, A1, NA),
-              B = ifelse(RB == 1, B1, NA),
-              C = ifelse(RC == 1, C1, NA) )
-    
-    
-    colMeans(du)
-    cor(du %>% select( A1, B1, C1, RB, RC) )
-    
-    
-    # make dataset for imputation (standard way: all measured variables)
-    #di = du[ !( is.na(du$A) & is.na(du$B) & is.na(du$C) ), ]  # remove any rows that are all NA
-    di = du %>% select(B, C, A)
-    
-    
-    ### For just the intercept of A
-    if ( .p$coef_of_interest == "(Intercept)" ){ 
-      stop("Intercept not implemented for this DAG")
-    }
-    
-    
-    ### For the A-B association
-    if ( .p$coef_of_interest == "A" ){ 
+    if ( .p$dag_name == "3D-bin" ) {
       
-      # regression strings
-      form_string = "B ~ A * C"
+      # designed for using Ross' rjags code, so A needs to be complete
+      # has A*C interaction
+      du = data.frame( C1 = rbinom( n = .p$N,
+                                    size = 1, 
+                                    prob = 0.5 ) ) 
       
-      # gold-standard model uses underlying variables
-      gold_form_string = "B1 ~ A1 * C1"
       
-      beta = coef1
+      coef1 = 2
+      coef2 = 1.6
       
-      # custom predictor matrix for MICE-ours-pred
-      exclude_from_imp_model = NULL # B is in target law
-    }
-    
-  }  # end of .p$dag_name == "3D-bin"
-  
-  
-  # ~ DAG 3D-bin-mono -----------------------------
-  if ( .p$dag_name == "3D-bin-mono" ) {
-    
-    # designed for using Ross' rjags code, so A needs to be complete
-    # has A*C interaction
-    du = data.frame( C1 = rbinom( n = .p$N,
-                                  size = 1, 
-                                  prob = 0.5 ) ) 
-    
-    
-    coef1 = 2
-    coef2 = 1.6
-    
-    # 2025-04-11c: Same coefs, but A*C interaction
-    du = du %>% rowwise() %>%
-      mutate( A1 = rbinom( n = 1,
-                           size = 1,
-                           prob = expit(-1 + 3*C1) ),
-              
-              # add edge from C1 -> B1
-              B1 = rnorm( n = 1,
-                          mean = coef1*A1 + coef1*C1 + coef1*A1*C1),
-              
-              RA = 1,
-              
-              # RA = rbinom( n = 1,
-              #              size = 1,
-              #              prob = expit(-1 + 3*C1) ),
-              
-              RB = rbinom( n = 1,
-                           size = 1,
-                           prob = expit(-1 + 3*C1) ),
-              
-              RC = rbinom( n = 1,
-                           size = 1,
-                           prob = expit(-1 + 3*C1) ) )
-    
-    # # 2025-04-11b - Same but stronger coefs
-    # du = du %>% rowwise() %>%
-    #   mutate( A1 = rbinom( n = 1,
-    #                        size = 1,
-    #                        prob = expit(-1 + 3*C1) ),
-    #           
-    #           # add edge from C1 -> B1
-    #           B1 = rnorm( n = 1,
-    #                       mean = coef1*A1 + 3*C1 + 3*A1*C1),
-    #           
-    #           RA = 1,
-    #           
-    #           # RA = rbinom( n = 1,
-    #           #              size = 1,
-    #           #              prob = expit(-1 + 3*C1) ),
-    #           
-    #           RB = rbinom( n = 1,
-    #                        size = 1,
-    #                        prob = expit(-2 + 4*C1) ),
-    #           
-    #           RC = rbinom( n = 1,
-    #                        size = 1,
-    #                        prob = expit(-1 + 3*C1) ) )
-    
-    # # original version: with C1 -> A edge
-    # du = du %>% rowwise() %>%
-    #   mutate( A1 = rbinom( n = 1,
-    #                        size = 1,
-    #                        prob = expit(-1 + 3*C1) ),
-    # 
-    #           # add edge from C1 -> B1
-    #           B1 = rnorm( n = 1,
-    #                       mean = coef1*A1 + coef1*C1),
-    # 
-    #           RA = 1,
-    # 
-    #           # RA = rbinom( n = 1,
-    #           #              size = 1,
-    #           #              prob = expit(-1 + 3*C1) ),
-    # 
-    #           RB = rbinom( n = 1,
-    #                        size = 1,
-    #                        prob = expit(-1 + 3*C1) ),
-    # 
-    #           RC = rbinom( n = 1,
-    #                        size = 1,
-    #                        prob = expit(-1 + 3*C1) ) )
-    
-    # monotonicity
-    du$RB[ du$RC == 0] = 0
-    
-    
-    du = du %>% rowwise() %>%
-      mutate( A = ifelse(RA == 1, A1, NA),
-              B = ifelse(RB == 1, B1, NA),
-              C = ifelse(RC == 1, C1, NA) )
-    
-    
-    colMeans(du)
-    cor(du %>% select( A1, B1, C1, RB, RC) )
-    
-    
-    # make dataset for imputation (standard way: all measured variables)
-    #di = du[ !( is.na(du$A) & is.na(du$B) & is.na(du$C) ), ]  # remove any rows that are all NA
-    di = du %>% select(B, C, A)
-    
-    
-    ### For just the intercept of A
-    if ( .p$coef_of_interest == "(Intercept)" ){ 
-      stop("Intercept not implemented for this DAG")
-    }
-    
-    
-    ### For the A-B association
-    if ( .p$coef_of_interest == "A" ){ 
       
-      # regression strings
-      form_string = "B ~ A * C"
+      # 2025-04-11c - Same coef strengths as original, but add A*C interaction
+      du = du %>% rowwise() %>%
+        mutate( A1 = rbinom( n = 1,
+                             size = 1,
+                             prob = expit(-1 + 3*C1) ),
+                
+                # add edge from C1 -> B1
+                B1 = rnorm( n = 1,
+                            mean = coef1*A1 + coef1*C1 + coef1*A1*C1),
+                
+                RA = 1,
+                
+                # RA = rbinom( n = 1,
+                #              size = 1,
+                #              prob = expit(-1 + 3*C1) ),
+                
+                RB = rbinom( n = 1,
+                             size = 1,
+                             prob = expit(-1 + 3*C1) ),
+                
+                RC = rbinom( n = 1,
+                             size = 1,
+                             prob = expit(-1 + 3*C1) ) )
       
-      # gold-standard model uses underlying variables
-      gold_form_string = "B1 ~ A1 * C1"
       
-      beta = coef1
+      du = du %>% rowwise() %>%
+        mutate( A = ifelse(RA == 1, A1, NA),
+                B = ifelse(RB == 1, B1, NA),
+                C = ifelse(RC == 1, C1, NA) )
       
-      # custom predictor matrix for MICE-ours-pred
-      exclude_from_imp_model = NULL # B is in target law
-    }
+      
+      colMeans(du)
+      cor(du %>% select( A1, B1, C1, RB, RC) )
+      
+      
+      # make dataset for imputation (standard way: all measured variables)
+      #di = du[ !( is.na(du$A) & is.na(du$B) & is.na(du$C) ), ]  # remove any rows that are all NA
+      di = du %>% select(B, C, A)
+      
+      
+      ### For just the intercept of A
+      if ( .p$coef_of_interest == "(Intercept)" ){ 
+        stop("Intercept not implemented for this DAG")
+      }
+      
+      
+      ### For the A-B association
+      if ( .p$coef_of_interest == "A" ){ 
+        
+        # regression strings
+        form_string = "B ~ A * C"
+        
+        # gold-standard model uses underlying variables
+        gold_form_string = "B1 ~ A1 * C1"
+        
+        beta = coef1
+        
+        # custom predictor matrix for MICE-ours-pred
+        exclude_from_imp_model = NULL # B is in target law
+      }
+      
+    }  # end of .p$dag_name == "3D-bin"
     
-  }  # end of .p$dag_name == "3D-bin"
-else if ( p$dag_name %in% c("11A" ) ) {
+    
+    # ~ DAG 3D-bin-mono -----------------------------
+    if ( .p$dag_name == "3D-bin-mono" ) {
+      
+      # designed for using Ross' rjags code, so A needs to be complete
+      # has A*C interaction
+      du = data.frame( C1 = rbinom( n = .p$N,
+                                    size = 1, 
+                                    prob = 0.5 ) ) 
+      
+      
+      coef1 = 2
+      coef2 = 1.6
+      
+      # 2025-04-11c: Same coefs, but A*C interaction
+      du = du %>% rowwise() %>%
+        mutate( A1 = rbinom( n = 1,
+                             size = 1,
+                             prob = expit(-1 + 3*C1) ),
+                
+                # add edge from C1 -> B1
+                B1 = rnorm( n = 1,
+                            mean = coef1*A1 + coef1*C1 + coef1*A1*C1),
+                
+                RA = 1,
+                
+                # RA = rbinom( n = 1,
+                #              size = 1,
+                #              prob = expit(-1 + 3*C1) ),
+                
+                RB = rbinom( n = 1,
+                             size = 1,
+                             prob = expit(-1 + 3*C1) ),
+                
+                RC = rbinom( n = 1,
+                             size = 1,
+                             prob = expit(-1 + 3*C1) ) )
+      
+      # # 2025-04-11b - Same but stronger coefs
+      # du = du %>% rowwise() %>%
+      #   mutate( A1 = rbinom( n = 1,
+      #                        size = 1,
+      #                        prob = expit(-1 + 3*C1) ),
+      #           
+      #           # add edge from C1 -> B1
+      #           B1 = rnorm( n = 1,
+      #                       mean = coef1*A1 + 3*C1 + 3*A1*C1),
+      #           
+      #           RA = 1,
+      #           
+      #           # RA = rbinom( n = 1,
+      #           #              size = 1,
+      #           #              prob = expit(-1 + 3*C1) ),
+      #           
+      #           RB = rbinom( n = 1,
+      #                        size = 1,
+      #                        prob = expit(-2 + 4*C1) ),
+      #           
+      #           RC = rbinom( n = 1,
+      #                        size = 1,
+      #                        prob = expit(-1 + 3*C1) ) )
+      
+      # # original version: with C1 -> A edge
+      # du = du %>% rowwise() %>%
+      #   mutate( A1 = rbinom( n = 1,
+      #                        size = 1,
+      #                        prob = expit(-1 + 3*C1) ),
+      # 
+      #           # add edge from C1 -> B1
+      #           B1 = rnorm( n = 1,
+      #                       mean = coef1*A1 + coef1*C1),
+      # 
+      #           RA = 1,
+      # 
+      #           # RA = rbinom( n = 1,
+      #           #              size = 1,
+      #           #              prob = expit(-1 + 3*C1) ),
+      # 
+      #           RB = rbinom( n = 1,
+      #                        size = 1,
+      #                        prob = expit(-1 + 3*C1) ),
+      # 
+      #           RC = rbinom( n = 1,
+      #                        size = 1,
+      #                        prob = expit(-1 + 3*C1) ) )
+      
+      # monotonicity
+      du$RB[ du$RC == 0] = 0
+      
+      
+      du = du %>% rowwise() %>%
+        mutate( A = ifelse(RA == 1, A1, NA),
+                B = ifelse(RB == 1, B1, NA),
+                C = ifelse(RC == 1, C1, NA) )
+      
+      
+      colMeans(du)
+      cor(du %>% select( A1, B1, C1, RB, RC) )
+      
+      
+      # make dataset for imputation (standard way: all measured variables)
+      #di = du[ !( is.na(du$A) & is.na(du$B) & is.na(du$C) ), ]  # remove any rows that are all NA
+      di = du %>% select(B, C, A)
+      
+      
+      ### For just the intercept of A
+      if ( .p$coef_of_interest == "(Intercept)" ){ 
+        stop("Intercept not implemented for this DAG")
+      }
+      
+      
+      ### For the A-B association
+      if ( .p$coef_of_interest == "A" ){ 
+        
+        # regression strings
+        form_string = "B ~ A * C"
+        
+        # gold-standard model uses underlying variables
+        gold_form_string = "B1 ~ A1 * C1"
+        
+        beta = coef1
+        
+        # custom predictor matrix for MICE-ours-pred
+        exclude_from_imp_model = NULL # B is in target law
+      }
+      
+    }  # end of .p$dag_name == "3D-bin"
+    else if ( p$dag_name %in% c("11A" ) ) {
       
       dat = du
       
@@ -2647,7 +2655,7 @@ run_missingness_model <- function(data, vars) {
     vars_per_pattern = vars_per_pattern,
     model_text = jags_model_text
   )
-  browser()
+  #browser()
   
   return(list(
     fit = jags_fit,
@@ -2658,7 +2666,241 @@ run_missingness_model <- function(data, vars) {
 }
 
 
-#' Calculate IPMW weights using JAGS results
+
+# 2025-04-17 - temp: try to resolve negative p1's
+#' @param jags_results Results from run_missingness_model
+#' @param data Original dataset
+#' @param use_posterior_draws If TRUE, draws parameters from the posterior samples themselves. If FALSE, just uses posterior medians.
+#' @return Dataset with IPMW weights
+calculate_ipmw_weights2 <- function(jags_results, data, use_posterior_draws = TRUE) {
+  
+  #browser()
+  
+  ### TEMP DEBUGGING
+  load("data")
+  load("jags_results")
+  use_posterior_draws = TRUE
+  ###
+  
+  
+  # Extract parameter estimates (medians)
+  g_estimates <- jags_results$fit$BUGSoutput$median$g
+  
+  # g_draws has one row per draw and one column per parameter to be estimated
+  # NOTE for generalization: this breaks if there is only 1 parameter to be estimate, bc sims.matrix has a "deviance" col and a "g" col
+  if (use_posterior_draws) {
+    g_draws <- jags_results$fit$BUGSoutput$sims.matrix
+    keepers <- grep("^g", colnames(g_draws))
+    g_draws <- g_draws[, keepers]
+    
+    num_draws <- nrow(g_draws)
+    
+    # catch the case where there's only 1 parameter; in that case g_draws is a vector
+    if ( length(keepers) == 1 ) g_draws = matrix(g_draws, ncol=1)
+  } else {
+    stop("use_posterior_draws = FALSE is not implemented")
+  }
+  
+  
+  # Get complete cases from scaled data
+  cc_scaled <- jags_results$scaled_data %>%
+    filter(M == 1)
+  n_cc = nrow(cc_scaled)
+  
+  # Get variables used in model
+  # MM: this only works if data, as passed to this fn, *only* contains M variables and the vars in PS model
+  vars <- names(cc_scaled)[names(cc_scaled) %in% names(data) &
+                             !names(cc_scaled) %in% c("id", "M", paste0("M", 1:16))]
+  
+  
+  # Get number of patterns
+  num_patterns <- length(unique(jags_results$scaled_data$M))
+  vars_per_pattern <- jags_results$vars_per_pattern
+  
+  # Print variable information
+  #message("Variables in model:")
+  #print(vars) # not true - this is all vars in cc_scaled
+  message("Parameter estimates:")
+  print(g_estimates)
+  
+  # Initialize pattern probabilities
+  # pattern_probs <- matrix(0, nrow = nrow(cc_scaled), ncol = num_patterns - 1)
+  
+  # # For each non-complete pattern, calculate probability
+  # # Parameter index counter
+  # param_idx <- 1
+  
+  
+  
+  ### WIP
+  
+  # --- 1) initialize list to store each pattern’s draws-by-CC matrix ---
+  prob_mats <- vector("list", num_patterns - 1)   # **NEW** length = P
+  param_idx <- 1
+  
+  for (p in 2:num_patterns) {
+    message("Pattern ", p, " vars: ", paste( names(vars_per_pattern[[p]]), collapse = ", "))
+    message("Starting param_idx: ", param_idx)
+    
+    # Initialize linear predictor matrix
+    # Repeat intercept into a matrix with dimensions: [num_draws × num_obs]
+    # note: this matrix will look blank if you print it, but that's only how R displays it. View() works.
+    # lp_mat has one row per draw and one col per *observation* in the CC dataset
+    intercept <- as.numeric( g_draws[, param_idx] ); param_idx <- param_idx + 1
+    lp_mat <- matrix(intercept, nrow = num_draws, ncol = n_cc)  # broadcasts intercept over columns
+    
+    # Add covariate terms
+    if (length(vars_per_pattern[[p]]) > 0) {
+      
+      for ( v_name in names( vars_per_pattern[[p]] ) ) {
+
+        message("Starting v_name = ", v_name)
+        
+        # recall that g_draws has one row per draw and one column per parameter to be estimated
+        coef <- g_draws[, param_idx]
+        param_idx <- param_idx + 1
+        
+        X <- matrix(rep(cc_scaled[[v_name]], each = num_draws), nrow = num_draws)
+        lp_mat <- lp_mat + coef * X
+      }
+      
+    }
+    
+    
+    # now have lp_mat: linear predictor for being in pattern p, with entries representing every draw (rows) and every complete case a column
+    # turn in into prob_mat (plogis)
+    prob_mat = plogis(lp_mat)
+    
+    # store prob_mat in prob_mats
+    # this is a list where entry p is a matrix of probs for being in pattern p-1
+    # each prob_mat has: 1 row for each draw; 1 col for each complete case
+    prob_mats[[p-1]] = prob_mat
+    
+  }
+  
+  
+  # now have prob_mats: 
+ 
+  
+  # each column is the colMeans of one prob_mat (dim n_cc x num_patterns)
+  pattern_probs = sapply(prob_mats, colMeans)
+    
+  # 2) now sum across the columns of that matrix
+  p_incomplete <- rowSums(pattern_probs)
+  
+  p1 <- 1 - ( as.numeric(p_incomplete) )
+  any(p1<0)
+  
+  
+  
+  # ### DEBUGGING
+  # 
+  # # find index for obs with invalid p1
+  # which(p1 < 0)
+  # ind = 30
+  # p1[ind]
+  # View(cc_scaled[ind,])
+  # # find the matching row in data, by id
+  # View(data[data$id == 81,])
+  # cc_id = 81
+  # 
+  # # need to use the cc_scaled index, not data
+  # incomplete_probs = rep(0, num_draws)  # vector of length 1500, 1 per draw
+  # for (m in 1:length(prob_mats)) {
+  #   incomplete_probs = incomplete_probs + prob_mats[[m]][,ind]
+  # }
+  # 
+  # # draw-avg mean of this obs being incomplete
+  # # = 2.668!!
+  # # so that agrees with p1: -1.67.
+  # mean(incomplete_probs)
+  # 1 - p1[ind]
+  # 
+  # ### reconstruct entries of prob_mat for each pattern, draw 1
+  # v = analysis_vars
+  # draw_ind = 1
+  # g = g_draws[draw_ind,]
+  # 
+  # # confirm it's the right id
+  # library(testthat)
+  # expect_equal( as.numeric( cc_scaled[ ind, "id"] ), cc_id )
+  # 
+  # ( p2 = plogis( g[1] + g[2] * cc_scaled[[ ind, v[1] ]] + g[3] * cc_scaled[[ ind, v[2] ]] ) )
+  # ( p3 = plogis( g[4] + g[5] * cc_scaled[[ ind, v[2] ]] + g[6]*cc_scaled[[ ind, v[3] ]] ) )
+  # ( p4 = plogis( g[7] + g[8] * cc_scaled[[ ind, v[2] ]] ) )
+  # ( p5 = plogis( g[9] + g[10] * cc_scaled[[ ind, v[1] ]] + g[11]*cc_scaled[[ ind, v[3] ]] ) )
+  # ( p6 = plogis( g[12] + g[13] * cc_scaled[[ ind, v[1] ]] ) )
+  # ( p7 = plogis( g[14] + g[15] * cc_scaled[[ ind, v[3] ]] ) )
+  # ( p8 = plogis( g[16] ) )
+  # ( p2 + p3 + p4 + p5 + p6 + p7 + p8 ) # this is actually reasonable!!
+  # 
+  # # compare to prob_mats
+  # p2[draw_ind] ; prob_mats[[1]][draw_ind,30]
+  # p8[draw_ind] ; prob_mats[[7]][draw_ind,30]
+  # #bm
+  # ### END DEBUG
+  
+  # 1-rowsums
+  #bm: still getting negative p1s!! think about...
+  
+  
+  # From ChatGPT and not yet incorporated
+  # # --- 2) now build n_draws many (P × n_cc) matrices and compute p1 per draw ---
+  # n_draws  <- nrow(prob_mats[[2]])           # **NEW**
+  # p_by_draw <- vector("list", n_draws)       # **NEW**
+  # 
+  # for (d in seq_len(n_draws)) {               # **NEW**
+  #   M_d <- matrix(NA, nrow = num_patterns, ncol = n_cc)  # **NEW**
+  #   
+  #   # fill rows 2..P with the draw‑specific probs
+  #   for (p in 2:num_patterns) {
+  #     M_d[p, ] <- prob_mats[[p]][d, ]        # **NEW**
+  #   }
+  #   
+  #   # compute row 1 = p1 = 1 − sum of rows 2..P
+  #   M_d[1, ] <- 1 - colSums(M_d[2:num_patterns, , drop = FALSE])   # **NEW**
+  #   
+  #   p_by_draw[[d]] <- M_d                     # **NEW**
+  # }
+  # 
+  # # --- 3) extract the p1 row from each matrix and average over draws ---
+  # p1_draws_mat <- sapply(p_by_draw, function(Md) Md[1, ])  # dims = n_cc × n_draws  **NEW**
+  # cc_scaled$p1 <- rowMeans(p1_draws_mat)                  # **NEW**
+  
+  ### END WIP
+  
+  
+  # Calculate IPMW
+  mnum <- mean(data$M == 1, na.rm = TRUE)
+  cc_scaled$ipmw <- mnum / cc_scaled$p1
+  
+  # Trim extreme weights
+  if (any(cc_scaled$ipmw > 10)) {
+    message("Some weights are large. Trimming at 99th percentile.")
+    cc_scaled$ipmw <- pmin(cc_scaled$ipmw, quantile(cc_scaled$ipmw, 0.99))
+  }
+  
+  # Print weight summary
+  message("IPMW weight summary:")
+  print(summary(cc_scaled$ipmw))
+  
+  # Merge with original data
+  if ("id" %in% names(data)) {
+    cc_result <- cc_scaled %>%
+      select(id, ipmw, p1) %>%
+      right_join(data %>% filter(M == 1), by = "id")
+  } else {
+    cc_data <- data %>% filter(M == 1)
+    cc_data$ipmw <- cc_scaled$ipmw
+    cc_data$p1 <- cc_scaled$p1
+    cc_result <- cc_data
+  }
+  
+  return(cc_result)
+}
+
+
+# 2025-04-17 - version that can give negative wts for series 3# because calculates p1 *after* taking means across draws, rather than for each draw#' Calculate IPMW weights using JAGS results
 #' @param jags_results Results from run_missingness_model
 #' @param data Original dataset
 #' @param use_posterior_draws If TRUE, draws parameters from the posterior samples themselves. If FALSE, just uses posterior medians.
@@ -2686,7 +2928,7 @@ calculate_ipmw_weights <- function(jags_results, data, use_posterior_draws = TRU
   
   # Get variables used in model
   # MM: this only works if data, as passed to this fn, *only* contains M variables and the vars in PS model
-  vars <- names(cc_scaled)[names(cc_scaled) %in% names(data) & 
+  vars <- names(cc_scaled)[names(cc_scaled) %in% names(data) &
                              !names(cc_scaled) %in% c("id", "M", paste0("M", 1:16))]
   
   
@@ -2780,25 +3022,26 @@ calculate_ipmw_weights <- function(jags_results, data, use_posterior_draws = TRU
   }
   
   
-  # Calculate p1 (complete case probability)
-  # If all pattern probabilities are close to 1, something's wrong
-  # Check if this is the case
-  if (all(colMeans(pattern_probs) > 0.9)) {
-    message("WARNING: All pattern probabilities are very high - likely a calculation error.")
-    message("Falling back to empirical frequencies.")
-    
-    # Use empirical frequencies instead
-    emp_freqs <- prop.table(table(jags_results$scaled_data$M))
-    for (p in 2:num_patterns) {
-      cc_scaled[[paste0("p", p)]] <- emp_freqs[as.character(p)]
-    }
-    
-    # Calculate p1
-    cc_scaled$p1 <- emp_freqs["1"]
-  } else {
-    # Calculate p1 as 1 minus sum of other probabilities
-    cc_scaled$p1 <- 1 - rowSums(pattern_probs)
-  }
+  # # Calculate p1 (complete case probability)
+  # # If all pattern probabilities are close to 1, something's wrong
+  # # Check if this is the case
+  # if (all(colMeans(pattern_probs) > 0.9)) {
+  #   message("WARNING: All pattern probabilities are very high - likely a calculation error.")
+  #   message("Falling back to empirical frequencies.")
+  # 
+  #   # Use empirical frequencies instead
+  #   emp_freqs <- prop.table(table(jags_results$scaled_data$M))
+  #   for (p in 2:num_patterns) {
+  #     cc_scaled[[paste0("p", p)]] <- emp_freqs[as.character(p)]
+  #   }
+  # 
+  #   # Calculate p1
+  #   cc_scaled$p1 <- emp_freqs["1"]
+  # } else {
+  #   # Calculate p1 as 1 minus sum of other probabilities
+  #   # THIS MIGHT BE THE ISSUE?
+  #   cc_scaled$p1 <- 1 - rowSums(pattern_probs)
+  # }
   
   # ### TEMP DEBUGGING - look at rows with negative p1
   # #browser()
