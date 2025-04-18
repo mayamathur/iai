@@ -2667,7 +2667,8 @@ run_missingness_model <- function(data, vars) {
 
 
 
-# 2025-04-17 - temp: try to resolve negative p1's
+# 2025-04-17 - Resolves negative p1's by calculating p1 for each draw, then averaging those
+
 #' @param jags_results Results from run_missingness_model
 #' @param data Original dataset
 #' @param use_posterior_draws If TRUE, draws parameters from the posterior samples themselves. If FALSE, just uses posterior medians.
@@ -2676,13 +2677,13 @@ calculate_ipmw_weights2 <- function(jags_results, data, use_posterior_draws = TR
   
   #browser()
   
-  ### TEMP DEBUGGING
-  if ( FALSE ) {
-    load("data")
-    load("jags_results")
-    use_posterior_draws = TRUE
-  }
-  ###
+  # ### TEMP DEBUGGING
+  # if ( FALSE ) {
+  #   load("data")
+  #   load("jags_results")
+  #   use_posterior_draws = TRUE
+  # }
+  # ###
   
   
   # Extract parameter estimates (medians)
@@ -2712,7 +2713,7 @@ calculate_ipmw_weights2 <- function(jags_results, data, use_posterior_draws = TR
   # Get variables used in model
   # MM: this only works if data, as passed to this fn, *only* contains M variables and the vars in PS model
   vars <- names(cc_scaled)[names(cc_scaled) %in% names(data) &
-                             !names(cc_scaled) %in% c("id", "M", paste0("M", 1:16))]
+                             !names(cc_scaled) %in% c("id", "M")]
   
   
   # Get number of patterns
@@ -2725,17 +2726,7 @@ calculate_ipmw_weights2 <- function(jags_results, data, use_posterior_draws = TR
   message("Parameter estimates:")
   print(g_estimates)
   
-  # Initialize pattern probabilities
-  # pattern_probs <- matrix(0, nrow = nrow(cc_scaled), ncol = num_patterns - 1)
-  
-  # # For each non-complete pattern, calculate probability
-  # # Parameter index counter
-  # param_idx <- 1
-  
-  
-  
-  ### WIP
-  
+
   # --- 1) initialize list to store each pattern’s draws-by-CC matrix ---
   prob_mats <- vector("list", num_patterns - 1)   # **NEW** length = P
   param_idx <- 1
@@ -2768,7 +2759,6 @@ calculate_ipmw_weights2 <- function(jags_results, data, use_posterior_draws = TR
       
     }
     
-    
     # now have lp_mat: linear predictor for being in pattern p, with entries representing every draw (rows) and every complete case a column
     # turn in into prob_mat (plogis)
     prob_mat = plogis(lp_mat)
@@ -2789,7 +2779,6 @@ calculate_ipmw_weights2 <- function(jags_results, data, use_posterior_draws = TR
   
   p1 <- 1 - ( as.numeric(p_incomplete) )
   if ( any( p1 < 0 ) ) stop("Oh no! Some p1's are negative!")
-  
   
   
   # ### DEBUGGING

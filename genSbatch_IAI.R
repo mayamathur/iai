@@ -37,7 +37,6 @@ scen.params = tidyr::expand_grid(
   #rep.methods = "gold ; CC ; MICE-std ; Am-std ; IPW-custom ; adj-form-4-cate",
   #rep.methods = "gold ; CC ; MICE-std ; Am-std ; IPW-nm",
   rep.methods = "gold ; CC ; MICE-std ; IPW-nm",
-  #rep.methods = "gold ; IPW-nm",
   
   model = "OLS",
   coef_of_interest = "A",
@@ -47,7 +46,7 @@ scen.params = tidyr::expand_grid(
   # as on cluster
   imp_m = 50,  
   imp_maxit = 100,
-  mice_method = "pmm",
+  #mice_method = "pmm",
   
   # # for quicker sims
   # imp_m = 5,
@@ -111,7 +110,7 @@ runfile_path = paste(path, "/testRunFile.R", sep="")
 sbatch_params <- data.frame(jobname,
                             outfile,
                             errorfile,
-                            jobtime = "00:40:00",  # was using 0:40 when not running IPW-nm
+                            jobtime = "01:00:00",  # was using 0:40 when not running IPW-nm
                             quality = "normal",
                             node_number = 1,
                             mem_per_node = 64000,
@@ -135,7 +134,7 @@ n.files
 # run them all
 path = "/home/groups/manishad/IAI"
 setwd( paste(path, "/sbatch_files", sep="") )
-for (i in 1:50) {
+for (i in 1:850) {
   system( paste("sbatch -p qsu,owners,normal /home/groups/manishad/IAI/sbatch_files/", i, ".sbatch", sep="") )
 }
 

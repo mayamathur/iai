@@ -26,7 +26,7 @@ library(xtable)
 
 .results.singles.path = "/home/groups/manishad/IAI/long_results"
 .results.stitched.write.path = "/home/groups/manishad/IAI/overall_stitched"
-.name.prefix = "long_results"
+.name.prefix = "long_results_job"
 .stitch.file.name="stitched.csv"
 
 
@@ -40,7 +40,12 @@ keepers = all.files[ grep( .name.prefix, all.files ) ]
 length(keepers)
 
 # grab variable names from first file
-names = names( read.csv(keepers) )
+names = names( read.csv(keepers[1]) )
+
+# temp = lapply(keepers, function(x){
+#   dat = read.csv(x, header = TRUE)
+#   "dag_name" %in% names(dat) } )
+# which(temp == FALSE)
 
 # read in and rbind the keepers
 tables <- lapply(keepers, function(x) read.csv(x, header = TRUE, colClasses = c(dag_name = "character")))
@@ -232,7 +237,7 @@ source("analyze_sims_helper_IAI.R")
 missed.nums = sbatch_not_run( "/home/groups/manishad/IAI/long_results",
                               "/home/groups/manishad/IAI/long_results",
                               .name.prefix = "long",
-                              .max.sbatch.num = 700)
+                              .max.sbatch.num = 850)
 
 # run any missed jobs
 setwd( paste(path, "/sbatch_files", sep="") )
