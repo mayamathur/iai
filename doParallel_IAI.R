@@ -132,7 +132,7 @@ if ( run.local == TRUE ) {
     
     #rep.methods = "gold ; CC ; MICE-std ; Am-std ; IPW-custom ; adj-form-4-cate", 
     #rep.methods = "gold ; CC ; IPW-nm ; IPW-custom", 
-    rep.methods = "IPW-nm",
+    rep.methods = "MICE-std",
     
     model = "OLS", 
     coef_of_interest = "A",
@@ -142,7 +142,8 @@ if ( run.local == TRUE ) {
     # as on cluster
     imp_m = 5,  # CURRENTLY SET LOW
     imp_maxit = 100,
-    mice_method = "pmm",
+    
+    #mice_method = "pmm",
     
     # # for quicker sims
     # imp_m = 5,
@@ -281,7 +282,13 @@ for ( scen in scens_to_run ) {
         imps_mice = mice( di,
                           maxit = p$imp_maxit,
                           m = p$imp_m,
-                          method = p$mice_method,
+                          
+                          # "A vector of length 4 containing the default imputation methods for 1) numeric data, 2) factor data with 2 levels, 3) factor data with > 2 unordered levels, and 4) factor data with > 2 ordered levels. By default, the method uses pmm, predictive mean matching (numeric data) logreg, logistic regression imputation (binary data, factor with 2 levels) polyreg, polytomous regression imputation for unordered categorical data (factor > 2 levels) polr, proportional odds model for (ordered, > 2 levels)."
+                          # default for defaultMethod is: c("pmm", "logreg", "polyreg", "polr")
+                          #@TEMP: change pmm to norm for continuous vars
+                          defaultMethod = c("norm", "logreg", "polyreg", "polr"),
+                            
+                          #method = p$mice_method,
                           printFlag = FALSE )
         
         # sanity check

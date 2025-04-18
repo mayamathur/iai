@@ -1510,8 +1510,8 @@ fit_regression = function(form_string,
     # DEBUGGING ONLY
     #View( weighted_data[ weighted_data$p1 < 0, ] )
     
-    weighted_data2 <- as.data.frame( calculate_ipmw_weights2(jags_results, data_with_patterns) )
-    View( weighted_data2[ weighted_data2$p1 < 0, ] )
+    weighted_data <- as.data.frame( calculate_ipmw_weights2(jags_results, data_with_patterns) )
+    #View( weighted_data2[ weighted_data2$p1 < 0, ] )
     #bm
     # END DEBUGGING
     
@@ -2677,9 +2677,11 @@ calculate_ipmw_weights2 <- function(jags_results, data, use_posterior_draws = TR
   #browser()
   
   ### TEMP DEBUGGING
-  load("data")
-  load("jags_results")
-  use_posterior_draws = TRUE
+  if ( FALSE ) {
+    load("data")
+    load("jags_results")
+    use_posterior_draws = TRUE
+  }
   ###
   
   
@@ -2779,9 +2781,6 @@ calculate_ipmw_weights2 <- function(jags_results, data, use_posterior_draws = TR
   }
   
   
-  # now have prob_mats: 
- 
-  
   # each column is the colMeans of one prob_mat (dim n_cc x num_patterns)
   pattern_probs = sapply(prob_mats, colMeans)
     
@@ -2789,7 +2788,7 @@ calculate_ipmw_weights2 <- function(jags_results, data, use_posterior_draws = TR
   p_incomplete <- rowSums(pattern_probs)
   
   p1 <- 1 - ( as.numeric(p_incomplete) )
-  any(p1<0)
+  if ( any( p1 < 0 ) ) stop("Oh no! Some p1's are negative!")
   
   
   
@@ -2844,31 +2843,8 @@ calculate_ipmw_weights2 <- function(jags_results, data, use_posterior_draws = TR
   #bm: still getting negative p1s!! think about...
   
   
-  # From ChatGPT and not yet incorporated
-  # # --- 2) now build n_draws many (P × n_cc) matrices and compute p1 per draw ---
-  # n_draws  <- nrow(prob_mats[[2]])           # **NEW**
-  # p_by_draw <- vector("list", n_draws)       # **NEW**
-  # 
-  # for (d in seq_len(n_draws)) {               # **NEW**
-  #   M_d <- matrix(NA, nrow = num_patterns, ncol = n_cc)  # **NEW**
-  #   
-  #   # fill rows 2..P with the draw‑specific probs
-  #   for (p in 2:num_patterns) {
-  #     M_d[p, ] <- prob_mats[[p]][d, ]        # **NEW**
-  #   }
-  #   
-  #   # compute row 1 = p1 = 1 − sum of rows 2..P
-  #   M_d[1, ] <- 1 - colSums(M_d[2:num_patterns, , drop = FALSE])   # **NEW**
-  #   
-  #   p_by_draw[[d]] <- M_d                     # **NEW**
-  # }
-  # 
-  # # --- 3) extract the p1 row from each matrix and average over draws ---
-  # p1_draws_mat <- sapply(p_by_draw, function(Md) Md[1, ])  # dims = n_cc × n_draws  **NEW**
-  # cc_scaled$p1 <- rowMeans(p1_draws_mat)                  # **NEW**
-  
-  ### END WIP
-  
+
+  cc_scaled$p1 = p1 
   
   # Calculate IPMW
   mnum <- mean(data$M == 1, na.rm = TRUE)
