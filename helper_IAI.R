@@ -52,7 +52,7 @@ sim_data = function(.p) {
     
     # make dataset for imputation (standard way: all measured variables)
     di = du %>% select(B, C, A)
-    
+
     
     ### For just the intercept of A
     if ( .p$coef_of_interest == "(Intercept)" ){ 
@@ -74,6 +74,10 @@ sim_data = function(.p) {
       # custom predictor matrix for MICE-ours-pred
       exclude_from_imp_model = NULL # B is in target law
     }
+    
+    # NEW!!
+    # add any needed interactions to imputation dataset
+    di = add_interactions_from_formula(df = di, formula_str = form_string)
     
   }  # end of .p$dag_name == "1A-bin"
   
@@ -1404,7 +1408,6 @@ fit_regression = function(form_string,
                           du,
                           imps) {
   
-  #browser()
   
   cat("\n ***** fit_regression flag1: form_string")
   cat(form_string)
@@ -1503,17 +1506,7 @@ fit_regression = function(form_string,
     jags_results <- run_missingness_model(data_with_patterns, analysis_vars)
     message("Done running Bayesian model for missingness patterns.")
     
-    # # Calculate IPMW weights - original version
-    # message("Calculating IPMW weights...")
-    # weighted_data <- as.data.frame( calculate_ipmw_weights(jags_results, data_with_patterns) )
-    
-    # DEBUGGING ONLY
-    #View( weighted_data[ weighted_data$p1 < 0, ] )
-    
     weighted_data <- as.data.frame( calculate_ipmw_weights2(jags_results, data_with_patterns) )
-    #View( weighted_data2[ weighted_data2$p1 < 0, ] )
-    #bm
-    # END DEBUGGING
     
     message("IPMW weight summary:")
     print(summary(weighted_data$ipmw))
@@ -1556,10 +1549,11 @@ fit_regression = function(form_string,
   
   # ~ MI  ---------------------
   if ( miss_method == "MI" ) {
-    
+  
     
     if ( model == "OLS" ) {
       #if ( nuni( complete(imps,1)$Y) <= 2 ) stop("You have a binary outcome but are fitting OLS with model-based SEs; need to allow robust SEs")
+
       
       # works for both MICE and Amelia
       mod = with(imps,
@@ -1584,13 +1578,24 @@ fit_regression = function(form_string,
     mod_pool = mice::pool(mod)
     summ = summary(mod_pool, conf.int = TRUE)
     
-    bhat_lo = summ$`2.5 %`[ summ$term == coef_of_interest ]
-    bhat_hi = summ$`97.5 %`[ summ$term == coef_of_interest ]
+    # deal with the following irritating issue:
+    #  for MICE, we turn all binaries into factors to avoid imputing them as continuous
+    #  but that means the coefs in resulting lm model will have names like "A1" instead of "A"
+    #  this fn updates coef_of_interest to match
+    coef_of_interest_recoded = match_coef_names_to_mice(coef_of_interest = coef_of_interest,
+                                                        pooled_terms = as.character(mod_pool$pooled$term))
     
-    return( list( stats = data.frame( bhat = mod_pool$pooled$estimate[ mod_pool$pooled$term == coef_of_interest ],
+    bhat_lo = summ$`2.5 %`[ summ$term == coef_of_interest_recoded ]
+    bhat_hi = summ$`97.5 %`[ summ$term == coef_of_interest_recoded ]
+    
+    # also return the summarized string
+    if( class(imps) == "mids" ) imp_methods = summarize_mice_methods(imps$method) else imp_methods = NA
+    
+    return( list( stats = data.frame( bhat = mod_pool$pooled$estimate[ mod_pool$pooled$term == coef_of_interest_recoded ],
                                       bhat_lo = bhat_lo,
                                       bhat_hi = bhat_hi,
-                                      bhat_width = bhat_hi - bhat_lo ) ) )
+                                      bhat_width = bhat_hi - bhat_lo,
+                                      imp_methods = imp_methods) ) )
   }
   
   
@@ -2504,7 +2509,7 @@ run_missingness_model <- function(data, vars) {
       observed_vars <- sapply(vars, function(v) {
         !all(is.na(pattern_data[[v]]))
       })
-      #bm: added sort here
+
       vars_per_pattern[[p]] <- sort(which(observed_vars))
     } else {
       vars_per_pattern[[p]] <- integer(0)
@@ -3280,6 +3285,107 @@ imps_cor = function(.imps){
 }
 
 
+# IMPUTATION HELPERS ---------------------------------------------------------------
+
+
+add_interactions_from_formula <- function(df, formula_str) {
+  # Convert the formula string to a formula object
+  fml <- as.formula(formula_str)
+  
+  # Get model matrix to find which terms are involved
+  mm <- model.matrix(fml, data = df)
+  
+  # Remove the intercept column if present
+  mm <- mm[, colnames(mm) != "(Intercept)", drop = FALSE]
+  
+  # Loop over interaction columns and add to df
+  for (term in colnames(mm)) {
+    if (grepl(":", term)) {
+      # Interaction term
+      vars <- strsplit(term, ":")[[1]]
+      newname <- paste(vars, collapse = "")
+      df[[newname]] <- df[[vars[1]]]
+      for (j in 2:length(vars)) {
+        df[[newname]] <- df[[newname]] * df[[vars[j]]]
+      }
+    } else if (!(term %in% names(df))) {
+      # If a main effect was encoded (e.g., factor variable expansion), just ignore
+      warning(sprintf("Term %s not added because it's not directly available in df", term))
+    }
+  }
+  
+  return(df)
+}
+
+
+
+convert_binary_to_factor <- function(df, vars = NULL, exclude = NULL) {
+  # If vars not specified, consider all columns
+  if (is.null(vars)) {
+    vars <- names(df)
+  }
+  
+  if (!is.null(exclude)) {
+    vars <- setdiff(vars, exclude)
+  }
+  
+  for (v in vars) {
+    x <- df[[v]]
+    if (is.numeric(x) && length(unique(x[!is.na(x)])) == 2) {
+      df[[v]] <- factor(x)
+    }
+  }
+  
+  return(df)
+}
+
+
+convert_binary_to_factor <- function(df) {
+  is_binary <- function(x) is.numeric(x) && length(unique(x[!is.na(x)])) == 2
+  df[] <- lapply(df, function(x) if (is_binary(x)) as.factor(x) else x)
+  return(df)
+}
+
+convert_binary_factor_to_numeric <- function(df) {
+  is_binary_factor <- function(x) is.factor(x) && length(levels(x)) == 2
+  df[] <- lapply(df, function(x) if (is_binary_factor(x)) as.numeric(x) - 1 else x)
+  return(df)
+}
+
+# make a nice single string to report the methods used for each imp model
+summarize_mice_methods <- function(method_vector) {
+  method_vector <- method_vector[method_vector != ""]
+  paste(paste0(names(method_vector), ": ", method_vector), collapse = "; ")
+}
+
+match_coef_names_to_mice <- function(coef_of_interest, pooled_terms) {
+  coef_of_interest <- as.character(coef_of_interest)
+  pooled_terms <- as.character(pooled_terms)  # <- fixes your error
+  
+  # Extract all variable names used in pooled terms (excluding intercept)
+  vars_in_pooled <- unique(unlist(strsplit(pooled_terms[pooled_terms != "(Intercept)"], "[:*]")))
+  vars_with_1 <- vars_in_pooled[grepl("1$", vars_in_pooled)]
+  vars_clean   <- sub("1$", "", vars_with_1)
+  
+  replacements <- setNames(vars_with_1, vars_clean)  # e.g., "A" -> "A1"
+  
+  # Replace clean names with mice-style names (e.g., A → A1)
+  out <- coef_of_interest
+  for (v in names(replacements)) {
+    pattern <- paste0("\\b", v, "\\b")
+    out <- gsub(pattern, replacements[[v]], out)
+  }
+  
+  return(out)
+}
+# # tests
+# match_coef_names_to_mice("B", c("A1", "B1", "C1:D1"))
+# match_coef_names_to_mice("B", c("A", "B", "C:D"))
+
+
+
+
+
 # SMALL GENERIC HELPERS ---------------------
 
 # quickly look at results when running doParallel locally
@@ -3339,6 +3445,7 @@ instPkgPlusDeps <- function(pkg, install = FALSE,
 
 # example
 # instPkgPlusDeps("fields")
+
 
 
 # CLUSTER FNS ---------------------------------------------------------------

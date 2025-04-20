@@ -136,7 +136,7 @@ if ( run.local == TRUE ) {
     
     model = "OLS", 
     coef_of_interest = "A",
-    N = c(5000),
+    N = c(10000),
     
     # MICE parameters
     # as on cluster
@@ -150,7 +150,7 @@ if ( run.local == TRUE ) {
     # imp_maxit = 5,
     # N = c(100),
     
-    dag_name = c("3A") )
+    dag_name = c("1A") )
   
   
   # # remove combos that aren't implemented
@@ -279,6 +279,11 @@ for ( scen in scens_to_run ) {
       # ?mice.impute.pmm
       if ( "MICE-std" %in% all.methods & !is.null(di) ) {
         
+        
+        # ensure all binary vars are factors; otherwise using methods
+        #  other than pmm will treat them as continuous
+        di = convert_binary_to_factor(di)
+        
         imps_mice = mice( di,
                           maxit = p$imp_maxit,
                           m = p$imp_m,
@@ -290,6 +295,10 @@ for ( scen in scens_to_run ) {
                             
                           #method = p$mice_method,
                           printFlag = FALSE )
+        
+        # imps_mice$method
+        #NEW
+        mice_std_methods = summarize_mice_methods(imps_mice$method)
         
         # sanity check
         imp1 = complete(imps_mice, 1)
@@ -838,6 +847,10 @@ for ( scen in scens_to_run ) {
       rep.res = rep.res %>% add_column( sancheck.mean_RB = mean(du$RB) )
       rep.res = rep.res %>% add_column( sancheck.mean_RC = mean(du$RC) )
       
+      # MICE method for each imputation model
+      rep.res = rep.res %>% add_column( sancheck.mice_std_methods = mice_std_methods )
+      
+
       
       # if ( !is.null(di_ours) ) {
       #   rep.res = rep.res %>% add_column( sancheck.di_ours.vars = paste( names(di_ours), collapse = " " ) )
