@@ -144,14 +144,14 @@ if ( run.local == TRUE ) {
     imp_m = 5,  # CURRENTLY SET LOW
     imp_maxit = 100,
     
-    #mice_method = "pmm",
+    mice_method = "pmm",
     
     # # for quicker sims
     # imp_m = 5,
     # imp_maxit = 5,
     # N = c(100),
     
-    dag_name = c("1A") )
+    dag_name = c("2A") )
   
   
   # # remove combos that aren't implemented
@@ -264,7 +264,7 @@ for ( scen in scens_to_run ) {
       }
       
       # some methods don't make sense for certain combos of DAG and coef_of_interest
-      #@this happens when a variable needed for imputation model is also in the target law
+      # this happens when a variable needed for imputation model is also in the target law
       #  later could deal with this by adding the variable back into dataset after imputation
       if ( (p$dag_name == "1D" & coef_of_interest == "A") |
            (p$dag_name == "1B" & coef_of_interest == "A") ) {
@@ -274,37 +274,34 @@ for ( scen in scens_to_run ) {
       
       # ~ Make Imputed Data ------------------------------
       
-      
-      
+    
       # ~~ genloc: JM with general location model ----
-
+      
       if ( "genloc" %in% all.methods & !is.null(di) ) {
         
         # ensure all binary vars are factors; otherwise using methods
         #  other than pmm will treat them as continuous
         #di = convert_binary_to_factor(di)
         
-        ####### THIS IS SPECIFIC TO 1A!!
-        # data matrix containing missing values. The rows of x correspond to observational units, and the columns to variables.
+        # mix needs: "data matrix containing missing values. The rows of x correspond to observational units, and the columns to variables.
         # Missing values are denoted by NA. The categorical variables must be in the first p columns of x,
         # and they must be coded with consecutive positive integers starting with 1.
-        # For example, a binary variable must be coded as 1,2 rather than 0,1.
-        di2 = di
-        di2$A = di2$A + 1  # recode as 1,2 to please mix 
-        di2$C = di2$C + 1  # recode as 1,2 to please mix 
+        # For example, a binary variable must be coded as 1,2 rather than 0,1."
+        # accordingly, recode the binaries and reorder columns.
+        temp = recode_binaries(di)
+        di2 = temp$df
+        n_bin = temp$num_binaries
         
-        # categoricals need to be at beginning of dataset
-        di2 = di2 %>% select(A, C, B)
+        if(n_bin == 0) stop("Can't use genloc with no binaries")
         
         # randomize the random seed
         rngseed( runif(min = 1000000, max = 9999999, n=1) )
         
+        di3 <- prelim.mix(di2, p = n_bin)
         
-        di3 <- prelim.mix(di2, p = 2)
-  
         thetahat <- em.mix(di3)
         
-        m <- 5  # Number of imputations
+        m <- p$imp_m  
         imps_genloc <- vector("list", m)
         
         for (i in 1:m) {
@@ -312,13 +309,10 @@ for ( scen in scens_to_run ) {
           newimp = as.data.frame( imp.mix(s = di3, theta = newtheta, x = di2) )
           
           # revert to original coding
-          newimp$A = newimp$A - 1
-          newimp$C = newimp$C - 1
+          newimp = reverse_recode_binaries(newimp)
+
           imps_genloc[[i]] <- newimp
         }
-        
-        ##### END SPECIFIC CODE
-        
         
         # sanity check
         imp1 = imps_genloc[[1]]
@@ -348,13 +342,11 @@ for ( scen in scens_to_run ) {
                           
                           # "A vector of length 4 containing the default imputation methods for 1) numeric data, 2) factor data with 2 levels, 3) factor data with > 2 unordered levels, and 4) factor data with > 2 ordered levels. By default, the method uses pmm, predictive mean matching (numeric data) logreg, logistic regression imputation (binary data, factor with 2 levels) polyreg, polytomous regression imputation for unordered categorical data (factor > 2 levels) polr, proportional odds model for (ordered, > 2 levels)."
                           # default for defaultMethod is: c("pmm", "logreg", "polyreg", "polr")
-                          #@TEMP: change pmm to norm for continuous vars
                           #defaultMethod = c("norm", "logreg", "polyreg", "polr"),
-                          method = "pmm",
-                            
-                          #method = p$mice_method,
-                          printFlag = FALSE )
 
+                          method = p$mice_method,
+                          printFlag = FALSE )
+        
         mice_std_methods = summarize_mice_methods(imps_mice$method)
         
         # sanity check
@@ -929,7 +921,7 @@ for ( scen in scens_to_run ) {
       # MICE method for each imputation model
       if ( exists("mice_std_methods") ) rep.res = rep.res %>% add_column( sancheck.mice_std_methods = mice_std_methods )
       
-
+      
       
       # if ( !is.null(di_ours) ) {
       #   rep.res = rep.res %>% add_column( sancheck.di_ours.vars = paste( names(di_ours), collapse = " " ) )

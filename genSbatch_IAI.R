@@ -36,7 +36,7 @@ scen.params = tidyr::expand_grid(
   
   #rep.methods = "gold ; CC ; MICE-std ; Am-std ; IPW-custom ; adj-form-4-cate",
   #rep.methods = "gold ; CC ; MICE-std ; Am-std ; IPW-nm",
-  rep.methods = "gold ; genloc",
+  rep.methods = "genloc",
   
   model = "OLS",
   coef_of_interest = "A",
@@ -46,23 +46,16 @@ scen.params = tidyr::expand_grid(
   # as on cluster
   imp_m = 50,  
   imp_maxit = 100,
-  #mice_method = "pmm",
-  
-  # # for quicker sims
-  # imp_m = 5,
-  # imp_maxit = 5,
-  # N = c(100),
-  
-  dag_name = "1A"
-  
+  mice_method = "pmm",
+
   # full set
-  # dag_name = c("1A", "1B", "2A",
-  #              "3A", "3B",  # omitted for now due to negative wt issue
-  #              "3C", "3D", "3E",
-  #              "4A", "6A", "7A",
-  #              "7B", # omitted for now due to negative wt issue
-  #              "12A", "12B", "12C",
-  #              "13A", "13B")
+  dag_name = c("1A", "1B", "2A",
+               "3A", "3B",  
+               "3C", "3D", "3E",
+               "4A", "6A", "7A",
+               "7B",
+               "12A", "12B", "12C",
+               "13A", "13B")
   
 )
 
@@ -136,7 +129,7 @@ n.files
 # run them all
 path = "/home/groups/manishad/IAI"
 setwd( paste(path, "/sbatch_files", sep="") )
-for (i in 1:50) {
+for (i in 1:850) {
   system( paste("sbatch -p qsu,owners,normal /home/groups/manishad/IAI/sbatch_files/", i, ".sbatch", sep="") )
 }
 
@@ -154,7 +147,7 @@ source("helper_IAI.R")
 missed.nums = sbatch_not_run( "/home/groups/manishad/IAI/long_results",
                               "/home/groups/manishad/IAI/long_results",
                               .name.prefix = "long_results",
-                              .max.sbatch.num = 700 )
+                              .max.sbatch.num = 850 )
 
 
 

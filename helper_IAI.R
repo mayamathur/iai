@@ -79,7 +79,7 @@ sim_data = function(.p) {
     # add any needed interactions to imputation dataset
     #di = add_interactions_from_formula(df = di, formula_str = form_string)
     
-  }  # end of .p$dag_name == "1A-bin"
+  }  # end of .p$dag_name == "1A"
   
   
   
@@ -143,13 +143,15 @@ sim_data = function(.p) {
       exclude_from_imp_model = NULL # B is in target law
     }
     
-  }  # end of .p$dag_name == "1A-bin"
+  }  # end of .p$dag_name == "1B"
   
   
   
   
   
   # ~ DAG 2A -----------------------------
+  
+  #@ has normal vars
   
   if ( .p$dag_name == "2A" ) {
     
@@ -1552,32 +1554,69 @@ fit_regression = function(form_string,
   
     
     if ( model == "OLS" ) {
-      #if ( nuni( complete(imps,1)$Y) <= 2 ) stop("You have a binary outcome but are fitting OLS with model-based SEs; need to allow robust SEs")
 
       
-      #browser()
+      # need to use different strategies for fitting model to each dataset depending on whether it's 
+      #  from MICE/Amelia or genloc
+      if ( class(imps) %in% c("mids", "amelia") ) {
+        
+        # works for both MICE and Amelia
+        mod = with(imps,
+                   glm( eval( parse(text = form_string) ) ) )
+        
+
+      } else {
+        # for a plain list
+        mod = lapply(imps, function(d) lm( as.formula(form_string), data = d ) )
+      }
       
-      #@TEMP FOR USE WITH PLAIN LIST OF DFS!! 
-      mod = lapply(imps, function(d) lm( as.formula(form_string), data = d ) )
       
-      
-      # # works for both MICE and Amelia
-      # mod = with(imps,
-      #            glm( eval( parse(text = form_string) ) ) )
+
     }
     
     
     if ( model == "logistic" ) {
-      mod = with(imps,
-                 glm( eval( parse(text = form_string) ),
-                      family = binomial(link = "logit") ) )
+      
+      
+      if ( class(imps) %in% c("mids", "amelia") ) {
+        
+        # works for both MICE and Amelia
+        mod = with(imps,
+                   glm( eval( parse(text = form_string) ),
+                        family = binomial(link = "logit") ) )
+        
+        
+      } else {
+        # for a plain list
+        mod = lapply( imps, function(d) glm( as.formula(form_string),
+                                            data = d,
+                                            family = binomial(link = "logit") ) )
+      }
+      
+      
+
     }
     
     
     if ( model == "log" ) {
-      mod = with(imps,
-                 glm( eval( parse(text = form_string) ),
-                      family = binomial(link = "log") ) )
+
+      
+      if ( class(imps) %in% c("mids", "amelia") ) {
+        
+        # works for both MICE and Amelia
+        mod = with(imps,
+                   glm( eval( parse(text = form_string) ),
+                        family = binomial(link = "log") ) )
+        
+        
+      } else {
+        # for a plain list
+        mod = lapply( imps, function(d) glm( as.formula(form_string),
+                                             data = d,
+                                             family = binomial(link = "log") ) )
+      }
+      
+      
     }
     
     
@@ -3338,6 +3377,38 @@ match_coef_names_to_mice <- function(coef_of_interest, pooled_terms) {
 # match_coef_names_to_mice("B", c("A", "B", "C:D"))
 
 
+
+# for pleasing mix pkg
+recode_binaries <- function(df) {
+  # Identify binary variables (containing only 0 and 1, excluding NA)
+  is_binary <- sapply(df, function(col) all(na.omit(col) %in% c(0, 1)) && length(unique(na.omit(col))) == 2)
+  
+  # Number of binary variables
+  num_binaries <- sum(is_binary)
+  
+  # Recode 0/1 as 1/2
+  df[is_binary] <- lapply(df[is_binary], function(col) col + 1)
+  
+  # Rearrange columns: binaries first, then the rest
+  df_reordered <- cbind(df[is_binary], df[!is_binary])
+  
+  # Return list with recoded dataframe and number of binary variables
+  list(
+    df = df_reordered,
+    num_binaries = num_binaries
+  )
+}
+
+reverse_recode_binaries <- function(df) {
+  # Identify binary variables recoded as 1/2
+  is_binary <- sapply(df, function(col) all(na.omit(col) %in% c(1, 2)) && length(unique(na.omit(col))) == 2)
+  
+  # Reverse recode from 1/2 back to 0/1
+  df[is_binary] <- lapply(df[is_binary], function(col) col - 1)
+  
+  # Return dataframe with reversed recoding
+  df
+}
 
 
 
