@@ -77,7 +77,7 @@ sim_data = function(.p) {
     
     # NEW!!
     # add any needed interactions to imputation dataset
-    di = add_interactions_from_formula(df = di, formula_str = form_string)
+    #di = add_interactions_from_formula(df = di, formula_str = form_string)
     
   }  # end of .p$dag_name == "1A-bin"
   
@@ -1555,9 +1555,15 @@ fit_regression = function(form_string,
       #if ( nuni( complete(imps,1)$Y) <= 2 ) stop("You have a binary outcome but are fitting OLS with model-based SEs; need to allow robust SEs")
 
       
-      # works for both MICE and Amelia
-      mod = with(imps,
-                 lm( eval( parse(text = form_string) ) ) )
+      #browser()
+      
+      #@TEMP FOR USE WITH PLAIN LIST OF DFS!! 
+      mod = lapply(imps, function(d) lm( as.formula(form_string), data = d ) )
+      
+      
+      # # works for both MICE and Amelia
+      # mod = with(imps,
+      #            glm( eval( parse(text = form_string) ) ) )
     }
     
     
@@ -2468,6 +2474,8 @@ create_jags_model <- function(num_patterns, vars_per_pattern) {
   return(model_text)
 }
 
+
+
 #' Run Bayesian estimation for missingness model 
 #' @param data Dataset with pattern indicators
 #' @param vars Variables for model
@@ -2784,59 +2792,6 @@ calculate_ipmw_weights2 <- function(jags_results, data, use_posterior_draws = TR
   
   p1 <- 1 - ( as.numeric(p_incomplete) )
   if ( any( p1 < 0 ) ) stop("Oh no! Some p1's are negative!")
-  
-  
-  # ### DEBUGGING
-  # 
-  # # find index for obs with invalid p1
-  # which(p1 < 0)
-  # ind = 30
-  # p1[ind]
-  # View(cc_scaled[ind,])
-  # # find the matching row in data, by id
-  # View(data[data$id == 81,])
-  # cc_id = 81
-  # 
-  # # need to use the cc_scaled index, not data
-  # incomplete_probs = rep(0, num_draws)  # vector of length 1500, 1 per draw
-  # for (m in 1:length(prob_mats)) {
-  #   incomplete_probs = incomplete_probs + prob_mats[[m]][,ind]
-  # }
-  # 
-  # # draw-avg mean of this obs being incomplete
-  # # = 2.668!!
-  # # so that agrees with p1: -1.67.
-  # mean(incomplete_probs)
-  # 1 - p1[ind]
-  # 
-  # ### reconstruct entries of prob_mat for each pattern, draw 1
-  # v = analysis_vars
-  # draw_ind = 1
-  # g = g_draws[draw_ind,]
-  # 
-  # # confirm it's the right id
-  # library(testthat)
-  # expect_equal( as.numeric( cc_scaled[ ind, "id"] ), cc_id )
-  # 
-  # ( p2 = plogis( g[1] + g[2] * cc_scaled[[ ind, v[1] ]] + g[3] * cc_scaled[[ ind, v[2] ]] ) )
-  # ( p3 = plogis( g[4] + g[5] * cc_scaled[[ ind, v[2] ]] + g[6]*cc_scaled[[ ind, v[3] ]] ) )
-  # ( p4 = plogis( g[7] + g[8] * cc_scaled[[ ind, v[2] ]] ) )
-  # ( p5 = plogis( g[9] + g[10] * cc_scaled[[ ind, v[1] ]] + g[11]*cc_scaled[[ ind, v[3] ]] ) )
-  # ( p6 = plogis( g[12] + g[13] * cc_scaled[[ ind, v[1] ]] ) )
-  # ( p7 = plogis( g[14] + g[15] * cc_scaled[[ ind, v[3] ]] ) )
-  # ( p8 = plogis( g[16] ) )
-  # ( p2 + p3 + p4 + p5 + p6 + p7 + p8 ) # this is actually reasonable!!
-  # 
-  # # compare to prob_mats
-  # p2[draw_ind] ; prob_mats[[1]][draw_ind,30]
-  # p8[draw_ind] ; prob_mats[[7]][draw_ind,30]
-  # #bm
-  # ### END DEBUG
-  
-  # 1-rowsums
-  #bm: still getting negative p1s!! think about...
-  
-  
 
   cc_scaled$p1 = p1 
   

@@ -98,7 +98,7 @@ table(s$dag_name)
 # sanity check
 table(s$dag_name, s$coef_of_interest)
 
-correct.order = c("gold", "CC", "MICE-std", "Am-std", "MICE-ours", "IPW-custom", "IPW-nm",
+correct.order = c("gold", "CC", "MICE-std", "Am-std", "genloc", "IPW-custom", "IPW-nm",
                   "adj-form-1", "adj-form-2", "adj-form-4-cate", "g-form", "custom")
 s$method = factor(s$method, levels = correct.order)
 
@@ -147,6 +147,9 @@ t = s2 %>% group_by(dag_name, method) %>%
   mutate_if(is.numeric, function(x) round(x,2)) 
 as.data.frame(t)
 
+
+# check MICE methods
+table(s$sancheck.mice_std_methods)
 
 
 # save agg data

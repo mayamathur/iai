@@ -36,7 +36,7 @@ scen.params = tidyr::expand_grid(
   
   #rep.methods = "gold ; CC ; MICE-std ; Am-std ; IPW-custom ; adj-form-4-cate",
   #rep.methods = "gold ; CC ; MICE-std ; Am-std ; IPW-nm",
-  rep.methods = "gold ; MICE-std",
+  rep.methods = "gold ; genloc",
   
   model = "OLS",
   coef_of_interest = "A",

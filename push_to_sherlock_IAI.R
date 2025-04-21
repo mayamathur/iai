@@ -71,8 +71,8 @@ scp mmathur@login.sherlock.stanford.edu /home/groups/manishad/IAI/results/overal
 ####################### CLEAN UP ####################### 
 
 
-  # DELETE ALL LONG RESULTS
-  mkdir /home/groups/manishad/IAI/empty_dir
+# DELETE ALL LONG RESULTS
+mkdir /home/groups/manishad/IAI/empty_dir
 rsync -a --delete /home/groups/manishad/IAI/empty_dir/ /home/groups/manishad/IAI/long_results/
   
   # delete stitched results

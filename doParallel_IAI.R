@@ -38,6 +38,7 @@ toLoad = c("crayon",
            "Amelia",
            "R2jags",  # only needed if running method IPW-nm. If removing, you can also remove "module load openblas/0.3.20" and "module load jags/4.3.1" from genSbatch.
            "geepack", # also only for IPW-nm
+           "mix", # only for genloc imputation
            "MASS")
 
 if ( run.local == TRUE | interactive.cluster.run == TRUE ) toLoad = c(toLoad, "here")
@@ -132,7 +133,7 @@ if ( run.local == TRUE ) {
     
     #rep.methods = "gold ; CC ; MICE-std ; Am-std ; IPW-custom ; adj-form-4-cate", 
     #rep.methods = "gold ; CC ; IPW-nm ; IPW-custom", 
-    rep.methods = "MICE-std",
+    rep.methods = "genloc",
     
     model = "OLS", 
     coef_of_interest = "A",
@@ -274,6 +275,63 @@ for ( scen in scens_to_run ) {
       # ~ Make Imputed Data ------------------------------
       
       
+      
+      # ~~ genloc: JM with general location model ----
+
+      if ( "genloc" %in% all.methods & !is.null(di) ) {
+        
+        # ensure all binary vars are factors; otherwise using methods
+        #  other than pmm will treat them as continuous
+        #di = convert_binary_to_factor(di)
+        
+        ####### THIS IS SPECIFIC TO 1A!!
+        # data matrix containing missing values. The rows of x correspond to observational units, and the columns to variables.
+        # Missing values are denoted by NA. The categorical variables must be in the first p columns of x,
+        # and they must be coded with consecutive positive integers starting with 1.
+        # For example, a binary variable must be coded as 1,2 rather than 0,1.
+        di2 = di
+        di2$A = di2$A + 1  # recode as 1,2 to please mix 
+        di2$C = di2$C + 1  # recode as 1,2 to please mix 
+        
+        # categoricals need to be at beginning of dataset
+        di2 = di2 %>% select(A, C, B)
+        
+        # randomize the random seed
+        rngseed( runif(min = 1000000, max = 9999999, n=1) )
+        
+        
+        di3 <- prelim.mix(di2, p = 2)
+  
+        thetahat <- em.mix(di3)
+        
+        m <- 5  # Number of imputations
+        imps_genloc <- vector("list", m)
+        
+        for (i in 1:m) {
+          newtheta <- da.mix(di3, thetahat, steps = 100)
+          newimp = as.data.frame( imp.mix(s = di3, theta = newtheta, x = di2) )
+          
+          # revert to original coding
+          newimp$A = newimp$A - 1
+          newimp$C = newimp$C - 1
+          imps_genloc[[i]] <- newimp
+        }
+        
+        ##### END SPECIFIC CODE
+        
+        
+        # sanity check
+        imp1 = imps_genloc[[1]]
+        
+        if ( any(is.na(imp1)) ) {
+          message("MI left NAs in dataset - what a butt")
+          imps_genloc = NULL
+        }
+        
+      } else {
+        imps_genloc = NULL
+      }
+      
       # ~~ MICE (standard) ----
       # details of how mice() implements pmm:
       # ?mice.impute.pmm
@@ -291,13 +349,12 @@ for ( scen in scens_to_run ) {
                           # "A vector of length 4 containing the default imputation methods for 1) numeric data, 2) factor data with 2 levels, 3) factor data with > 2 unordered levels, and 4) factor data with > 2 ordered levels. By default, the method uses pmm, predictive mean matching (numeric data) logreg, logistic regression imputation (binary data, factor with 2 levels) polyreg, polytomous regression imputation for unordered categorical data (factor > 2 levels) polr, proportional odds model for (ordered, > 2 levels)."
                           # default for defaultMethod is: c("pmm", "logreg", "polyreg", "polr")
                           #@TEMP: change pmm to norm for continuous vars
-                          defaultMethod = c("norm", "logreg", "polyreg", "polr"),
+                          #defaultMethod = c("norm", "logreg", "polyreg", "polr"),
+                          method = "pmm",
                             
                           #method = p$mice_method,
                           printFlag = FALSE )
-        
-        # imps_mice$method
-        #NEW
+
         mice_std_methods = summarize_mice_methods(imps_mice$method)
         
         # sanity check
@@ -425,6 +482,28 @@ for ( scen in scens_to_run ) {
       }
       
       if (run.local == TRUE) srr(rep.res)
+      
+      
+      
+      
+      
+      
+      # ~~ genloc ----
+      if ( "genloc" %in% all.methods ) {
+        rep.res = run_method_safe(method.label = c("genloc"),
+                                  
+                                  method.fn = function(x) fit_regression(form_string = form_string,
+                                                                         model = p$model,
+                                                                         coef_of_interest = coef_of_interest,
+                                                                         miss_method = "MI",
+                                                                         du = NULL,
+                                                                         imps = imps_genloc),
+                                  .rep.res = rep.res )
+      }
+      
+      if (run.local == TRUE) srr(rep.res)
+      
+      
       
       
       
@@ -848,7 +927,7 @@ for ( scen in scens_to_run ) {
       rep.res = rep.res %>% add_column( sancheck.mean_RC = mean(du$RC) )
       
       # MICE method for each imputation model
-      rep.res = rep.res %>% add_column( sancheck.mice_std_methods = mice_std_methods )
+      if ( exists("mice_std_methods") ) rep.res = rep.res %>% add_column( sancheck.mice_std_methods = mice_std_methods )
       
 
       
