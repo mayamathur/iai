@@ -147,7 +147,6 @@ t = s2 %>% group_by(dag_name, method) %>%
   mutate_if(is.numeric, function(x) round(x,2)) 
 as.data.frame(t)
 
-
 # check MICE methods
 table(s$sancheck.mice_std_methods)
 
