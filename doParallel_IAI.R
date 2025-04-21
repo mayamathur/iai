@@ -292,36 +292,45 @@ for ( scen in scens_to_run ) {
         di2 = temp$df
         n_bin = temp$num_binaries
         
-        if(n_bin == 0) stop("Can't use genloc with no binaries")
-        
-        # randomize the random seed
-        rngseed( runif(min = 1000000, max = 9999999, n=1) )
-        
-        di3 <- prelim.mix(di2, p = n_bin)
-        
-        thetahat <- em.mix(di3)
-        
-        m <- p$imp_m  
-        imps_genloc <- vector("list", m)
-        
-        for (i in 1:m) {
-          newtheta <- da.mix(di3, thetahat, steps = 100)
-          newimp = as.data.frame( imp.mix(s = di3, theta = newtheta, x = di2) )
+        if (n_bin == 0){
           
-          # revert to original coding
-          newimp = reverse_recode_binaries(newimp)
-
-          imps_genloc[[i]] <- newimp
-        }
-        
-        # sanity check
-        imp1 = imps_genloc[[1]]
-        
-        if ( any(is.na(imp1)) ) {
-          message("MI left NAs in dataset - what a butt")
+          message("Can't use genloc with no binaries")
           imps_genloc = NULL
+          
+        } else {
+          
+          # randomize the random seed
+          rngseed( runif(min = 1000000, max = 9999999, n=1) )
+          
+          di3 <- prelim.mix(di2, p = n_bin)
+          
+          thetahat <- em.mix(di3)
+          
+          m <- p$imp_m  
+          imps_genloc <- vector("list", m)
+          
+          for (i in 1:m) {
+            newtheta <- da.mix(di3, thetahat, steps = 100)
+            newimp = as.data.frame( imp.mix(s = di3, theta = newtheta, x = di2) )
+            
+            # revert to original coding
+            newimp = reverse_recode_binaries(newimp)
+            
+            imps_genloc[[i]] <- newimp
+          }
+          
+          # sanity check
+          imp1 = imps_genloc[[1]]
+          
+          if ( any(is.na(imp1)) ) {
+            message("MI left NAs in dataset - what a butt")
+            imps_genloc = NULL
+          }
+          
+          
         }
         
+       
       } else {
         imps_genloc = NULL
       }
