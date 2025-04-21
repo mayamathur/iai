@@ -36,7 +36,7 @@ scen.params = tidyr::expand_grid(
   
   #rep.methods = "gold ; CC ; MICE-std ; Am-std ; IPW-custom ; adj-form-4-cate",
   #rep.methods = "gold ; CC ; MICE-std ; Am-std ; IPW-nm",
-  rep.methods = "gold ; CC ; MICE-std ; IPW-nm",
+  rep.methods = "gold ; MICE-std",
   
   model = "OLS",
   coef_of_interest = "A",
@@ -53,15 +53,16 @@ scen.params = tidyr::expand_grid(
   # imp_maxit = 5,
   # N = c(100),
   
-  #dag_name = "3A"
+  dag_name = "1A"
   
-  dag_name = c("1A", "1B", "2A",
-               "3A", "3B",  # omitted for now due to negative wt issue
-               "3C", "3D", "3E",
-               "4A", "6A", "7A",
-               "7B", # omitted for now due to negative wt issue
-               "12A", "12B", "12C",
-               "13A", "13B")
+  # full set
+  # dag_name = c("1A", "1B", "2A",
+  #              "3A", "3B",  # omitted for now due to negative wt issue
+  #              "3C", "3D", "3E",
+  #              "4A", "6A", "7A",
+  #              "7B", # omitted for now due to negative wt issue
+  #              "12A", "12B", "12C",
+  #              "13A", "13B")
   
 )
 
@@ -110,7 +111,8 @@ runfile_path = paste(path, "/testRunFile.R", sep="")
 sbatch_params <- data.frame(jobname,
                             outfile,
                             errorfile,
-                            jobtime = "01:00:00",  # was using 0:40 when not running IPW-nm
+                            #jobtime = "01:00:00",  # with IPW-nm
+                            jobtime = "00:30:00",  # with only MICE
                             quality = "normal",
                             node_number = 1,
                             mem_per_node = 64000,
@@ -134,7 +136,7 @@ n.files
 # run them all
 path = "/home/groups/manishad/IAI"
 setwd( paste(path, "/sbatch_files", sep="") )
-for (i in 1:850) {
+for (i in 1:50) {
   system( paste("sbatch -p qsu,owners,normal /home/groups/manishad/IAI/sbatch_files/", i, ".sbatch", sep="") )
 }
 

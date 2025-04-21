@@ -136,7 +136,7 @@ if ( run.local == TRUE ) {
     
     model = "OLS", 
     coef_of_interest = "A",
-    N = c(10000),
+    N = c(5000),
     
     # MICE parameters
     # as on cluster

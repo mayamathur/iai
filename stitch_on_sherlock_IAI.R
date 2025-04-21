@@ -141,7 +141,7 @@ t = s2 %>% group_by(dag_name, method) %>%
     
     sancheck.mean_RB = meanNA(sancheck.mean_RB),
     sancheck.mean_RC = meanNA(sancheck.mean_RC),
-    sancheck.prop_complete = meanNA(sancheck.prop_complete)
+    sancheck.prop_complete = meanNA(sancheck.prop_complete),
     ) %>%
   arrange() %>%
   mutate_if(is.numeric, function(x) round(x,2)) 
