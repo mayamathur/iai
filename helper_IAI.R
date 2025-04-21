@@ -153,29 +153,41 @@ sim_data = function(.p) {
   
   #@ has normal vars
   
+  # 2025-04-21: edited to have only B1 binary
+  
   if ( .p$dag_name == "2A" ) {
     
-    du = data.frame( C1 = rnorm( n = .p$N ) )  
+    du = data.frame( C1 = rbinom( n = .p$N,
+                                  size = 1, 
+                                  prob = 0.5 ) ) 
+    
     
     coef1 = 2
     coef2 = 1.6
     
     du = du %>% rowwise() %>%
-      mutate( A1 = rnorm( n = 1,
-                          mean = coef2*C1 ),
+      mutate( A1 = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(-1 + 3*C1) ),
               
+              # add edge from C1 -> B1
               B1 = rnorm( n = 1,
-                          mean = coef1*A1 + coef2*C1 + A1*C1 ),
+                          mean = coef1*A1 + coef1*C1 + A1*C1),
+              
+              RA = 1,
+              
+              RB = 1,
               
               RC = rbinom( n = 1,
                            size = 1,
-                           prob = expit(3*C1) ) )
+                           prob = expit(-1 + 3*C1) ) )
     
     
     du = du %>% rowwise() %>%
-      mutate( A = A1,
-              B = B1,
+      mutate( A = ifelse(RA == 1, A1, NA),
+              B = ifelse(RB == 1, B1, NA),
               C = ifelse(RC == 1, C1, NA) )
+    
     
     # colMeans(du)
     # cor(du %>% select(A1, B1, C1, RC) )
