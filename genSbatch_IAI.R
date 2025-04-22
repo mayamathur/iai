@@ -37,8 +37,11 @@ scen.params = tidyr::expand_grid(
   #rep.methods = "gold ; CC ; MICE-std ; Am-std ; IPW-custom ; adj-form-4-cate",
   #rep.methods = "gold ; CC ; MICE-std ; Am-std ; IPW-nm",
   rep.methods = "gold ; CC ; MICE-std ; genloc ; IPW-nm",
+  #rep.methods = "CC",
   
-  model = "OLS",
+  # model = "OLS",  # FOR CONTINUOUS OUTCOME
+  model = "logistic", # FOR BINARY OUTCOME
+  
   coef_of_interest = "A",
   N = c(10000),
   
@@ -46,11 +49,20 @@ scen.params = tidyr::expand_grid(
   # as on cluster
   imp_m = 50,  
   imp_maxit = 100,
-  mice_method = "pmm",
+  mice_method = NA,
   
-  dag_name = "2A"
+  #dag_name = "3B-bin"
+  
+  # full set with binary outcome
+  dag_name = c("1A-bin", "1B-bin", "2A-bin",
+               "3A-bin", "3B-bin",
+               "3C-bin", "3D-bin", "3E-bin",
+               "4A-bin", "6A-bin", "7A-bin",
+               "7B-bin",
+               "12A-bin", "12B-bin", "12C-bin",
+               "13A-bin", "13B-bin")
 
-  # # full set
+  # # full set with continuous outcome
   # dag_name = c("1A", "1B", "2A",
   #              "3A", "3B",  
   #              "3C", "3D", "3E",
@@ -89,7 +101,7 @@ source("helper_IAI.R")
 # number of sbatches to generate (i.e., iterations within each scenario)
 n.reps.per.scen = 500
 n.reps.in.doParallel = 10
-# n.reps.per.scen = 1
+#n.reps.per.scen = 10
 # n.reps.in.doParallel = 1
 ( n.files = ( n.reps.per.scen / n.reps.in.doParallel ) * n.scen )
 
@@ -108,6 +120,7 @@ sbatch_params <- data.frame(jobname,
                             errorfile,
                             #jobtime = "01:00:00",  # with IPW-nm
                             jobtime = "00:30:00",  # with only MICE
+                            #jobtime = "00:10:00",
                             quality = "normal",
                             node_number = 1,
                             mem_per_node = 64000,
@@ -128,10 +141,9 @@ n.files
 # run just the first one
 # sbatch -p qsu,owners,normal /home/groups/manishad/IAI/sbatch_files/1.sbatch
 
-# run them all
 path = "/home/groups/manishad/IAI"
 setwd( paste(path, "/sbatch_files", sep="") )
-for (i in 1:50) {
+for (i in 1:850) {
   system( paste("sbatch -p qsu,owners,normal /home/groups/manishad/IAI/sbatch_files/", i, ".sbatch", sep="") )
 }
 

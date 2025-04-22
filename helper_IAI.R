@@ -243,8 +243,9 @@ sim_data = function(.p) {
     coef2 = 1
     
     du = du %>% rowwise() %>%
-      mutate( B1 = rnorm( n = 1,
-                          mean = coef1*A1 + coef2*C1 + A1*C1),
+      mutate( B1 = rbinom( n = 1,
+                           size = 1,
+                           prob = plogis( -2 + coef1*A1 + coef2*C1 + A1*C1) ),
               
               
               RB = rbinom( n = 1,
@@ -1910,9 +1911,7 @@ sim_data = function(.p) {
   
   if ( .p$dag_name == "12A" ) {
     
-    du = data.frame( X1 = rbinom( n = .p$N,
-                                  size = 1, 
-                                  prob = 0.5 ), # complete variable included only to please Amelia
+    du = data.frame( X1 = rnorm( n = .p$N ), # complete variable included only to please Amelia
                      
                      C1 = rbinom( n = .p$N,
                                   size = 1, 
@@ -2108,9 +2107,7 @@ sim_data = function(.p) {
   
   if ( .p$dag_name == "12B" ) {
     
-    du = data.frame( X1 = rbinom( n = .p$N,
-                                  size = 1, 
-                                  prob = 0.5 ), # complete variable included only to please Amelia
+    du = data.frame( X1 = rnorm( n = .p$N ), # complete variable included only to please Amelia
                      
                      C1 = rbinom( n = .p$N,
                                   size = 1, 
@@ -2209,9 +2206,7 @@ sim_data = function(.p) {
   
   if ( .p$dag_name == "12B-bin" ) {
     
-    du = data.frame( X1 = rbinom( n = .p$N,
-                                  size = 1, 
-                                  prob = 0.5 ), # complete variable included only to please Amelia
+    du = data.frame( X1 = rnorm( n = .p$N ), 
                      
                      C1 = rbinom( n = .p$N,
                                   size = 1, 
@@ -2312,9 +2307,7 @@ sim_data = function(.p) {
   
   if ( .p$dag_name == "12C" ) {
     
-    du = data.frame( X1 = rbinom( n = .p$N,
-                                  size = 1, 
-                                  prob = 0.5 ), # complete variable included only to please Amelia
+    du = data.frame( X1 = rnorm( n = .p$N ), # complete variable included only to please Amelia
                      
                      C1 = rbinom( n = .p$N,
                                   size = 1, 
@@ -2623,7 +2616,8 @@ sim_data = function(.p) {
     du = du %>% rowwise() %>%
       mutate( A = ifelse(RA == 1, A1, NA),
               B = ifelse(RB == 1, B1, NA),
-              C = ifelse(RC == 1, C1, NA) )
+              C = ifelse(RC == 1, C1, NA),
+              X = X1)
     
     
     # monotone missingness: conditionally overwrite indicator
@@ -2905,13 +2899,35 @@ fit_regression = function(form_string,
     if ( model == "OLS" ) {
       mod = lm( eval( parse(text = form_string) ),
                 data = dat )
+      # debugging
+      cat("***** fit_regression flag 1.1: fitted mod coefs:")
+      cat(mod$coefficients)
       
     }
     
     if ( model == "logistic" ) {
-      mod = glm( eval( parse(text = form_string) ),
-                 data = dat,
-                 family = binomial(link = "logit") )
+      
+      #@DEBUGGING ONLY
+      mod <- tryCatch(
+        glm( eval( parse(text = form_string) ),
+                   data = dat,
+                   family = binomial(link = "logit") ),
+        
+        error = function(e) {
+          message("GLM error: ", e$message)
+          browser()
+        }
+      )
+      
+      
+      # mod = glm( eval( parse(text = form_string) ),
+      #            data = dat,
+      #            family = binomial(link = "logit") )
+      
+      
+      # debugging
+      cat("\n***** fit_regression flag 1.1: fitted mod coefs:")
+      cat(mod$coefficients)
     }
     
     if ( model == "log" ) {
@@ -2920,31 +2936,32 @@ fit_regression = function(form_string,
                  family = binomial(link = "log") )
     }
     
-    
+    browser()
     bhats = coef(mod)
     
+    cat("\n***** fit_regression flag 1.2: about to try my_ols_hc0")
     
     # robust SEs in case we're fitting OLS with binary outcome
-    mod_hc0 = my_ols_hc0(coefName = coef_of_interest,
-                         ols = mod)
+    
+    cat("\n coef_of_interest: ", coef_of_interest)
+    cat("\n bhats: ", bhats)    
+    
+    #@DEBUGGING ONLY
+    #bm: something about this fn is breaking, but no idea what
+    #  and why does it only break for CC, not the other ones?
+    mod_hc0 <- my_ols_hc0(coefName = coef_of_interest,
+                           ols = mod)
+    
+    cat("\n***** fit_regression flag 1.3: done with my_ols_hc0; results:")
+    cat("\n bhat:", as.numeric( bhats[coef_of_interest]) )
+    cat("\n bhat lo:", mod_hc0$lo )
+
+    # should work even for logistic regression
+    # mod_hc0 = my_ols_hc0(coefName = coef_of_interest,
+    #                      ols = mod)
     
     # previous: model-based CIs
     #CI = as.numeric( confint(mod)[coef_of_interest,] )
-    
-    
-    # just for debugging
-    if ( p$dag_name %in% c("9A", "9A-bin", "9B", "9B-bin") & miss_method == "gold" ) {
-      EY_prediction = as.numeric( predict(object = mod, newdata = data.frame(A1 = 1,
-                                                                             C1 = 1,
-                                                                             D1 = 1) ) )
-    }
-    # just for debugging
-    if ( p$dag_name %in% c("9A", "9A-bin", "9B", "9B-bin") & miss_method == "CC" ) {
-      EY_prediction = as.numeric( predict(object = mod, newdata = data.frame(A = 1,
-                                                                             C = 1,
-                                                                             D = 1) ) )
-    }
-    
     
     return( list( stats = data.frame( bhat = as.numeric( bhats[coef_of_interest] ),
                                       
@@ -4652,7 +4669,7 @@ run_method_safe = function( method.label,
                             method.fn,
                             .rep.res ) {
   
-  cat( paste("\n run_method_safe flag 1: about to try running method", method.label) )
+  cat( paste("\n \n run_method_safe flag 1: about to try running method", method.label) )
   
   
   tryCatch({

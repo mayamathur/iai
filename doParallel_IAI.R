@@ -132,8 +132,8 @@ if ( run.local == TRUE ) {
   scen.params = tidyr::expand_grid(
     
     #rep.methods = "gold ; CC ; MICE-std ; Am-std ; IPW-custom ; adj-form-4-cate", 
-    #rep.methods = "gold ; CC ; IPW-nm ; IPW-custom", 
-    rep.methods = "MICE-std ; IPW-nm ; genloc",
+    #rep.methods = "gold ; CC ; MICE-std ; IPW-nm ; genloc", 
+    rep.methods = "CC ; MICE-std ; genloc",
     
     #model = "OLS", 
     model = "logistic",  # outcome model
@@ -143,16 +143,22 @@ if ( run.local == TRUE ) {
     # MICE parameters
     # as on cluster
     imp_m = 5,  # CURRENTLY SET LOW
-    imp_maxit = 100,
+    imp_maxit = 5,
     
-    mice_method = "logreg",  # IF ALL VARS ARE BINARY
+    mice_method = NA,  # IF ALL VARS ARE BINARY
     
-    # # for quicker sims
-    # imp_m = 5,
-    # imp_maxit = 5,
-    # N = c(100),
+    # # full set
+    # dag_name = c("1A", "1B", "2A",
+    #              "3A", "3B",
+    #              "3C", "3D", "3E",
+    #              "4A", "6A", "7A",
+    #              "7B",
+    #              "12A", "12B", "12C",
+    #              "13A", "13B")
     
-    dag_name = c("1A-bin") )
+    dag_name = c("3B-bin")
+    
+    )
   
   
   # # remove combos that aren't implemented
@@ -280,6 +286,8 @@ for ( scen in scens_to_run ) {
       
       if ( "genloc" %in% all.methods & !is.null(di) ) {
         
+        message("Starting to impute using genloc")
+        
         # ensure all binary vars are factors; otherwise using methods
         #  other than pmm will treat them as continuous
         #di = convert_binary_to_factor(di)
@@ -336,31 +344,48 @@ for ( scen in scens_to_run ) {
           
         }
         
+        message("Done imputing using genloc")
+        
        
       } else {
         imps_genloc = NULL
       }
       
-      # ~~ MICE (standard) ----
+      # ~~ MICE-std ----
       # details of how mice() implements pmm:
       # ?mice.impute.pmm
       if ( "MICE-std" %in% all.methods & !is.null(di) ) {
         
         
+        message("Starting to impute using MICE-std")
+        
+        
+        #bm
         # ensure all binary vars are factors; otherwise using methods
         #  other than pmm will treat them as continuous
-        di = convert_binary_to_factor(di)
+        di2 = convert_binary_to_factor(di)
         
-        imps_mice = mice( di,
-                          maxit = p$imp_maxit,
-                          m = p$imp_m,
-                          
-                          # "A vector of length 4 containing the default imputation methods for 1) numeric data, 2) factor data with 2 levels, 3) factor data with > 2 unordered levels, and 4) factor data with > 2 ordered levels. By default, the method uses pmm, predictive mean matching (numeric data) logreg, logistic regression imputation (binary data, factor with 2 levels) polyreg, polytomous regression imputation for unordered categorical data (factor > 2 levels) polr, proportional odds model for (ordered, > 2 levels)."
-                          # default for defaultMethod is: c("pmm", "logreg", "polyreg", "polr")
-                          #defaultMethod = c("norm", "logreg", "polyreg", "polr"),
+        # only pass method arg if it's not NA or NULL
+        if ( is.na(p$mice_method) | is.null(p$mice_method) ) {
+          imps_mice = mice( di2,
+                            maxit = p$imp_maxit,
+                            m = p$imp_m,
+                            printFlag = FALSE )
+        } else {
+          imps_mice = mice( di2,
+                            maxit = p$imp_maxit,
+                            m = p$imp_m,
+                            
+                            # "A vector of length 4 containing the default imputation methods for 1) numeric data, 2) factor data with 2 levels, 3) factor data with > 2 unordered levels, and 4) factor data with > 2 ordered levels. By default, the method uses pmm, predictive mean matching (numeric data) logreg, logistic regression imputation (binary data, factor with 2 levels) polyreg, polytomous regression imputation for unordered categorical data (factor > 2 levels) polr, proportional odds model for (ordered, > 2 levels)."
+                            # default for defaultMethod is: c("pmm", "logreg", "polyreg", "polr")
+                            #defaultMethod = c("norm", "logreg", "polyreg", "polr"),
+                            
+                            method = p$mice_method,
+                            printFlag = FALSE )
+        }
+        
+        
 
-                          method = p$mice_method,
-                          printFlag = FALSE )
         
         mice_std_methods = summarize_mice_methods(imps_mice$method)
         
@@ -372,50 +397,11 @@ for ( scen in scens_to_run ) {
           imps_mice = NULL
         }
         
+        message("Done imputing using MICE-std")
+        
+        
       } else {
         imps_mice = NULL
-      }
-      
-      
-      # ~~ MICE-ours ----
-      # MICE by adjusting predictor matrix
-      if ( "MICE-ours" %in% all.methods & !is.null(di) ) {
-        
-        
-        if ( !( p$dag_name %in% c("1B-bin", "1B") ) ) {
-          stop("MICE-ours not implemented for that DAG")
-        }
-        
-        # modify predictor matrix instead of restricting dataset
-        # "A value of 1 specifies that the variable given in the column name is used in the model to impute the variable given in the row name (and 0 specifies that this variable is not used in that model)."
-        ini = mice(di, maxit=0)
-        pred = ini$predictorMatrix
-        
-        if ( p$dag_name %in% c("1B-bin", "1B") ) {
-          pred["C","B"] = 0  # do NOT use incomplete B to impute auxiliary C
-        }
-        
-        
-        imps_mice_ours_pred = mice( di,
-                                    predictorMatrix = pred,
-                                    maxit = p$imp_maxit,
-                                    m = p$imp_m,
-                                    method = p$mice_method,
-                                    printFlag = FALSE )
-        
-        # for later sanity checks
-        actual_pred = imps_mice_ours_pred$predictorMatrix
-        
-        # sanity check
-        imp1 = complete(imps_mice_ours_pred, 1)
-        
-        if ( any(is.na(imp1)) ) {
-          message("MI left NAs in dataset - what a butt")
-          imps_mice_ours_pred = NULL
-        }
-        
-      } else {
-        imps_mice_ours_pred = NULL
       }
       
       
@@ -455,6 +441,14 @@ for ( scen in scens_to_run ) {
       
       # ~~ Gold standard: No missing data ----
       if ( "gold" %in% all.methods ) {
+        
+        #@debugging
+        #bm
+        message("Entered gold part")
+        cat(str(di$B))
+        cat(table(di$B, useNA = "ifany"))
+        
+        
         rep.res = run_method_safe(method.label = c("gold"),
                                   
                                   method.fn = function(x) fit_regression(form_string = gold_form_string,
@@ -474,6 +468,15 @@ for ( scen in scens_to_run ) {
       
       # ~~ Complete-case analysis (naive) ----
       if ( "CC" %in% all.methods ) {
+        
+        #@debugging
+        #bm
+        message("Entered CC part")
+        cat(str(di$B))
+        cat(table(di$B, useNA = "ifany"))
+        
+        
+        
         rep.res = run_method_safe(method.label = c("CC"),
                                   
                                   method.fn = function(x) fit_regression(form_string = form_string,
@@ -514,7 +517,7 @@ for ( scen in scens_to_run ) {
       
       
       
-      # ~~ MICE ----
+      # ~~ MICE-std ----
       if ( "MICE-std" %in% all.methods ) {
         rep.res = run_method_safe(method.label = c("MICE-std"),
                                   
@@ -524,22 +527,6 @@ for ( scen in scens_to_run ) {
                                                                          miss_method = "MI",
                                                                          du = NULL,
                                                                          imps = imps_mice),
-                                  .rep.res = rep.res )
-      }
-      
-      if (run.local == TRUE) srr(rep.res)
-      
-      
-      # ~~ MICE-ours ----
-      if ( "MICE-ours" %in% all.methods ) {
-        rep.res = run_method_safe(method.label = c("MICE-ours"),
-                                  
-                                  method.fn = function(x) fit_regression(form_string = form_string,
-                                                                         model = p$model,
-                                                                         coef_of_interest = coef_of_interest,
-                                                                         miss_method = "MI",
-                                                                         du = NULL,
-                                                                         imps = imps_mice_ours_pred),
                                   .rep.res = rep.res )
       }
       
