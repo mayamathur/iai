@@ -75,10 +75,7 @@ sim_data = function(.p) {
       exclude_from_imp_model = NULL # B is in target law
     }
     
-    # NEW!!
-    # add any needed interactions to imputation dataset
-    #di = add_interactions_from_formula(df = di, formula_str = form_string)
-    
+
   }  # end of .p$dag_name == "1A"
   
   
@@ -907,7 +904,7 @@ sim_data = function(.p) {
     
     # make dataset for imputation (standard way: all measured variables)
     #di = du[ !( is.na(du$A) & is.na(du$B) & is.na(du$C) ), ]  # remove any rows that are all NA
-    di = du %>% select(B, C, A)
+    di = du %>% select(B, C, A, X)
     
     
     ### For just the intercept of A
@@ -1104,7 +1101,6 @@ sim_data = function(.p) {
                            size = 1,
                            prob = expit(-1 + 3*C1) ),
               
-              # add edge from C1 -> B1
               B1 = rnorm( n = 1,
                           mean = coef1*A1 + coef1*C1 + coef1*A1*C1),
               
@@ -1503,7 +1499,7 @@ sim_data = function(.p) {
       # gold-standard model uses underlying variables
       gold_form_string = "B1 ~ A1 * C1"
       
-      beta = NA
+      beta = coef1
       
       # custom predictor matrix for MICE-ours-pred
       exclude_from_imp_model = NULL # B is in target law
@@ -1594,7 +1590,7 @@ sim_data = function(.p) {
       # gold-standard model uses underlying variables
       gold_form_string = "B1 ~ A1 * C1"
       
-      beta = NA
+      beta = coef1
       
       # custom predictor matrix for MICE-ours-pred
       exclude_from_imp_model = NULL # B is in target law
@@ -1670,7 +1666,7 @@ sim_data = function(.p) {
       # gold-standard model uses underlying variables
       gold_form_string = "B1 ~ A1 * C1"
       
-      beta = NA
+      beta = coef1
       
       # custom predictor matrix for MICE-ours-pred
       exclude_from_imp_model = NULL # B is in target law
@@ -1747,7 +1743,7 @@ sim_data = function(.p) {
       # gold-standard model uses underlying variables
       gold_form_string = "B1 ~ A1 * C1"
       
-      beta = NA
+      beta = coef1
       
       # custom predictor matrix for MICE-ours-pred
       exclude_from_imp_model = NULL # B is in target law
@@ -1822,7 +1818,7 @@ sim_data = function(.p) {
       # gold-standard model uses underlying variables
       gold_form_string = "B1 ~ A1 * C1"
       
-      beta = NA
+      beta = coef1
       
       # custom predictor matrix for MICE-ours-pred
       exclude_from_imp_model = NULL # B is in target law
@@ -1900,7 +1896,7 @@ sim_data = function(.p) {
       # gold-standard model uses underlying variables
       gold_form_string = "B1 ~ A1 * C1"
       
-      beta = NA
+      beta = coef1
       
       # custom predictor matrix for MICE-ours-pred
       exclude_from_imp_model = NULL # B is in target law
@@ -1928,6 +1924,8 @@ sim_data = function(.p) {
                                   prob = 0.5 ) ) 
     
     
+    coef1 = 2
+    
     
     du = du %>% rowwise() %>%
       mutate( A1 = rbinom( n = 1,
@@ -1937,7 +1935,7 @@ sim_data = function(.p) {
               
               # add edge from C1 -> B1
               B1 = rnorm( n = 1,
-                          mean = 2*A1 + 2*D1 + A1*D1),
+                          mean = coef1*A1 + 2*D1 + A1*D1),
               
               RX = 1,
               
@@ -1994,7 +1992,7 @@ sim_data = function(.p) {
       # gold-standard model uses underlying variables
       gold_form_string = "B1 ~ A1 * C1 * D1"
       
-      beta = 2
+      beta = coef1
       
       # custom predictor matrix for MICE-ours-pred
       exclude_from_imp_model = NULL # B is in target law
@@ -2023,7 +2021,7 @@ sim_data = function(.p) {
                                   size = 1, 
                                   prob = 0.5 ) ) 
     
-    
+    coef1 = 2
     
     du = du %>% rowwise() %>%
       mutate( A1 = rbinom( n = 1,
@@ -2033,7 +2031,7 @@ sim_data = function(.p) {
               
               B1 = rbinom( n = 1,
                            size = 1,
-                           prob = plogis( -2 + 2*A1 + 2*D1 + A1*D1) ),
+                           prob = plogis( -2 + coef1*A1 + 2*D1 + A1*D1) ),
               
               RX = 1,
               
@@ -2090,7 +2088,7 @@ sim_data = function(.p) {
       # gold-standard model uses underlying variables
       gold_form_string = "B1 ~ A1 * C1 * D1"
       
-      beta = 2
+      beta = coef1
       
       # custom predictor matrix for MICE-ours-pred
       exclude_from_imp_model = NULL # B is in target law
@@ -2123,7 +2121,7 @@ sim_data = function(.p) {
                                   size = 1, 
                                   prob = 0.5 ) ) 
     
-    
+    coef1 = 2
     
     du = du %>% rowwise() %>%
       mutate( A1 = rbinom( n = 1,
@@ -2133,7 +2131,7 @@ sim_data = function(.p) {
               
               # add edge from C1 -> B1
               B1 = rnorm( n = 1,
-                          mean = 2*A1 + 2*D1 + A1*D1),
+                          mean = coef1*A1 + 2*D1 + A1*D1),
               
               RA = rbinom( n = 1,
                            size = 1,
@@ -2192,7 +2190,7 @@ sim_data = function(.p) {
       # gold-standard model uses underlying variables
       gold_form_string = "B1 ~ A1 * C1 * D1"
       
-      beta = 2
+      beta = coef1
       
       # custom predictor matrix for MICE-ours-pred
       exclude_from_imp_model = NULL # B is in target law
@@ -2225,6 +2223,7 @@ sim_data = function(.p) {
                                   prob = 0.5 ) ) 
     
     
+    coef1 = 2
     
     du = du %>% rowwise() %>%
       mutate( A1 = rbinom( n = 1,
@@ -2234,7 +2233,7 @@ sim_data = function(.p) {
               
               B1 = rbinom( n = 1,
                            size = 1,
-                           prob = plogis( -2 + 2*A1 + 2*D1 + A1*D1) ),
+                           prob = plogis( -2 + coef1*A1 + 2*D1 + A1*D1) ),
               
               RA = rbinom( n = 1,
                            size = 1,
@@ -2293,7 +2292,7 @@ sim_data = function(.p) {
       # gold-standard model uses underlying variables
       gold_form_string = "B1 ~ A1 * C1 * D1"
       
-      beta = 2
+      beta = coef1
       
       # custom predictor matrix for MICE-ours-pred
       exclude_from_imp_model = NULL # B is in target law
@@ -2327,6 +2326,7 @@ sim_data = function(.p) {
                                   prob = 0.5 ) ) 
     
     
+    coef1 = 2
     
     du = du %>% rowwise() %>%
       mutate( A1 = rbinom( n = 1,
@@ -2336,7 +2336,7 @@ sim_data = function(.p) {
               
               # add edge from C1 -> B1
               B1 = rnorm( n = 1,
-                          mean = 2*A1 + 2*D1 + A1*D1),
+                          mean = coef1*A1 + 2*D1 + A1*D1),
               
               RA = rbinom( n = 1,
                            size = 1,
@@ -2393,7 +2393,7 @@ sim_data = function(.p) {
       # gold-standard model uses underlying variables
       gold_form_string = "B1 ~ A1 * C1 * D1"
       
-      beta = 2
+      beta = coef1
       
       # custom predictor matrix for MICE-ours-pred
       exclude_from_imp_model = NULL # B is in target law
@@ -2425,6 +2425,8 @@ sim_data = function(.p) {
                                   prob = 0.5 ) ) 
     
     
+    coef1 = 2
+    
     
     du = du %>% rowwise() %>%
       mutate( A1 = rbinom( n = 1,
@@ -2435,7 +2437,7 @@ sim_data = function(.p) {
 
               B1 = rbinom( n = 1,
                            size = 1,
-                           prob = plogis( -2 + 2*A1 + 2*D1 + A1*D1) ),
+                           prob = plogis( -2 + coef1*A1 + 2*D1 + A1*D1) ),
               
               RA = rbinom( n = 1,
                            size = 1,
@@ -2518,9 +2520,11 @@ sim_data = function(.p) {
                                   size = 1, 
                                   prob = 0.5 ) ) 
     
+    coef1 = 2
+    
     du = du %>% rowwise() %>%
       mutate( B1 = rnorm( n = 1,
-                          mean = 2*A1),
+                          mean = coef1*A1),
               
               RA = rbinom( n = 1,
                            size = 1,
@@ -2566,7 +2570,7 @@ sim_data = function(.p) {
       # gold-standard model uses underlying variables
       gold_form_string = "B1 ~ A1"
       
-      beta = 2
+      beta = coef1
       
       # custom predictor matrix for MICE-ours-pred
       exclude_from_imp_model = NULL # B is in target law
@@ -2597,10 +2601,13 @@ sim_data = function(.p) {
                                   size = 1, 
                                   prob = 0.5 ) ) 
     
+    
+    coef1 = 2
+    
     du = du %>% rowwise() %>%
       mutate( B1 = rbinom( n = 1,
                            size = 1,
-                           prob = plogis( -1 + 2*A1 ) ),
+                           prob = plogis( -1 + coef1*A1 ) ),
               
               RA = rbinom( n = 1,
                            size = 1,
@@ -2646,7 +2653,7 @@ sim_data = function(.p) {
       # gold-standard model uses underlying variables
       gold_form_string = "B1 ~ A1"
       
-      beta = 2
+      beta = coef1
       
       # custom predictor matrix for MICE-ours-pred
       exclude_from_imp_model = NULL # B is in target law
@@ -2674,9 +2681,11 @@ sim_data = function(.p) {
                                   size = 1, 
                                   prob = 0.5 ) ) 
     
+    coef1 = 2
+    
     du = du %>% rowwise() %>%
       mutate( B1 = rnorm( n = 1,
-                          mean = 2*A1),
+                          mean = coef1*A1),
               
               RB = rbinom( n = 1,
                            size = 1,
@@ -2722,7 +2731,7 @@ sim_data = function(.p) {
       # gold-standard model uses underlying variables
       gold_form_string = "B1 ~ A1"
       
-      beta = 2
+      beta = coef1
       
       # custom predictor matrix for MICE-ours-pred
       exclude_from_imp_model = NULL # B is in target law
@@ -2749,6 +2758,8 @@ sim_data = function(.p) {
                      A1 = rbinom( n = .p$N,
                                   size = 1, 
                                   prob = 0.5 ) ) 
+    
+    coef1 = 2
     
     du = du %>% rowwise() %>%
       mutate( B1 = rbinom( n = 1,
@@ -2801,7 +2812,7 @@ sim_data = function(.p) {
       # gold-standard model uses underlying variables
       gold_form_string = "B1 ~ A1"
       
-      beta = 2
+      beta = coef1
       
       # custom predictor matrix for MICE-ours-pred
       exclude_from_imp_model = NULL # B is in target law
