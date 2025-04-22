@@ -83,6 +83,85 @@ sim_data = function(.p) {
   
   
   
+  
+  
+  # ~ DAG 1A-bin -----------------------------
+  
+  if ( .p$dag_name == "1A-bin" ) {
+    
+    # X1 (isolated node) is only there to allow genloc to run (needs at least 1 continuous var)
+     du = data.frame( X1 = rnorm( n = .p$N ),
+                     C1 = rbinom( n = .p$N,
+                                  size = 1, 
+                                  prob = 0.5 ),  
+                     A1 = rbinom( n = .p$N, 
+                                  size = 1, 
+                                  prob = 0.5 ) )  
+    
+    coef1 = 2
+    coef2 = 1
+    
+    du = du %>% rowwise() %>%
+      mutate( B1 = rbinom( n = 1,
+                           size = 1,
+                          prob = plogis( -2 + coef1*A1 + coef2*C1 + A1*C1) ),
+              
+              
+              RB = rbinom( n = 1,
+                           size = 1,
+                           prob = 0.3 + 0.4*A1 ),
+              
+              RC = rbinom(n = 1, size = 1, prob = 0.5) )
+    
+    # monotone missingness: conditionally overwrite RC
+    du$RC[ du$RB == 0 ] = 0 
+    # missmap(du %>% select(A, B, C))
+    
+    du = du %>% rowwise() %>%
+      mutate( A = A1,
+              B = ifelse(RB == 1, B1, NA),
+              C = ifelse(RC == 1, C1, NA),
+              X = X1)
+    
+    colMeans(du)
+    cor(du %>% select(A1, B1, C1, RB, RC) )
+    
+    
+    # make dataset for imputation (standard way: all measured variables)
+    di = du %>% select(B, C, A, X)
+    
+    
+    ### For just the intercept of A
+    if ( .p$coef_of_interest == "(Intercept)" ){ 
+      stop("Intercept not implemented for this DAG")
+    }
+    
+    
+    ### For the A-B association
+    if ( .p$coef_of_interest == "A" ){ 
+      
+      # regression strings
+      form_string = "B ~ A * C"
+      
+      # gold-standard model uses underlying variables
+      gold_form_string = "B1 ~ A1 * C1"
+      
+      beta = coef1
+      
+      # custom predictor matrix for MICE-ours-pred
+      exclude_from_imp_model = NULL # B is in target law
+    }
+    
+    # NEW!!
+    # add any needed interactions to imputation dataset
+    #di = add_interactions_from_formula(df = di, formula_str = form_string)
+    
+  }  # end of .p$dag_name == "1A-bin"
+  
+  
+  
+  
+  
   # ~ DAG 1B -----------------------------
   
   if ( .p$dag_name == "1B" ) {
@@ -149,10 +228,79 @@ sim_data = function(.p) {
   
   
   
+  
+  # ~ DAG 1B-bin -----------------------------
+  
+  if ( .p$dag_name == "1B-bin" ) {
+    
+    # X1 (isolated node) is only there to allow genloc to run (needs at least 1 continuous var)
+    du = data.frame( X1 = rnorm( n = .p$N ),
+                     C1 = rbinom( n = .p$N,
+                                  size = 1, 
+                                  prob = 0.5 ),  
+                     A1 = rbinom( n = .p$N, 
+                                  size = 1, 
+                                  prob = 0.5 ) )  
+    
+    coef1 = 2
+    coef2 = 1
+    
+    du = du %>% rowwise() %>%
+      mutate( B1 = rnorm( n = 1,
+                          mean = coef1*A1 + coef2*C1 + A1*C1),
+              
+              
+              RB = rbinom( n = 1,
+                           size = 1,
+                           prob = 0.3 + 0.4*A1 ),
+              
+              RC = rbinom(n = 1, size = 1, prob = 0.5) )
+    
+    
+    du = du %>% rowwise() %>%
+      mutate( A = A1,
+              B = ifelse(RB == 1, B1, NA),
+              C = ifelse(RC == 1, C1, NA),
+              X = X1)
+    
+    colMeans(du)
+    cor(du %>% select(A1, B1, C1, RB, RC) )
+    
+    
+    # make dataset for imputation (standard way: all measured variables)
+    di = du %>% select(B, C, A, X)
+    
+    
+    ### For just the intercept of A
+    if ( .p$coef_of_interest == "(Intercept)" ){ 
+      stop("Intercept not implemented for this DAG")
+    }
+    
+    
+    ### For the A-B association
+    if ( .p$coef_of_interest == "A" ){ 
+      
+      # regression strings
+      form_string = "B ~ A * C"
+      
+      # gold-standard model uses underlying variables
+      gold_form_string = "B1 ~ A1 * C1"
+      
+      beta = coef1
+      
+      # custom predictor matrix for MICE-ours-pred
+      exclude_from_imp_model = NULL # B is in target law
+    }
+    
+  }  # end of .p$dag_name == "1B-bin"
+  
+  
+  
+  
+  
+  
+  
   # ~ DAG 2A -----------------------------
-  
-  #@ has normal vars
-  
   # 2025-04-21: edited to have only B1 binary
   
   if ( .p$dag_name == "2A" ) {
@@ -219,6 +367,84 @@ sim_data = function(.p) {
     }
     
   }  # end of .p$dag_name == "2A"
+  
+  
+  
+  
+  
+  
+  # ~ DAG 2A-bin -----------------------------
+  
+  if ( .p$dag_name == "2A-bin" ) {
+    
+    # X1 (isolated node) is only there to allow genloc to run (needs at least 1 continuous var)
+    du = data.frame( X1 = rnorm( n = .p$N ),
+                     C1 = rbinom( n = .p$N,
+                                  size = 1, 
+                                  prob = 0.5 ) ) 
+    
+    
+    coef1 = 2
+    coef2 = 1
+    
+    du = du %>% rowwise() %>%
+      mutate( A1 = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(-1 + 3*C1) ),
+              
+              B1 = rbinom( n = 1,
+                           size = 1,
+                           prob = plogis( -2 + coef1*A1 + coef2*C1 + A1*C1) ),
+    
+              
+              RA = 1,
+              
+              RB = 1,
+              
+              RC = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(-1 + 3*C1) ) )
+    
+    
+    du = du %>% rowwise() %>%
+      mutate( A = ifelse(RA == 1, A1, NA),
+              B = ifelse(RB == 1, B1, NA),
+              C = ifelse(RC == 1, C1, NA),
+              X = X1)
+    
+    
+    # colMeans(du)
+    # cor(du %>% select(A1, B1, C1, RC) )
+    
+    
+    # make dataset for imputation (standard way: all measured variables)
+    di = du %>% select(B, C, A, X)
+    
+    
+    ### For just the intercept of A
+    if ( .p$coef_of_interest == "(Intercept)" ){ 
+      stop("Intercept not implemented for this DAG")
+    }
+    
+    
+    ### For the A-B association
+    if ( .p$coef_of_interest == "A" ){ 
+      
+      # regression strings
+      form_string = "B ~ A * C"
+      
+      # gold-standard model uses underlying variables
+      gold_form_string = "B1 ~ A1 * C1"
+      
+      beta = coef1
+      
+      # custom predictor matrix for MICE-ours-pred
+      exclude_from_imp_model = NULL # B is in target law
+    }
+    
+  }  # end of .p$dag_name == "2A-bin"
+  
+  
   
   
   
@@ -297,6 +523,87 @@ sim_data = function(.p) {
   
   
   
+  
+  
+  # ~ DAG 3A-bin -----------------------------
+  
+  if ( .p$dag_name == "3A-bin" ) {
+    
+    # X1 (isolated node) is only there to allow genloc to run (needs at least 1 continuous var)
+    du = data.frame( X1 = rnorm( n = .p$N ),
+                     C1 = rbinom( n = .p$N,
+                                  size = 1, 
+                                  prob = 0.5 ) ) 
+    
+    
+    coef1 = 2
+    coef2 = 1
+    
+    du = du %>% rowwise() %>%
+      mutate( A1 = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(-1 + 3*C1) ),
+              
+              B1 = rbinom( n = 1,
+                           size = 1,
+                           prob = plogis( -1 + coef1*A1 ) ),
+              
+              RA = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(-1 + 3*C1) ),
+              
+              RB = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(-1 + 3*C1) ),
+              
+              RC = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(-1 + 3*C1) ) )
+    
+    
+    du = du %>% rowwise() %>%
+      mutate( A = ifelse(RA == 1, A1, NA),
+              B = ifelse(RB == 1, B1, NA),
+              C = ifelse(RC == 1, C1, NA),
+              X = X1)
+    
+    
+    colMeans(du)
+    cor(du %>% select(A1, B1, C1, RB, RC) )
+    
+    
+    # make dataset for imputation (standard way: all measured variables)
+    #di = du[ !( is.na(du$A) & is.na(du$B) & is.na(du$C) ), ]  # remove any rows that are all NA
+    di = du %>% select(B, C, A, X)
+    
+    
+    ### For just the intercept of A
+    if ( .p$coef_of_interest == "(Intercept)" ){ 
+      stop("Intercept not implemented for this DAG")
+    }
+    
+    
+    ### For the A-B association
+    if ( .p$coef_of_interest == "A" ){ 
+      
+      # regression strings
+      form_string = "B ~ A + C"
+      
+      # gold-standard model uses underlying variables
+      gold_form_string = "B1 ~ A1 + C1"
+      
+      beta = coef1
+      
+      # custom predictor matrix for MICE-ours-pred
+      exclude_from_imp_model = NULL # B is in target law
+    }
+    
+  }  # end of .p$dag_name == "3A-bin"
+  
+  
+  
+  
+  
   # ~ DAG 3B -----------------------------
   # same as above, but has C1 -> Y1 edge
   
@@ -369,6 +676,85 @@ sim_data = function(.p) {
     }
     
   }  # end of .p$dag_name == "3B"
+  
+  
+  
+  # ~ DAG 3B-bin -----------------------------
+  # same as above, but has C1 -> Y1 edge
+  
+  if ( .p$dag_name == "3B-bin" ) {
+    
+    # X1 (isolated node) is only there to allow genloc to run (needs at least 1 continuous var)
+    du = data.frame( X1 = rnorm( n = .p$N ),
+                     C1 = rbinom( n = .p$N,
+                                  size = 1, 
+                                  prob = 0.5 ) ) 
+    
+    
+    coef1 = 2
+    coef2 = 1
+    
+    du = du %>% rowwise() %>%
+      mutate( A1 = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(-1 + 3*C1) ),
+              
+              B1 = rbinom( n = 1,
+                           size = 1,
+                           prob = plogis( -2 + coef1*A1 + coef2*C1 + A1*C1) ),
+              
+              RA = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(-1 + 3*C1) ),
+              
+              RB = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(-1 + 3*C1) ),
+              
+              RC = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(-1 + 3*C1) ) )
+    
+    
+    du = du %>% rowwise() %>%
+      mutate( A = ifelse(RA == 1, A1, NA),
+              B = ifelse(RB == 1, B1, NA),
+              C = ifelse(RC == 1, C1, NA),
+              X = X1)
+    
+    
+    colMeans(du)
+    cor(du %>% select(A1, B1, C1, RB, RC) )
+    
+    
+    # make dataset for imputation (standard way: all measured variables)
+    #di = du[ !( is.na(du$A) & is.na(du$B) & is.na(du$C) ), ]  # remove any rows that are all NA
+    di = du %>% select(B, C, A, X)
+    
+    
+    ### For just the intercept of A
+    if ( .p$coef_of_interest == "(Intercept)" ){ 
+      stop("Intercept not implemented for this DAG")
+    }
+    
+    
+    ### For the A-B association
+    if ( .p$coef_of_interest == "A" ){ 
+      
+      # regression strings
+      form_string = "B ~ A * C"
+      
+      # gold-standard model uses underlying variables
+      gold_form_string = "B1 ~ A1 * C1"
+      
+      beta = coef1
+      
+      # custom predictor matrix for MICE-ours-pred
+      exclude_from_imp_model = NULL # B is in target law
+    }
+    
+  }  # end of .p$dag_name == "3B-bin"
+  
   
   
   # ~ DAG 3C -------------------------------------------------
@@ -458,6 +844,98 @@ sim_data = function(.p) {
   }  # end of .p$dag_name == "3C"
   
   
+  
+  # ~ DAG 3C-bin -------------------------------------------------
+  
+  if ( .p$dag_name == "3C-bin" ) {
+    
+    # X1 (isolated node) is only there to allow genloc to run (needs at least 1 continuous var)
+    du = data.frame( X1 = rnorm( n = .p$N ),
+                     C1 = rbinom( n = .p$N,
+                                  size = 1, 
+                                  prob = 0.5 ) ) 
+    
+    
+    coef1 = 2
+    coef2 = 1
+    
+    du = du %>% rowwise() %>%
+      mutate( A1 = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(-1 + 3*C1) ),
+              
+              B1 = rbinom( n = 1,
+                           size = 1,
+                           prob = plogis( -2 + coef1*A1 + coef2*C1 + A1*C1) ),
+              
+              RA = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(-1 + 3*C1) ),
+              
+              RB = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(-1 + 3*C1) ),
+              
+              RC = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(-1 + 3*C1) ) )
+    
+    du = du %>% rowwise() %>%
+      mutate( A = ifelse(RA == 1, A1, NA),
+              B = ifelse(RB == 1, B1, NA),
+              C = ifelse(RC == 1, C1, NA) )
+    
+    
+    colMeans(du)
+    cor(du %>% select(A1, B1, C1, RB, RC) )
+    
+    
+    # monotone missingness: conditionally overwrite indicator
+    du$RA[ du$RC == 0 ] = 0
+    du$RB[ du$RA == 0 ] = 0
+    
+    du = du %>% rowwise() %>%
+      mutate( A = ifelse(RA == 1, A1, NA),
+              B = ifelse(RB == 1, B1, NA),
+              C = ifelse(RC == 1, C1, NA),
+              X = X1)
+    
+    
+    colMeans(du)
+    cor(du %>% select(A1, B1, C1, RB, RC) )
+    
+    
+    # make dataset for imputation (standard way: all measured variables)
+    #di = du[ !( is.na(du$A) & is.na(du$B) & is.na(du$C) ), ]  # remove any rows that are all NA
+    di = du %>% select(B, C, A)
+    
+    
+    ### For just the intercept of A
+    if ( .p$coef_of_interest == "(Intercept)" ){ 
+      stop("Intercept not implemented for this DAG")
+    }
+    
+    
+    ### For the A-B association
+    if ( .p$coef_of_interest == "A" ){ 
+      
+      # regression strings
+      form_string = "B ~ A * C"
+      
+      # gold-standard model uses underlying variables
+      gold_form_string = "B1 ~ A1 * C1"
+      
+      beta = coef1
+      
+      # custom predictor matrix for MICE-ours-pred
+      exclude_from_imp_model = NULL # B is in target law
+    }
+    
+  }  # end of .p$dag_name == "3C-bin"
+  
+  
+  
+  
   # ~ DAG 3D -----------------------------
   if ( .p$dag_name == "3D" ) {
     
@@ -528,6 +1006,84 @@ sim_data = function(.p) {
     }
     
   }  # end of .p$dag_name == "3D"
+  
+  
+  
+  # ~ DAG 3D-bin -----------------------------
+  if ( .p$dag_name == "3D-bin" ) {
+    
+    # designed for using Ross' rjags code, so A needs to be complete
+    # has A*C interaction
+    # X1 (isolated node) is only there to allow genloc to run (needs at least 1 continuous var)
+    du = data.frame( X1 = rnorm( n = .p$N ),
+                     C1 = rbinom( n = .p$N,
+                                  size = 1, 
+                                  prob = 0.5 ) ) 
+    
+    
+    coef1 = 2
+    coef2 = 1
+    
+    
+    du = du %>% rowwise() %>%
+      mutate( A1 = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(-1 + 3*C1) ),
+              
+              B1 = rbinom( n = 1,
+                           size = 1,
+                           prob = plogis( -2 + coef1*A1 + coef2*C1 + A1*C1) ),
+              
+              RA = 1,
+              
+              RB = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(-1 + 3*C1) ),
+              
+              RC = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(-1 + 3*C1) ) )
+    
+    
+    du = du %>% rowwise() %>%
+      mutate( A = ifelse(RA == 1, A1, NA),
+              B = ifelse(RB == 1, B1, NA),
+              C = ifelse(RC == 1, C1, NA),
+              X = X1)
+    
+    
+    colMeans(du)
+    cor(du %>% select( A1, B1, C1, RB, RC) )
+    
+    
+    # make dataset for imputation (standard way: all measured variables)
+    di = du %>% select(B, C, A, X)
+    
+    
+    ### For just the intercept of A
+    if ( .p$coef_of_interest == "(Intercept)" ){ 
+      stop("Intercept not implemented for this DAG")
+    }
+    
+    
+    ### For the A-B association
+    if ( .p$coef_of_interest == "A" ){ 
+      
+      # regression strings
+      form_string = "B ~ A * C"
+      
+      # gold-standard model uses underlying variables
+      gold_form_string = "B1 ~ A1 * C1"
+      
+      beta = coef1
+      
+      # custom predictor matrix for MICE-ours-pred
+      exclude_from_imp_model = NULL # B is in target law
+    }
+    
+  }  # end of .p$dag_name == "3D-bin"
+  
+  
   
   
   # ~ DAG 3E -----------------------------
@@ -605,6 +1161,91 @@ sim_data = function(.p) {
     }
     
   }  # end of .p$dag_name == "3E"
+  
+  
+  
+  
+  
+  # ~ DAG 3E-bin -----------------------------
+  if ( .p$dag_name == "3E-bin" ) {
+    
+    # designed for using Ross' rjags code, so A needs to be complete
+    # has A*C interaction
+    # X1 (isolated node) is only there to allow genloc to run (needs at least 1 continuous var)
+    du = data.frame( X1 = rnorm( n = .p$N ),
+                     C1 = rbinom( n = .p$N,
+                                  size = 1, 
+                                  prob = 0.5 ) ) 
+    
+    
+    coef1 = 2
+    coef2 = 1
+    
+    du = du %>% rowwise() %>%
+      mutate( A1 = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(-1 + 3*C1) ),
+              
+              B1 = rbinom( n = 1,
+                           size = 1,
+                           prob = plogis( -2 + coef1*A1 + coef2*C1 + A1*C1) ),
+              
+              RA = 1,
+              
+              RB = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(-1 + 3*C1) ),
+              
+              RC = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(-1 + 3*C1) ) )
+    
+    
+    
+    # monotonicity
+    du$RB[ du$RC == 0] = 0
+    
+    
+    du = du %>% rowwise() %>%
+      mutate( A = ifelse(RA == 1, A1, NA),
+              B = ifelse(RB == 1, B1, NA),
+              C = ifelse(RC == 1, C1, NA),
+              X = X1)
+    
+    
+    colMeans(du)
+    cor(du %>% select( A1, B1, C1, RB, RC) )
+    
+    
+    # make dataset for imputation (standard way: all measured variables)
+    #di = du[ !( is.na(du$A) & is.na(du$B) & is.na(du$C) ), ]  # remove any rows that are all NA
+    di = du %>% select(B, C, A, X)
+    
+    
+    ### For just the intercept of A
+    if ( .p$coef_of_interest == "(Intercept)" ){ 
+      stop("Intercept not implemented for this DAG")
+    }
+    
+    
+    ### For the A-B association
+    if ( .p$coef_of_interest == "A" ){ 
+      
+      # regression strings
+      form_string = "B ~ A * C"
+      
+      # gold-standard model uses underlying variables
+      gold_form_string = "B1 ~ A1 * C1"
+      
+      beta = coef1
+      
+      # custom predictor matrix for MICE-ours-pred
+      exclude_from_imp_model = NULL # B is in target law
+    }
+    
+  }  # end of .p$dag_name == "3E-bin"
+  
+  
   
   
   
@@ -697,6 +1338,100 @@ sim_data = function(.p) {
   
   
   
+  
+  # ~ DAG 4A-bin -----------------------------
+  
+  # for adjustment formula 4, CATE version
+  # C1 -> A1 -> W1 -> B1
+  # C1 -> Y1, C1 -> RC
+  # W1 -> RY
+  
+  
+  if ( .p$dag_name == "4A-bin" ) {
+    
+    # X1 (isolated node) is only there to allow genloc to run (needs at least 1 continuous var)
+    du = data.frame( X1 = rnorm( n = .p$N ),
+                     C1 = rbinom( n = .p$N,
+                                  size = 1, 
+                                  prob = 0.5 ) ) 
+    
+    
+    coefWB = 2
+    coefAW = 3
+    
+    du = du %>% rowwise() %>%
+      mutate( A1 = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(-1 + 3*C1) ),
+              
+              W1 = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(-1 + coefAW*A1) ),
+
+              
+              B1 = rbinom( n = 1,
+                           size = 1,
+                           prob = plogis( -2 + coefWB*W1 + 2*C1 + W1*C1) ),
+              
+              RA = rbinom( n = 1,
+                           size = 1,
+                           prob = 0.5 ),
+              
+              RW = rbinom( n = 1,
+                           size = 1,
+                           prob = 0.5 ),
+              
+              RC = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(-1 + 3*C1) ),
+              
+              RB = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(-1 + 3*W1) ) )
+    
+    
+    du = du %>% rowwise() %>%
+      mutate( A = ifelse(RA == 1, A1, NA),
+              B = ifelse(RB == 1, B1, NA),
+              C = ifelse(RC == 1, C1, NA),
+              W = ifelse(RW == 1, W1, NA),
+              X = X1)
+    
+    
+    colMeans(du)
+    cor(du %>% select(A1, B1, C1, W1, RA, RB, RC, RW) )
+    
+    
+    # make dataset for imputation (exclude W because it's latent)
+    di = du %>% select(A, B, C, X)
+    
+    
+    ### For just the intercept of A
+    if ( .p$coef_of_interest == "(Intercept)" ){ 
+      stop("Intercept not implemented for this DAG")
+    }
+    
+    
+    ### For the A-B association
+    if ( .p$coef_of_interest == "A" ){ 
+      
+      # regression strings
+      form_string = "B ~ A * C"
+      
+      # gold-standard model uses underlying variables
+      gold_form_string = "B1 ~ A1 * C1"
+      
+      beta = NA
+      
+      # custom predictor matrix for MICE-ours-pred
+      exclude_from_imp_model = NULL
+    }
+    
+  }  # end of .p$dag_name == "4A-bin"
+  
+  
+  
+  
   # ~ DAG 6A -----------------------------
   
   # C1 -> RC -> RB (monotone)
@@ -780,6 +1515,99 @@ sim_data = function(.p) {
   
   
   
+  
+  # ~ DAG 6A-bin -----------------------------
+  
+  # C1 -> RC -> RB (monotone)
+  # A -> Y1
+  # B1 <- W -> RB
+  # intuitively, I expect MAR methods to work even though it's MNAR
+  
+  if ( .p$dag_name == "6A-bin" ) {
+    
+    # X1 (isolated node) is only there to allow genloc to run (needs at least 1 continuous var)
+    du = data.frame( X1 = rnorm( n = .p$N ),
+                     C1 = rbinom( n = .p$N,
+                                  size = 1, 
+                                  prob = 0.5 ), 
+                     W1 = rbinom( n = .p$N,
+                                  size = 1, 
+                                  prob = 0.5 ), 
+                     A1 = rbinom( n = .p$N, 
+                                  size = 1, 
+                                  prob = 0.5 ) )  
+    
+    coef1 = 2
+    coef2 = 1
+    
+    du = du %>% rowwise() %>%
+      mutate( B1 = rnorm( n = 1,
+                          # need EMM for unadjusted CCA to be biased
+                          mean = coef1*A1 + coef2*W1 + 1*A1*W1 ),
+              
+              B1 = rbinom( n = 1,
+                           size = 1,
+                           prob = plogis( -2 + coef1*A1 + coef2*W1 + A1*W1) ),
+              
+              RB = rbinom( n = 1,
+                           size = 1,
+                           prob = 0.4 + 0.4*W1 ),
+              
+              RC = rbinom(n = 1,
+                          size = 1,
+                          prob = expit(0 + 3*C1) ),
+              
+              RW = 1,
+              RA = 1)
+    
+    # monotone missingness: conditionally overwrite indicator
+    du$RB[ du$RC == 0 ] = 0
+    # missmap(du %>% select(A, B, C))
+    
+    du = du %>% rowwise() %>%
+      mutate( A = A1,
+              W = W1,
+              B = ifelse(RB == 1, B1, NA),
+              C = ifelse(RC == 1, C1, NA),
+              X = X1)
+    
+    colMeans(du)
+    cor(du %>% select(A1, B1, C1, W1, RB, RC) )
+    
+    
+    # make dataset for imputation (exclude W: treat as latent)
+    di = du %>% select(B, C, A, X)
+    
+    
+    ### For just the intercept of A
+    if ( .p$coef_of_interest == "(Intercept)" ){ 
+      stop("Intercept not implemented for this DAG")
+    }
+    
+    
+    ### For the A-B association
+    if ( .p$coef_of_interest == "A" ){ 
+      
+      # regression strings
+      form_string = "B ~ A * C"
+      
+      # gold-standard model uses underlying variables
+      gold_form_string = "B1 ~ A1 * C1"
+      
+      beta = NA
+      
+      # custom predictor matrix for MICE-ours-pred
+      exclude_from_imp_model = NULL # B is in target law
+    }
+    
+  }  # end of .p$dag_name == "6A-bin"
+  
+  
+  
+  
+  
+  
+  
   # ~ DAG 7A -----------------------------
   
   if ( .p$dag_name == "7A" ) {
@@ -849,6 +1677,85 @@ sim_data = function(.p) {
     }
     
   }  # end of .p$dag_name == "7A"
+  
+  
+  
+  # ~ DAG 7A-bin -----------------------------
+  
+  if ( .p$dag_name == "7A-bin" ) {
+    
+    # X1 (isolated node) is only there to allow genloc to run (needs at least 1 continuous var)
+    du = data.frame( X1 = rnorm( n = .p$N ),
+                     C1 = rbinom( n = .p$N,
+                                  size = 1, 
+                                  prob = 0.5 ), 
+                     
+                     A1 = rbinom( n = .p$N, 
+                                  size = 1, 
+                                  prob = 0.5 ) )  
+    
+    coef1 = 2
+    coef2 = 1
+    
+    du = du %>% rowwise() %>%
+      mutate( B1 = rbinom( n = 1,
+                           size = 1,
+                           prob = plogis( -2 + coef1*A1 + coef2*C1 + A1*C1) ),
+              
+              
+              RB = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(0 + 3*A1) ),
+              
+              RA = rbinom(n = 1,
+                          size = 1,
+                          prob = expit(0 + 3*A1) ),
+              
+              RC = 1 )
+    
+    # monotone missingness RA -> RB
+    du$RB[ du$RA == 0 ] = 0
+    
+    du = du %>% rowwise() %>%
+      mutate( A = ifelse(RA == 1, A1, NA),
+              B = ifelse(RB == 1, B1, NA),
+              C = ifelse(RC == 1, C1, NA),
+              X = X1)
+    
+    # missmap(du %>% select(A, B, C))
+    
+    colMeans(du)
+    cor(du %>% select(A1, B1, C1, RB, RC) )
+    
+    
+    # make dataset for imputation (standard way: all measured variables)
+    di = du %>% select(B, C, A, X)
+    
+    
+    ### For just the intercept of A
+    if ( .p$coef_of_interest == "(Intercept)" ){ 
+      stop("Intercept not implemented for this DAG")
+    }
+    
+    
+    ### For the A-B association
+    if ( .p$coef_of_interest == "A" ){ 
+      
+      # regression strings
+      form_string = "B ~ A * C"
+      
+      # gold-standard model uses underlying variables
+      gold_form_string = "B1 ~ A1 * C1"
+      
+      beta = NA
+      
+      # custom predictor matrix for MICE-ours-pred
+      exclude_from_imp_model = NULL # B is in target law
+    }
+    
+  }  # end of .p$dag_name == "7A-bin"
+  
+  
   
   
   # ~ DAG 7B -----------------------------
@@ -922,6 +1829,85 @@ sim_data = function(.p) {
     }
     
   }  # end of .p$dag_name == "7B"
+  
+  
+  
+  # ~ DAG 7B-bin -----------------------------
+  
+  # same as 7A, but with "direction" of monotone missingness reversed (i.e., RY -> RA here)
+  
+  if ( .p$dag_name == "7B-bin" ) {
+    
+    # X1 (isolated node) is only there to allow genloc to run (needs at least 1 continuous var)
+    du = data.frame( X1 = rnorm( n = .p$N ),
+                     C1 = rbinom( n = .p$N,
+                                  size = 1, 
+                                  prob = 0.5 ), 
+                     
+                     A1 = rbinom( n = .p$N, 
+                                  size = 1, 
+                                  prob = 0.5 ) )  
+    
+    coef1 = 2
+    coef2 = 1
+    
+    du = du %>% rowwise() %>%
+      mutate( B1 = rbinom( n = 1,
+                           size = 1,
+                           prob = plogis( -2 + coef1*A1 + coef2*C1 + A1*C1) ),
+              
+              RB = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(0 + 3*A1) ),
+              
+              RA = rbinom(n = 1,
+                          size = 1,
+                          prob = expit(0 + 3*A1) ),
+              
+              RC = 1 )
+    
+    # monotone missingness RA -> RB
+    du$RA[ du$RB == 0 ] = 0
+    
+    du = du %>% rowwise() %>%
+      mutate( A = ifelse(RA == 1, A1, NA),
+              B = ifelse(RB == 1, B1, NA),
+              C = ifelse(RC == 1, C1, NA),
+              X = X1)
+    
+    # missmap(du %>% select(A, B, C))
+    
+    colMeans(du)
+    cor(du %>% select(A1, B1, C1, RB, RC) )
+    
+    
+    # make dataset for imputation (standard way: all measured variables)
+    di = du %>% select(B, C, A, X)
+    
+    
+    ### For just the intercept of A
+    if ( .p$coef_of_interest == "(Intercept)" ){ 
+      stop("Intercept not implemented for this DAG")
+    }
+    
+    
+    ### For the A-B association
+    if ( .p$coef_of_interest == "A" ){ 
+      
+      # regression strings
+      form_string = "B ~ A * C"
+      
+      # gold-standard model uses underlying variables
+      gold_form_string = "B1 ~ A1 * C1"
+      
+      beta = NA
+      
+      # custom predictor matrix for MICE-ours-pred
+      exclude_from_imp_model = NULL # B is in target law
+    }
+    
+  }  # end of .p$dag_name == "7B-bin"
+  
   
   
   # ~ DAG 12A -----------------------------
@@ -1015,6 +2001,104 @@ sim_data = function(.p) {
     }
     
   }  # end of .p$dag_name == "12A"
+  
+  
+  
+  
+  
+  
+  # ~ DAG 12A-bin -----------------------------
+  
+  if ( .p$dag_name == "12A-bin" ) {
+    
+    # X1 (isolated node) is only there to allow genloc to run (needs at least 1 continuous var)
+    du = data.frame( X1 = rnorm( n = .p$N ),
+                     
+                     C1 = rbinom( n = .p$N,
+                                  size = 1, 
+                                  prob = 0.5 ),
+                     
+                     # called C^1_2 in IAI log; this is also in conditioning set
+                     D1 = rbinom( n = .p$N,
+                                  size = 1, 
+                                  prob = 0.5 ) ) 
+    
+    
+    
+    du = du %>% rowwise() %>%
+      mutate( A1 = rbinom( n = 1,
+                           size = 1,
+                           prob = 0.5),
+              #prob = expit(-1 + 3*C1) ),
+              
+              B1 = rbinom( n = 1,
+                           size = 1,
+                           prob = plogis( -2 + 2*A1 + 2*D1 + A1*D1) ),
+              
+              RX = 1,
+              
+              RA = rbinom( n = 1,
+                           size = 1,
+                           prob = 0.75 ),
+              
+              RB = rbinom( n = 1,
+                           size = 1,
+                           prob = 0.75 ),
+              
+              RD = RB,
+              
+              RC = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(0 + 3*D1) ) )
+    
+    
+    # monotone missingness: conditionally overwrite indicator
+    du$RB[ du$RA == 0 ] = 0
+    du$RD = du$RB
+    du$RC[ du$RD == 0 ] = 0
+    
+    du = du %>% rowwise() %>%
+      mutate( A = ifelse(RA == 1, A1, NA),
+              B = ifelse(RB == 1, B1, NA),
+              C = ifelse(RC == 1, C1, NA),
+              D = ifelse(RD == 1, D1, NA),
+              X = X1)
+    
+    #missmap( du %>% select(A, B, C, D) )
+    colMeans(du)
+    cor(du %>% select(A1, B1, C1, D1, RA, RB, RC, RD) )
+    #cor(du$B1, du$RC)  # this is the key path that must be strong enough to elicit bias
+    
+    
+    # make dataset for imputation (standard way: all measured variables)
+    #di = du[ !( is.na(du$A) & is.na(du$B) & is.na(du$C) ), ]  # remove any rows that are all NA
+    di = du %>% select(A, B, C, D, X)
+    
+    
+    ### For just the intercept of A
+    if ( .p$coef_of_interest == "(Intercept)" ){ 
+      stop("Intercept not implemented for this DAG")
+    }
+    
+    
+    ### For the A-B association
+    if ( .p$coef_of_interest == "A" ){ 
+      
+      # regression strings
+      form_string = "B ~ A * C * D"
+      
+      # gold-standard model uses underlying variables
+      gold_form_string = "B1 ~ A1 * C1 * D1"
+      
+      beta = 2
+      
+      # custom predictor matrix for MICE-ours-pred
+      exclude_from_imp_model = NULL # B is in target law
+    }
+    
+  }  # end of .p$dag_name == "12A-bin"
+  
+  
   
   
   
@@ -1120,6 +2204,109 @@ sim_data = function(.p) {
   
   
   
+  
+  # ~ DAG 12B-bin -----------------------------
+  
+  # like 12A, but nonmonotone
+  
+  if ( .p$dag_name == "12B-bin" ) {
+    
+    du = data.frame( X1 = rbinom( n = .p$N,
+                                  size = 1, 
+                                  prob = 0.5 ), # complete variable included only to please Amelia
+                     
+                     C1 = rbinom( n = .p$N,
+                                  size = 1, 
+                                  prob = 0.5 ),
+                     
+                     # called C^1_2 in IAI log; this is also in conditioning set
+                     D1 = rbinom( n = .p$N,
+                                  size = 1, 
+                                  prob = 0.5 ) ) 
+    
+    
+    
+    du = du %>% rowwise() %>%
+      mutate( A1 = rbinom( n = 1,
+                           size = 1,
+                           prob = 0.5),
+              #prob = expit(-1 + 3*C1) ),
+              
+              B1 = rbinom( n = 1,
+                           size = 1,
+                           prob = plogis( -2 + 2*A1 + 2*D1 + A1*D1) ),
+              
+              RA = rbinom( n = 1,
+                           size = 1,
+                           prob = 0.5 ),
+              
+              RB = rbinom( n = 1,
+                           size = 1,
+                           prob = 0.5 ),
+              
+              RD = rbinom( n = 1,
+                           size = 1,
+                           prob = 0.5 ),
+              
+              RC = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(0 + 3*D1) ),
+              
+              RX = 1 )
+    
+    
+    # # monotone missingness: conditionally overwrite indicator
+    # du$RB[ du$RA == 0 ] = 0
+    # du$RD = du$RB
+    # du$RC[ du$RD == 0 ] = 0
+    
+    du = du %>% rowwise() %>%
+      mutate( A = ifelse(RA == 1, A1, NA),
+              B = ifelse(RB == 1, B1, NA),
+              C = ifelse(RC == 1, C1, NA),
+              D = ifelse(RD == 1, D1, NA),
+              X = X1)
+    
+    #missmap( du %>% select(A, B, C, D) )
+    colMeans(du)
+    cor(du %>% select(A1, B1, C1, D1, RA, RB, RC, RD) )
+    #cor(du$B1, du$RC)  # this is the key path that must be strong enough to elicit bias
+    
+    
+    # make dataset for imputation (standard way: all measured variables)
+    #di = du[ !( is.na(du$A) & is.na(du$B) & is.na(du$C) ), ]  # remove any rows that are all NA
+    di = du %>% select(A, B, C, D, X)
+    
+    
+    ### For just the intercept of A
+    if ( .p$coef_of_interest == "(Intercept)" ){ 
+      stop("Intercept not implemented for this DAG")
+    }
+    
+    
+    ### For the A-B association
+    if ( .p$coef_of_interest == "A" ){ 
+      
+      # regression strings
+      form_string = "B ~ A * C * D"
+      
+      # gold-standard model uses underlying variables
+      gold_form_string = "B1 ~ A1 * C1 * D1"
+      
+      beta = 2
+      
+      # custom predictor matrix for MICE-ours-pred
+      exclude_from_imp_model = NULL # B is in target law
+    }
+    
+  }  # end of .p$dag_name == "12B-bin"
+  
+  
+  
+  
+  
+  
+  
   # ~ DAG 12C -----------------------------
   
   # like 12A, but partially nonmonotone
@@ -1217,6 +2404,107 @@ sim_data = function(.p) {
   
   
   
+  
+  
+  # ~ DAG 12C-bin -----------------------------
+  
+  # like 12A, but partially nonmonotone
+  
+  if ( .p$dag_name == "12C-bin" ) {
+    
+    # X1 (isolated node) is only there to allow genloc to run (needs at least 1 continuous var)
+    du = data.frame( X1 = rnorm( n = .p$N ),
+                     
+                     C1 = rbinom( n = .p$N,
+                                  size = 1, 
+                                  prob = 0.5 ),
+                     
+                     # called C^1_2 in IAI log; this is also in conditioning set
+                     D1 = rbinom( n = .p$N,
+                                  size = 1, 
+                                  prob = 0.5 ) ) 
+    
+    
+    
+    du = du %>% rowwise() %>%
+      mutate( A1 = rbinom( n = 1,
+                           size = 1,
+                           prob = 0.5),
+              #prob = expit(-1 + 3*C1) ),
+              
+
+              B1 = rbinom( n = 1,
+                           size = 1,
+                           prob = plogis( -2 + 2*A1 + 2*D1 + A1*D1) ),
+              
+              RA = rbinom( n = 1,
+                           size = 1,
+                           prob = 0.5 ),
+              
+              RB = rbinom( n = 1,
+                           size = 1,
+                           prob = 0.5 ),
+              
+              RD = rbinom( n = 1,
+                           size = 1,
+                           prob = 0.5 ),
+              
+              RC = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(0 + 3*D1) ),
+              
+              RX = 1 )
+    
+    
+    # partially monotone missingness: conditionally overwrite indicator
+    du$RD[ du$RB == 1 ] = 1
+    
+    du = du %>% rowwise() %>%
+      mutate( A = ifelse(RA == 1, A1, NA),
+              B = ifelse(RB == 1, B1, NA),
+              C = ifelse(RC == 1, C1, NA),
+              D = ifelse(RD == 1, D1, NA),
+              X = X1)
+    
+    #missmap( du %>% select(A, B, C, D) )
+    colMeans(du)
+    cor(du %>% select(A1, B1, C1, D1, RA, RB, RC, RD) )
+    #cor(du$B1, du$RC)  # this is the key path that must be strong enough to elicit bias
+    
+    
+    # make dataset for imputation (standard way: all measured variables)
+    #di = du[ !( is.na(du$A) & is.na(du$B) & is.na(du$C) ), ]  # remove any rows that are all NA
+    di = du %>% select(A, B, C, D, X)
+    
+    
+    ### For just the intercept of A
+    if ( .p$coef_of_interest == "(Intercept)" ){ 
+      stop("Intercept not implemented for this DAG")
+    }
+    
+    
+    ### For the A-B association
+    if ( .p$coef_of_interest == "A" ){ 
+      
+      # regression strings
+      form_string = "B ~ A * C * D"
+      
+      # gold-standard model uses underlying variables
+      gold_form_string = "B1 ~ A1 * C1 * D1"
+      
+      beta = 2
+      
+      # custom predictor matrix for MICE-ours-pred
+      exclude_from_imp_model = NULL # B is in target law
+    }
+    
+  }  # end of .p$dag_name == "12C-bin"
+  
+  
+  
+  
+  
+  
   # ~ DAG 13A -----------------------------
   
   if ( .p$dag_name == "13A" ) {
@@ -1261,6 +2549,86 @@ sim_data = function(.p) {
     # make dataset for imputation (standard way: all measured variables)
     #di = du[ !( is.na(du$A) & is.na(du$B) & is.na(du$C) ), ]  # remove any rows that are all NA
     di = du %>% select(B, C, A)
+    
+    
+    ### For just the intercept of A
+    if ( .p$coef_of_interest == "(Intercept)" ){ 
+      stop("Intercept not implemented for this DAG")
+    }
+    
+    
+    ### For the A-B association
+    if ( .p$coef_of_interest == "A" ){ 
+      
+      # regression strings
+      form_string = "B ~ A"
+      
+      # gold-standard model uses underlying variables
+      gold_form_string = "B1 ~ A1"
+      
+      beta = 2
+      
+      # custom predictor matrix for MICE-ours-pred
+      exclude_from_imp_model = NULL # B is in target law
+    }
+    
+  }  # end of .p$dag_name == "13A"
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  # ~ DAG 13A-bin -----------------------------
+  
+  if ( .p$dag_name == "13A-bin" ) {
+    
+    # C1 is unrelated to everything; only here to avoid having all-NA rows
+    # X1 (isolated node) is only there to allow genloc to run (needs at least 1 continuous var)
+    du = data.frame( X1 = rnorm( n = .p$N ),
+                     C1 = rbinom( n = .p$N,
+                                  size = 1, 
+                                  prob = 0.5 ),
+                     
+                     A1 = rbinom( n = .p$N,
+                                  size = 1, 
+                                  prob = 0.5 ) ) 
+    
+    du = du %>% rowwise() %>%
+      mutate( B1 = rbinom( n = 1,
+                           size = 1,
+                           prob = plogis( -1 + 2*A1 ) ),
+              
+              RA = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(-1 + 3*A1) ),
+              
+              RB = rbinom( n = 1,
+                           size = 1,
+                           prob = 0.75 ),
+              
+              RC = 1)
+    
+    
+    du = du %>% rowwise() %>%
+      mutate( A = ifelse(RA == 1, A1, NA),
+              B = ifelse(RB == 1, B1, NA),
+              C = ifelse(RC == 1, C1, NA) )
+    
+    
+    # monotone missingness: conditionally overwrite indicator
+    du$RA[ du$RB == 0 ] = 0
+    
+    colMeans(du)
+    cor(du %>% select(A1, B1, RA, RB) )
+    
+    
+    # make dataset for imputation (standard way: all measured variables)
+    #di = du[ !( is.na(du$A) & is.na(du$B) & is.na(du$C) ), ]  # remove any rows that are all NA
+    di = du %>% select(B, C, A, X)
     
     
     ### For just the intercept of A
@@ -1367,6 +2735,86 @@ sim_data = function(.p) {
   
   
   
+  
+  # ~ DAG 13B-bin -----------------------------
+  
+  if ( .p$dag_name == "13B-bin" ) {
+    
+    # X1 (isolated node) is only there to allow genloc to run (needs at least 1 continuous var)
+    du = data.frame( X1 = rnorm( n = .p$N ),
+                     C1 = rbinom( n = .p$N,
+                                  size = 1, 
+                                  prob = 0.5 ),
+                     
+                     A1 = rbinom( n = .p$N,
+                                  size = 1, 
+                                  prob = 0.5 ) ) 
+    
+    du = du %>% rowwise() %>%
+      mutate( B1 = rbinom( n = 1,
+                           size = 1,
+                           prob = plogis( -1 + coef1*A1) ),
+              
+              
+              RB = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(-1 + 3*A1) ),
+              
+              RA = rbinom( n = 1,
+                           size = 1,
+                           prob = 0.75 ),
+              
+              RC = 1)
+    
+    
+    du = du %>% rowwise() %>%
+      mutate( A = ifelse(RA == 1, A1, NA),
+              B = ifelse(RB == 1, B1, NA),
+              C = ifelse(RC == 1, C1, NA),
+              X = X1)
+    
+    
+    # monotone missingness: conditionally overwrite indicator
+    du$RA[ du$RB == 0 ] = 0
+    
+    colMeans(du)
+    cor(du %>% select(A1, B1, RA, RB) )
+    
+    
+    # make dataset for imputation (standard way: all measured variables)
+    #di = du[ !( is.na(du$A) & is.na(du$B) & is.na(du$C) ), ]  # remove any rows that are all NA
+    di = du %>% select(B, C, A, X)
+    
+    
+    ### For just the intercept of A
+    if ( .p$coef_of_interest == "(Intercept)" ){ 
+      stop("Intercept not implemented for this DAG")
+    }
+    
+    
+    ### For the A-B association
+    if ( .p$coef_of_interest == "A" ){ 
+      
+      # regression strings
+      form_string = "B ~ A"
+      
+      # gold-standard model uses underlying variables
+      gold_form_string = "B1 ~ A1"
+      
+      beta = 2
+      
+      # custom predictor matrix for MICE-ours-pred
+      exclude_from_imp_model = NULL # B is in target law
+    }
+    
+  }  # end of .p$dag_name == "13B-bin"
+  
+  
+  
+  
+  
+  
+
   # ~ Finish generating data ----------------
   
   # marginal prevalences
@@ -1420,6 +2868,7 @@ fit_regression = function(form_string,
                           miss_method,
                           ps_string = NA,
                           du,
+                          
                           imps) {
   
   

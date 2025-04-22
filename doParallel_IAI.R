@@ -133,9 +133,10 @@ if ( run.local == TRUE ) {
     
     #rep.methods = "gold ; CC ; MICE-std ; Am-std ; IPW-custom ; adj-form-4-cate", 
     #rep.methods = "gold ; CC ; IPW-nm ; IPW-custom", 
-    rep.methods = "genloc",
+    rep.methods = "MICE-std ; IPW-nm ; genloc",
     
-    model = "OLS", 
+    #model = "OLS", 
+    model = "logistic",  # outcome model
     coef_of_interest = "A",
     N = c(5000),
     
@@ -144,14 +145,14 @@ if ( run.local == TRUE ) {
     imp_m = 5,  # CURRENTLY SET LOW
     imp_maxit = 100,
     
-    mice_method = "pmm",
+    mice_method = "logreg",  # IF ALL VARS ARE BINARY
     
     # # for quicker sims
     # imp_m = 5,
     # imp_maxit = 5,
     # N = c(100),
     
-    dag_name = c("2A") )
+    dag_name = c("1A-bin") )
   
   
   # # remove combos that aren't implemented
@@ -296,6 +297,11 @@ for ( scen in scens_to_run ) {
           
           message("Can't use genloc with no binaries")
           imps_genloc = NULL
+          
+        } else if (n_bin == ncol(di2)) {
+          
+          message("Can't use genloc with no continuous vars")
+          imps_genloc = NULL 
           
         } else {
           
