@@ -3003,7 +3003,8 @@ fit_regression = function(form_string,
     print(summary(weighted_data$ipmw))
     ### end of generalized Sun fns
     
-    
+    # note that using WLS automatically normalizes the weights to sum to 1
+    #  (i.e., corresponds to Hajek estimator: https://imai.fas.harvard.edu/teaching/files/matching_weighting.pdf)
     if ( model == "OLS" ) {
       # PS-weighted outcome model
       ( mod_wls = lm( eval( parse(text = form_string) ),
@@ -4533,59 +4534,59 @@ calculate_ipmw_weights <- function(jags_results, data, use_posterior_draws = TRU
 }
 
 
-
-#' Fit outcome model using IPMW weights
-#' @param weighted_data Data with IPMW weights
-#' @param outcome Outcome variable name
-#' @param exposure Exposure variable name
-#' @param adjustment Variables to adjust for
-#' @return Model output and results
-fit_outcome_model <- function(weighted_data, outcome, exposure, adjustment = NULL) {
-  # Create outcome model formula with adjustment variables and interactions
-  if (!is.null(adjustment) && length(adjustment) > 0) {
-    # Create all possible interactions
-    all_vars <- c(exposure, adjustment)
-    interaction_terms <- c()
-    
-    for (i in 2:length(all_vars)) {
-      combos <- combn(all_vars, i, simplify = FALSE)
-      for (combo in combos) {
-        interaction_terms <- c(interaction_terms, paste(combo, collapse = ":"))
-      }
-    }
-    
-    # Combine main effects and interactions
-    formula_terms <- c(all_vars, interaction_terms)
-    outcome_formula <- as.formula(paste(outcome, "~", paste(formula_terms, collapse = " + ")))
-  } else {
-    # No adjustment - just exposure
-    outcome_formula <- as.formula(paste(outcome, "~", exposure))
-  }
-  
-  # Fit linear model with ipmw weights
-  model <- lm(outcome_formula, data = weighted_data, weights = weighted_data$ipmw)
-  
-  # Get robust standard errors (HC0)
-  robust_se <- sqrt(diag(sandwich::vcovHC(model, type = "HC0")))
-  
-  # Extract coefficient for exposure
-  effect_estimate <- coef(model)[[exposure]]
-  effect_se <- robust_se[names(coef(model)) == exposure]
-  
-  # Create results
-  results <- tibble(
-    estimate = effect_estimate,
-    se = effect_se,
-    lcl = effect_estimate - 1.96 * effect_se,
-    ucl = effect_estimate + 1.96 * effect_se
-  )
-  
-  return(list(
-    model = model,
-    results = results,
-    robust_se = robust_se
-  ))
-}
+#' # not in use
+#' #' Fit outcome model using IPMW weights
+#' #' @param weighted_data Data with IPMW weights
+#' #' @param outcome Outcome variable name
+#' #' @param exposure Exposure variable name
+#' #' @param adjustment Variables to adjust for
+#' #' @return Model output and results
+#' fit_outcome_model <- function(weighted_data, outcome, exposure, adjustment = NULL) {
+#'   # Create outcome model formula with adjustment variables and interactions
+#'   if (!is.null(adjustment) && length(adjustment) > 0) {
+#'     # Create all possible interactions
+#'     all_vars <- c(exposure, adjustment)
+#'     interaction_terms <- c()
+#'     
+#'     for (i in 2:length(all_vars)) {
+#'       combos <- combn(all_vars, i, simplify = FALSE)
+#'       for (combo in combos) {
+#'         interaction_terms <- c(interaction_terms, paste(combo, collapse = ":"))
+#'       }
+#'     }
+#'     
+#'     # Combine main effects and interactions
+#'     formula_terms <- c(all_vars, interaction_terms)
+#'     outcome_formula <- as.formula(paste(outcome, "~", paste(formula_terms, collapse = " + ")))
+#'   } else {
+#'     # No adjustment - just exposure
+#'     outcome_formula <- as.formula(paste(outcome, "~", exposure))
+#'   }
+#'   
+#'   # Fit linear model with ipmw weights
+#'   model <- lm(outcome_formula, data = weighted_data, weights = weighted_data$ipmw)
+#'   
+#'   # Get robust standard errors (HC0)
+#'   robust_se <- sqrt(diag(sandwich::vcovHC(model, type = "HC0")))
+#'   
+#'   # Extract coefficient for exposure
+#'   effect_estimate <- coef(model)[[exposure]]
+#'   effect_se <- robust_se[names(coef(model)) == exposure]
+#'   
+#'   # Create results
+#'   results <- tibble(
+#'     estimate = effect_estimate,
+#'     se = effect_se,
+#'     lcl = effect_estimate - 1.96 * effect_se,
+#'     ucl = effect_estimate + 1.96 * effect_se
+#'   )
+#'   
+#'   return(list(
+#'     model = model,
+#'     results = results,
+#'     robust_se = robust_se
+#'   ))
+#' }
 
 
 
