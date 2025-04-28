@@ -52,7 +52,7 @@ sim_data = function(.p) {
     
     # make dataset for imputation (standard way: all measured variables)
     di = du %>% select(B, C, A)
-
+    
     
     ### For just the intercept of A
     if ( .p$coef_of_interest == "(Intercept)" ){ 
@@ -75,7 +75,7 @@ sim_data = function(.p) {
       exclude_from_imp_model = NULL # B is in target law
     }
     
-
+    
   }  # end of .p$dag_name == "1A"
   
   
@@ -87,7 +87,7 @@ sim_data = function(.p) {
   if ( .p$dag_name == "1A-bin" ) {
     
     # X1 (isolated node) is only there to allow genloc to run (needs at least 1 continuous var)
-     du = data.frame( X1 = rnorm( n = .p$N ),
+    du = data.frame( X1 = rnorm( n = .p$N ),
                      C1 = rbinom( n = .p$N,
                                   size = 1, 
                                   prob = 0.5 ),  
@@ -101,7 +101,7 @@ sim_data = function(.p) {
     du = du %>% rowwise() %>%
       mutate( B1 = rbinom( n = 1,
                            size = 1,
-                          prob = plogis( -2 + coef1*A1 + coef2*C1 + A1*C1) ),
+                           prob = plogis( -2 + coef1*A1 + coef2*C1 + A1*C1) ),
               
               
               RB = rbinom( n = 1,
@@ -393,7 +393,7 @@ sim_data = function(.p) {
               B1 = rbinom( n = 1,
                            size = 1,
                            prob = plogis( -2 + coef1*A1 + coef2*C1 + A1*C1) ),
-    
+              
               
               RA = 1,
               
@@ -1364,7 +1364,7 @@ sim_data = function(.p) {
               W1 = rbinom( n = 1,
                            size = 1,
                            prob = expit(-1 + coefAW*A1) ),
-
+              
               
               B1 = rbinom( n = 1,
                            size = 1,
@@ -2427,7 +2427,7 @@ sim_data = function(.p) {
                            prob = 0.5),
               #prob = expit(-1 + 3*C1) ),
               
-
+              
               B1 = rbinom( n = 1,
                            size = 1,
                            prob = plogis( -2 + coef1*A1 + 2*D1 + A1*D1) ),
@@ -2816,10 +2816,178 @@ sim_data = function(.p) {
   
   
   
+  # ~ DAG 14A  -------------------------------------------------
   
   
-  
+  if ( .p$dag_name == "14A" ) {
+    
+    du = data.frame( C1 = rbinom( n = .p$N,
+                                  size = 1, 
+                                  prob = 0.5 ) )
+    
+    
+    
+    
+    # --- Define coefficients upfront ---
+    intercept_A1 = -0.8
+    coef_A1_C1 = 1.5
+    
+    intercept_D1 = -1
+    coef_D1_A1 = 1.5
+    coef_D1_C1 = 1
+    
+    intercept_E1 = -1.3
+    coef_E1_D1 = 1.5
+    coef_E1_A1 = 1
+    coef_E1_C1 = 1
+    
+    coef_EB = 1.5
+    coef_DB = 1.5   # NEW: D1 effect on B1
+    coef_AB = 2   # NEW: A1 effect on B1
+    coef_AEB = 1.0  # NEW: A1*E1 interaction
+    
+    coef_B1_C1 = 2.6
+    
+    intercept_missing = -2
+    coef_missing = 1
+    
+    # --- STEP 1: Simulate A1 based only on C1 ---
+    du = du %>%
+      rowwise() %>%
+      mutate( lp_A1 = intercept_A1 + coef_A1_C1*C1,
+              A1 = rbinom( n = 1, size = 1, prob = expit(lp_A1) ) )
+    
+    
+    # --- STEP 2: Now D1 depends on A1 and C1 ---
+    du = du %>%
+      rowwise() %>%
+      mutate( lp_D1 = intercept_D1 + coef_D1_A1*A1 + coef_D1_C1*C1,
+              D1 = rbinom( n = 1, size = 1, prob = expit(lp_D1) ) )
+    
+    # --- STEP 3: Now E1 depends on D1, A1, and C1 ---
+    du = du %>%
+      rowwise() %>%
+      mutate(
+        lp_E1 = intercept_E1 + coef_E1_D1*D1 + coef_E1_A1*A1 + coef_E1_C1*C1,
+        E1 = rbinom( n = 1, size = 1, prob = expit(lp_E1) )
+      )
+    
+    # --- STEP 4: Generate B1 based on D1, E1, A1, C1 and A1*D1 interaction ---
+    du = du %>%
+      rowwise() %>%
+      mutate(
+        B1 = rnorm( n = 1,
+                    mean = coef_EB*E1 + coef_DB*D1 + coef_AB*A1 + coef_AEB*A1*E1 + coef_B1_C1*C1,
+                    sd = 1 )
+      )
+    
+    # --- STEP 5: Generate linear predictors for missingness ---
+    du = du %>%
+      mutate(
+        lp_RA = intercept_missing + coef_missing*(A1 + C1 + D1 + E1),
+        lp_RC = intercept_missing + coef_missing*(A1 + C1 + D1 + E1),
+        lp_RD = intercept_missing + coef_missing*(A1 + C1 + D1 + E1),
+        lp_RE = intercept_missing + coef_missing*(A1 + C1 + D1 + E1),
+        lp_RB = (intercept_missing + 0.5) + coef_missing*(A1 + C1 + D1 + E1)
+      )
+    
+    # --- STEP 6: Simulate missingness indicators based on LPs ---
+    du = du %>%
+      mutate(
+        RA = rbinom( n = 1, size = 1, prob = expit(lp_RA) ),
+        RC = rbinom( n = 1, size = 1, prob = expit(lp_RC) ),
+        RD = rbinom( n = 1, size = 1, prob = expit(lp_RD) ),
+        RE = rbinom( n = 1, size = 1, prob = expit(lp_RE) ),
+        RB = rbinom( n = 1, size = 1, prob = expit(lp_RB) )
+      )
+    
+    # --- STEP 7: Force RB = 0 if any of A1, C1, D1, E1 is 0 ---
+    du = du %>%
+      mutate( RB = ifelse(RA == 0 | RC == 0 | RD == 0 | RE == 0, 0, RB) )
+    
+    # --- STEP 8: Summarize LP-to-probability ranges ---
+    
+    # sanity check
+    
+    if (FALSE) {
+      linear_predictor_summary = tibble(
+        Variable = c("A1", "D1", "E1", "RA", "RC", "RD", "RE", "RB"),
+        Min_LP = c(min(du$lp_A1),
+                   min(du$lp_D1),
+                   min(du$lp_E1),
+                   min(du$lp_RA),
+                   min(du$lp_RC),
+                   min(du$lp_RD),
+                   min(du$lp_RE),
+                   min(du$lp_RB)),
+        Max_LP = c(max(du$lp_A1),
+                   max(du$lp_D1),
+                   max(du$lp_E1),
+                   max(du$lp_RA),
+                   max(du$lp_RC),
+                   max(du$lp_RD),
+                   max(du$lp_RE),
+                   max(du$lp_RB))
+      ) %>%
+        mutate(
+          Min_Prob = expit(Min_LP),
+          Max_Prob = expit(Max_LP)
+        )
+      
+      print(linear_predictor_summary)
+      
+      
+    }
+    
+    # --- STEP 9: Remove LP variables from du ---
+    du = du %>% select(-starts_with("lp_"))
+    
+    # --- STEP 10: Create observed variables ---
+    du = du %>% rowwise() %>%
+      mutate(
+        A = ifelse(RA == 1, A1, NA),
+        B = ifelse(RB == 1, B1, NA),
+        C = ifelse(RC == 1, C1, NA),
+        D = ifelse(RD == 1, D1, NA),
+        E = ifelse(RE == 1, E1, NA)
+      )
+    
+    
+    # sanity checks
+    if ( FALSE ) {
+      colMeans(du)
+      cor(du %>% select(A1, B1, C1, D1, E1, RA, RB, RC, RD, RE))
+    }
 
+    # dataset for imputation
+    di = du %>% select(A, B, C, D, E)
+    
+    ### For just the intercept of A
+    if ( .p$coef_of_interest == "(Intercept)" ){ 
+      stop("Intercept not implemented for this DAG")
+    }
+    
+    ### For the A-B association
+    if ( .p$coef_of_interest == "A" ){ 
+      
+      # regression strings
+      form_string = "B ~ A * C"
+      
+      # gold-standard model uses underlying variables
+      gold_form_string = "B1 ~ A1 * C1"
+      
+      beta = NA
+      
+      # custom predictor matrix for MICE-ours-pred
+      exclude_from_imp_model = NULL
+    }
+    
+  }  # end of .p$dag_name == "14A"
+  
+  
+  
+  
+  
   # ~ Finish generating data ----------------
   
   # marginal prevalences
@@ -2910,8 +3078,8 @@ fit_regression = function(form_string,
       #@DEBUGGING ONLY
       mod <- tryCatch(
         glm( eval( parse(text = form_string) ),
-                   data = dat,
-                   family = binomial(link = "logit") ),
+             data = dat,
+             family = binomial(link = "logit") ),
         
         error = function(e) {
           message("GLM error: ", e$message)
@@ -2950,12 +3118,12 @@ fit_regression = function(form_string,
     #bm: something about this fn is breaking, but no idea what
     #  and why does it only break for CC, not the other ones?
     mod_hc0 <- my_ols_hc0(coefName = coef_of_interest,
-                           ols = mod)
+                          ols = mod)
     
     cat("\n***** fit_regression flag 1.3: done with my_ols_hc0; results:")
     cat("\n bhat:", as.numeric( bhats[coef_of_interest]) )
     cat("\n bhat lo:", mod_hc0$lo )
-
+    
     # should work even for logistic regression
     # mod_hc0 = my_ols_hc0(coefName = coef_of_interest,
     #                      ols = mod)
@@ -3041,10 +3209,10 @@ fit_regression = function(form_string,
   
   # ~ MI  ---------------------
   if ( miss_method == "MI" ) {
-  
+    
     
     if ( model == "OLS" ) {
-
+      
       
       # need to use different strategies for fitting model to each dataset depending on whether it's 
       #  from MICE/Amelia or genloc
@@ -3054,14 +3222,14 @@ fit_regression = function(form_string,
         mod = with(imps,
                    glm( eval( parse(text = form_string) ) ) )
         
-
+        
       } else {
         # for a plain list
         mod = lapply(imps, function(d) lm( as.formula(form_string), data = d ) )
       }
       
       
-
+      
     }
     
     
@@ -3079,17 +3247,17 @@ fit_regression = function(form_string,
       } else {
         # for a plain list
         mod = lapply( imps, function(d) glm( as.formula(form_string),
-                                            data = d,
-                                            family = binomial(link = "logit") ) )
+                                             data = d,
+                                             family = binomial(link = "logit") ) )
       }
       
       
-
+      
     }
     
     
     if ( model == "log" ) {
-
+      
       
       if ( class(imps) %in% c("mids", "amelia") ) {
         
@@ -4046,7 +4214,7 @@ run_missingness_model <- function(data, vars) {
       observed_vars <- sapply(vars, function(v) {
         !all(is.na(pattern_data[[v]]))
       })
-
+      
       vars_per_pattern[[p]] <- sort(which(observed_vars))
     } else {
       vars_per_pattern[[p]] <- integer(0)
@@ -4268,7 +4436,7 @@ calculate_ipmw_weights2 <- function(jags_results, data, use_posterior_draws = TR
   message("Parameter estimates:")
   print(g_estimates)
   
-
+  
   # --- 1) initialize list to store each pattern’s draws-by-CC matrix ---
   prob_mats <- vector("list", num_patterns - 1)   # **NEW** length = P
   param_idx <- 1
@@ -4288,7 +4456,7 @@ calculate_ipmw_weights2 <- function(jags_results, data, use_posterior_draws = TR
     if (length(vars_per_pattern[[p]]) > 0) {
       
       for ( v_name in names( vars_per_pattern[[p]] ) ) {
-
+        
         message("Starting v_name = ", v_name)
         
         # recall that g_draws has one row per draw and one column per parameter to be estimated
@@ -4315,13 +4483,13 @@ calculate_ipmw_weights2 <- function(jags_results, data, use_posterior_draws = TR
   
   # each column is the colMeans of one prob_mat (dim n_cc x num_patterns)
   pattern_probs = sapply(prob_mats, colMeans)
-    
+  
   # 2) now sum across the columns of that matrix
   p_incomplete <- rowSums(pattern_probs)
   
   p1 <- 1 - ( as.numeric(p_incomplete) )
   if ( any( p1 < 0 ) ) stop("Oh no! Some p1's are negative!")
-
+  
   cc_scaled$p1 = p1 
   
   # Calculate IPMW
