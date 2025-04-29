@@ -37,7 +37,7 @@ lapply( allPackages,
 # full set with continuous outcome
 scen.params = tidyr::expand_grid(
   
-  rep.methods = "IPW-nm",
+  rep.methods = "gold ; IPW-nm",
   
   model = "OLS",  # FOR CONTINUOUS OUTCOME
   
@@ -152,8 +152,8 @@ runfile_path = paste(path, "/testRunFile.R", sep="")
 sbatch_params <- data.frame(jobname,
                             outfile,
                             errorfile,
-                            jobtime = "01:00:00",  # with IPW-nm
-                            #jobtime = "00:30:00",  # with only MICE
+                            #jobtime = "01:00:00",  # with IPW-nm
+                            jobtime = "00:30:00",  # with only MICE
                             #jobtime = "00:10:00",
                             quality = "normal",
                             node_number = 1,
