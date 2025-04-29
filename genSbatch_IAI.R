@@ -32,15 +32,14 @@ lapply( allPackages,
 
 # SET SIMULATION PARAMETERS -----------------------------------------
 
+
+# debugging
+# full set with continuous outcome
 scen.params = tidyr::expand_grid(
   
-  #rep.methods = "gold ; CC ; MICE-std ; Am-std ; IPW-custom ; adj-form-4-cate",
-  #rep.methods = "gold ; CC ; MICE-std ; Am-std ; IPW-nm",
-  rep.methods = "gold ; CC ; MICE-std ; genloc ; IPW-nm",
-  #rep.methods = "CC",
+  rep.methods = "IPW-nm",
   
-  # model = "OLS",  # FOR CONTINUOUS OUTCOME
-  model = "logistic", # FOR BINARY OUTCOME
+  model = "OLS",  # FOR CONTINUOUS OUTCOME
   
   coef_of_interest = "A",
   N = c(10000),
@@ -51,27 +50,62 @@ scen.params = tidyr::expand_grid(
   imp_maxit = 100,
   mice_method = NA,
   
-  #dag_name = "3B-bin"
-  
-  # full set with binary outcome
-  dag_name = c("1A-bin", "1B-bin", "2A-bin",
-               "3A-bin", "3B-bin",
-               "3C-bin", "3D-bin", "3E-bin",
-               "4A-bin", "6A-bin", "7A-bin",
-               "7B-bin",
-               "12A-bin", "12B-bin", "12C-bin",
-               "13A-bin", "13B-bin")
+  dag_name = "14A" )
 
-  # # full set with continuous outcome
-  # dag_name = c("1A", "1B", "2A",
-  #              "3A", "3B",  
-  #              "3C", "3D", "3E",
-  #              "4A", "6A", "7A",
-  #              "7B",
-  #              "12A", "12B", "12C",
-  #              "13A", "13B")
-  
-)
+
+# # full set with continuous outcome
+# scen.params = tidyr::expand_grid(
+# 
+#   rep.methods = "gold ; CC ; MICE-std ; genloc ; IPW-nm",
+#   
+#   model = "OLS",  # FOR CONTINUOUS OUTCOME
+#   
+#   coef_of_interest = "A",
+#   N = c(10000),
+#   
+#   # MICE parameters
+#   # as on cluster
+#   imp_m = 50,  
+#   imp_maxit = 100,
+#   mice_method = NA,
+#   
+#   # full set with continuous outcome
+#   dag_name = c("1A", "1B", "2A",
+#                "3A", "3B",
+#                "3C", "3D", "3E",
+#                "4A", "6A", "7A",
+#                "7B",
+#                "12A", "12B", "12C",
+#                "13A", "13B")
+#   
+# )
+
+# #### full set with binary outcome
+# scen.params = tidyr::expand_grid(
+#   
+#   rep.methods = "gold ; CC ; MICE-std ; genloc ; IPW-nm",
+#   
+#   model = "logistic", # FOR BINARY OUTCOME
+#   
+#   coef_of_interest = "A",
+#   N = c(10000),
+#   
+#   # MICE parameters
+#   # as on cluster
+#   imp_m = 50,  
+#   imp_maxit = 100,
+#   mice_method = NA,
+# 
+#   # full set with binary outcome
+#   dag_name = c("1A-bin", "1B-bin", "2A-bin",
+#                "3A-bin", "3B-bin",
+#                "3C-bin", "3D-bin", "3E-bin",
+#                "4A-bin", "6A-bin", "7A-bin",
+#                "7B-bin",
+#                "12A-bin", "12B-bin", "12C-bin",
+#                "13A-bin", "13B-bin")
+#   
+# )
 
 # # remove combos that aren't implemented
 # scen.params = scen.params %>% filter( !(dag_name %in% c("1G", "1H", "1F", "1J") &
@@ -118,8 +152,8 @@ runfile_path = paste(path, "/testRunFile.R", sep="")
 sbatch_params <- data.frame(jobname,
                             outfile,
                             errorfile,
-                            #jobtime = "01:00:00",  # with IPW-nm
-                            jobtime = "00:30:00",  # with only MICE
+                            jobtime = "01:00:00",  # with IPW-nm
+                            #jobtime = "00:30:00",  # with only MICE
                             #jobtime = "00:10:00",
                             quality = "normal",
                             node_number = 1,
@@ -143,7 +177,7 @@ n.files
 
 path = "/home/groups/manishad/IAI"
 setwd( paste(path, "/sbatch_files", sep="") )
-for (i in 1:850) {
+for (i in 1:50) {
   system( paste("sbatch -p qsu,owners,normal /home/groups/manishad/IAI/sbatch_files/", i, ".sbatch", sep="") )
 }
 

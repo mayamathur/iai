@@ -133,19 +133,20 @@ if ( run.local == TRUE ) {
     
     #rep.methods = "gold ; CC ; MICE-std ; Am-std ; IPW-custom ; adj-form-4-cate", 
     #rep.methods = "gold ; CC ; MICE-std ; IPW-nm ; genloc", 
-    rep.methods = "CC ; MICE-std ; genloc",
+    #rep.methods = "CC ; MICE-std ; genloc ; IPW-nm",
+    rep.methods = "IPW-nm",
     
-    #model = "OLS", 
-    model = "logistic",  # outcome model
+    model = "OLS", 
+    #model = "logistic",  # outcome model
     coef_of_interest = "A",
-    N = c(5000),
+    N = c(10000),
     
     # MICE parameters
     # as on cluster
     imp_m = 5,  # CURRENTLY SET LOW
     imp_maxit = 5,
     
-    mice_method = NA,  # IF ALL VARS ARE BINARY
+    mice_method = NA,  # let MICE use its defaults
     
     # # full set
     # dag_name = c("1A", "1B", "2A",
@@ -156,7 +157,7 @@ if ( run.local == TRUE ) {
     #              "12A", "12B", "12C",
     #              "13A", "13B")
     
-    dag_name = c("3B-bin")
+    dag_name = c("14A-debug")
     
     )
   
@@ -203,9 +204,10 @@ for ( scen in scens_to_run ) {
   # system.time is in seconds
   # ~ ********** Beginning of ForEach Loop -----------------------------
   doParallel.seconds = system.time({
+    
     rs = foreach( i = 1:sim.reps, .combine = bind_rows ) %dopar% {
       #for debugging (out file will contain all printed things):
-      #for ( i in 1:4 ) {
+      #for ( i in 1:20 ) {
       
       # only print info for first sim rep for visual clarity
       if ( i == 1 ) cat("\n\n~~~~~~~~~~~~~~~~ BEGIN SIM REP", i, "~~~~~~~~~~~~~~~~")
@@ -442,11 +444,11 @@ for ( scen in scens_to_run ) {
       # ~~ Gold standard: No missing data ----
       if ( "gold" %in% all.methods ) {
         
-        #@debugging
-        #bm
-        message("Entered gold part")
-        cat(str(di$B))
-        cat(table(di$B, useNA = "ifany"))
+        # #@debugging
+        # #bm
+        # message("Entered gold part")
+        # cat(str(di$B))
+        # cat(table(di$B, useNA = "ifany"))
         
         
         rep.res = run_method_safe(method.label = c("gold"),
@@ -677,6 +679,12 @@ for ( scen in scens_to_run ) {
       # Sun & ETT
       if ( "IPW-nm" %in% all.methods ) {
         
+        # #@DEBUGGING ONLY!!
+        # cat("\n\n ~~~~~~~~~~~~~~~~~~~ About to run IPW-nm for sim rep", i)
+        # # save the dataset locally
+        # setwd("/Users/mmathur/Dropbox/Personal computer/Independent studies/*Inchoate/2024/2024-10-20 - IAI (Incomplete auxiliaries in imputation)/Simulation study/Results/temp debugging")
+        # fwrite( du, file = paste("rep", i, ".csv") )
+        
         rep.res = run_method_safe(method.label = c("IPW-nm"),
                                   
                                   method.fn = function(x) fit_regression(form_string = form_string,
@@ -686,6 +694,12 @@ for ( scen in scens_to_run ) {
                                                                          du = du,
                                                                          imps = NULL),
                                   .rep.res = rep.res )
+        
+        
+        #@DEBUGGING ONLY!!
+        cat("\n\n  ~~~~~~~~~~~~~~~~~~~ Done running IPW-nm for sim rep", i)
+        
+        
       }
       
       if (run.local == TRUE) srr(rep.res)

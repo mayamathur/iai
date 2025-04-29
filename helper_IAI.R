@@ -2818,14 +2818,157 @@ sim_data = function(.p) {
   
   # ~ DAG 14A  -------------------------------------------------
   
-  
-  if ( .p$dag_name == "14A" ) {
+  # simplify until rjags works
+  if ( .p$dag_name == "14A-debug" ) {
     
     du = data.frame( C1 = rbinom( n = .p$N,
                                   size = 1, 
                                   prob = 0.5 ) )
     
     
+    # --- Define coefficients upfront ---
+    intercept_A1 = -0.8
+    coef_A1_C1 = 1.5
+    
+    intercept_D1 = -1
+    coef_D1_A1 = 1.5
+    coef_D1_C1 = 1
+    
+    coef_DB = 1.5   # NEW: D1 effect on B1
+    coef_AB = 2   # NEW: A1 effect on B1
+    coef_ACB = 1.0  # NEW: A1*C1 interaction
+    
+    coef_B1_C1 = 2.6
+    
+    intercept_missing = -1
+    coef_missing = 1
+    
+    # --- STEP 1: Simulate A1 based only on C1 ---
+    du = du %>%
+      rowwise() %>%
+      mutate( lp_A1 = intercept_A1 + coef_A1_C1*C1,
+              A1 = rbinom( n = 1, size = 1, prob = expit(lp_A1) ) )
+    
+    
+    # --- STEP 2: Now D1 depends on A1 and C1 ---
+    du = du %>%
+      rowwise() %>%
+      mutate( lp_D1 = intercept_D1 + coef_D1_A1*A1 + coef_D1_C1*C1,
+              D1 = rbinom( n = 1, size = 1, prob = expit(lp_D1) ) )
+  
+    
+    # --- STEP 4: Generate B1 ---
+    du = du %>%
+      rowwise() %>%
+      mutate(
+        B1 = rnorm( n = 1,
+                    mean = coef_DB*D1 + coef_AB*A1 + coef_B1_C1*C1 + coef_ACB*A1*C1,
+                    sd = 1 )
+      )
+    
+    # --- STEP 5: Generate linear predictors for missingness ---
+    du = du %>%
+      mutate(
+        lp_RA = intercept_missing + coef_missing*(A1 + C1 + D1),
+        lp_RC = intercept_missing + coef_missing*(A1 + C1 + D1),
+        lp_RD = intercept_missing + coef_missing*(A1 + C1 + D1),
+        lp_RB = (intercept_missing + 1) + coef_missing*(A1 + C1 + D1)
+      )
+    
+    # --- STEP 6: Simulate missingness indicators based on LPs ---
+    du = du %>%
+      mutate(
+        RA = rbinom( n = 1, size = 1, prob = expit(lp_RA) ),
+        RC = rbinom( n = 1, size = 1, prob = expit(lp_RC) ),
+        RD = rbinom( n = 1, size = 1, prob = expit(lp_RD) ),
+        RB = rbinom( n = 1, size = 1, prob = expit(lp_RB) )
+      )
+    
+    # --- STEP 7: Force RB = 0 if any other vars are 0 ---
+    du = du %>%
+      mutate( RB = ifelse(RA == 0 | RC == 0 | RD == 0, 0, RB) )
+    
+    # --- STEP 8: Summarize LP-to-probability ranges ---
+    
+    # sanity check
+    
+    if (FALSE) {
+      linear_predictor_summary = tibble(
+        Variable = c("A1", "D1", "RA", "RC", "RD", "RB"),
+        Min_LP = c(min(du$lp_A1),
+                   min(du$lp_D1),
+                   min(du$lp_RA),
+                   min(du$lp_RC),
+                   min(du$lp_RD),
+                   min(du$lp_RB)),
+        Max_LP = c(max(du$lp_A1),
+                   max(du$lp_D1),
+                   max(du$lp_RA),
+                   max(du$lp_RC),
+                   max(du$lp_RD),
+                   max(du$lp_RB))
+      ) %>%
+        mutate(
+          Min_Prob = expit(Min_LP),
+          Max_Prob = expit(Max_LP)
+        )
+      
+      print(linear_predictor_summary)
+      
+      
+    }  # end sanity check
+    
+    # --- STEP 9: Remove linear predictor variables from du ---
+    du = du %>% select(-starts_with("lp_"))
+    
+    # --- STEP 10: Create observed variables ---
+    du = du %>% rowwise() %>%
+      mutate(
+        A = ifelse(RA == 1, A1, NA),
+        B = ifelse(RB == 1, B1, NA),
+        C = ifelse(RC == 1, C1, NA),
+        D = ifelse(RD == 1, D1, NA)
+      )
+    
+    
+    # sanity checks
+    if ( FALSE ) {
+      colMeans(du)
+      cor(du %>% select(A1, B1, C1, D1, RA, RB, RC, RD))
+    }
+    
+    # dataset for imputation
+    di = du %>% select(A, B, C, D)
+    
+    ### For just the intercept of A
+    if ( .p$coef_of_interest == "(Intercept)" ){ 
+      stop("Intercept not implemented for this DAG")
+    }
+    
+    ### For the A-B association
+    if ( .p$coef_of_interest == "A" ){ 
+      
+      # regression strings
+      form_string = "B ~ A * C"
+      
+      # gold-standard model uses underlying variables
+      gold_form_string = "B1 ~ A1 * C1"
+      
+      beta = NA
+      
+      # custom predictor matrix for MICE-ours-pred
+      exclude_from_imp_model = NULL
+    }
+    
+  }  # end of .p$dag_name == "14A-debug"
+  
+  
+  
+  if ( .p$dag_name == "14A" ) {
+    
+    du = data.frame( C1 = rbinom( n = .p$N,
+                                  size = 1, 
+                                  prob = 0.5 ) )
     
     
     # --- Define coefficients upfront ---
@@ -2844,7 +2987,7 @@ sim_data = function(.p) {
     coef_EB = 1.5
     coef_DB = 1.5   # NEW: D1 effect on B1
     coef_AB = 2   # NEW: A1 effect on B1
-    coef_AEB = 1.0  # NEW: A1*E1 interaction
+    coef_ACB = 1.0  # NEW: A1*C1 interaction
     
     coef_B1_C1 = 2.6
     
@@ -2872,12 +3015,12 @@ sim_data = function(.p) {
         E1 = rbinom( n = 1, size = 1, prob = expit(lp_E1) )
       )
     
-    # --- STEP 4: Generate B1 based on D1, E1, A1, C1 and A1*D1 interaction ---
+    # --- STEP 4: Generate B1 based on D1, E1, A1, C1 and A1*C1 interaction ---
     du = du %>%
       rowwise() %>%
       mutate(
         B1 = rnorm( n = 1,
-                    mean = coef_EB*E1 + coef_DB*D1 + coef_AB*A1 + coef_AEB*A1*E1 + coef_B1_C1*C1,
+                    mean = coef_EB*E1 + coef_DB*D1 + coef_AB*A1 + coef_B1_C1*C1 + coef_ACB*A1*C1,
                     sd = 1 )
       )
     
@@ -2901,7 +3044,7 @@ sim_data = function(.p) {
         RB = rbinom( n = 1, size = 1, prob = expit(lp_RB) )
       )
     
-    # --- STEP 7: Force RB = 0 if any of A1, C1, D1, E1 is 0 ---
+    # --- STEP 7: Force RB = 0 if any other vars are 0 ---
     du = du %>%
       mutate( RB = ifelse(RA == 0 | RC == 0 | RD == 0 | RE == 0, 0, RB) )
     
@@ -2937,9 +3080,9 @@ sim_data = function(.p) {
       print(linear_predictor_summary)
       
       
-    }
+    }  # end sanity check
     
-    # --- STEP 9: Remove LP variables from du ---
+    # --- STEP 9: Remove linear predictor variables from du ---
     du = du %>% select(-starts_with("lp_"))
     
     # --- STEP 10: Create observed variables ---
@@ -3060,6 +3203,9 @@ fit_regression = function(form_string,
   
   if ( miss_method == "MI" ) dat = imps
   if ( miss_method %in% c("gold", "CC", "IPW", "IPW-nm") ) dat = du
+  #@ CANDIDATE SWAP TO HANDLE AUXILIARIES
+  # if ( miss_method %in% c("IPW-nm") ) dat = di
+
   
   # ~ CC and gold std  ---------------------
   if ( miss_method %in% c("CC", "gold") ) {
@@ -3104,7 +3250,6 @@ fit_regression = function(form_string,
                  family = binomial(link = "log") )
     }
     
-    browser()
     bhats = coef(mod)
     
     cat("\n***** fit_regression flag 1.2: about to try my_ols_hc0")
@@ -3115,7 +3260,7 @@ fit_regression = function(form_string,
     cat("\n bhats: ", bhats)    
     
     #@DEBUGGING ONLY
-    #bm: something about this fn is breaking, but no idea what
+    #bm: something about this fn is breaking for CC only, but no idea what
     #  and why does it only break for CC, not the other ones?
     mod_hc0 <- my_ols_hc0(coefName = coef_of_interest,
                           ols = mod)
@@ -3152,6 +3297,9 @@ fit_regression = function(form_string,
     
     # Identify variables to be used in the analysis
     analysis_vars <- all.vars( as.formula(form_string) )
+    #@TEMP ONLY: HANDLE CASE OF AUXILIARY VARS
+    # EVENTUALLY, SHOULD MAYBE USE THE IMPUTATION DAT, DI, FOR IPW-NM?
+    if ( p$dag_name == "14A" ) analysis_vars = c("C", "A", "D", "E", "B")
     
     # Add pattern indicators
     data_with_patterns <- create_pattern_indicators(dat, analysis_vars)
@@ -4030,6 +4178,7 @@ scale_dataset <- function(data, vars) {
 #' @param vars Variables to check for missingness
 #' @return Dataframe with pattern indicators
 create_pattern_indicators <- function(data, vars) {
+
   
   # Step 1: Create a subset of the data containing only the specified variables
   subset_data <- data[, vars, drop = FALSE]
@@ -4179,6 +4328,7 @@ create_jags_model <- function(num_patterns, vars_per_pattern) {
 #' @return JAGS fit object
 run_missingness_model <- function(data, vars) {
   
+
   vars = sort(vars)
   
   if (!"M" %in% names(data)) {
@@ -4281,6 +4431,8 @@ run_missingness_model <- function(data, vars) {
   model_file <- tempfile()
   writeLines(jags_model_text, model_file)
   
+  cat("/n/n ********** run_missingness_model flag 1: about to run jags")
+  
   # Run JAGS with try-catch to provide better error messages
   jags_fit <- tryCatch({
     R2jags::jags(
@@ -4296,6 +4448,8 @@ run_missingness_model <- function(data, vars) {
   }, error = function(e) {
     message("JAGS error: ", e$message)
     message("Trying a simpler approach...")
+    
+    #@MAYBE RM THIS CODE BELOW. I DON'T WANT TO RUN THE SIMPLE MODEL ANYWAY, AND IT HARD-CODES 16 PATTERNS.
     
     # If error occurs, try a simpler model with stronger priors
     simpler_model <- "
@@ -4323,6 +4477,8 @@ run_missingness_model <- function(data, vars) {
     }
     "
     writeLines(simpler_model, model_file)
+    
+    cat("/n/n ********** run_missingness_model flag 2: done running jags")
     
     # Create alpha parameter for Dirichlet (all 1's for uniform)
     jags_data$alpha <- rep(1, num_patterns-1)
@@ -4359,13 +4515,9 @@ run_missingness_model <- function(data, vars) {
     stop("JAGS modeling failed after multiple attempts")
   }
   
-  jags_results = list(
-    fit = jags_fit,
-    scaled_data = scaled_data,
-    vars_per_pattern = vars_per_pattern,
-    model_text = jags_model_text
-  )
-  #browser()
+  
+  cat("/n/n ********** run_missingness_model flag 3: about to return")
+  #bm: running on cluster with these flags. 
   
   return(list(
     fit = jags_fit,
@@ -4385,8 +4537,7 @@ run_missingness_model <- function(data, vars) {
 #' @return Dataset with IPMW weights
 calculate_ipmw_weights2 <- function(jags_results, data, use_posterior_draws = TRUE) {
   
-  #browser()
-  
+
   # ### TEMP DEBUGGING
   # if ( FALSE ) {
   #   load("data")
@@ -4496,6 +4647,7 @@ calculate_ipmw_weights2 <- function(jags_results, data, use_posterior_draws = TR
   mnum <- mean(data$M == 1, na.rm = TRUE)
   cc_scaled$ipmw <- mnum / cc_scaled$p1
   
+  
   # Trim extreme weights
   if (any(cc_scaled$ipmw > 10)) {
     message("Some weights are large. Trimming at 99th percentile.")
@@ -4551,7 +4703,7 @@ calculate_ipmw_weights <- function(jags_results, data, use_posterior_draws = TRU
   # Get variables used in model
   # MM: this only works if data, as passed to this fn, *only* contains M variables and the vars in PS model
   vars <- names(cc_scaled)[names(cc_scaled) %in% names(data) &
-                             !names(cc_scaled) %in% c("id", "M", paste0("M", 1:16))]
+                             !names(cc_scaled) %in% c("id", "M")]
   
   
   # Get number of patterns
@@ -4571,7 +4723,6 @@ calculate_ipmw_weights <- function(jags_results, data, use_posterior_draws = TRU
   # Parameter index counter
   param_idx <- 1
   
-  #browser()
   for (p in 2:num_patterns) {
     message(paste("Pattern", p, "variable indices:", paste(vars_per_pattern[[p]], collapse = ", ")))
     
