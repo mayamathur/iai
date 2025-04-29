@@ -1468,7 +1468,7 @@ sim_data = function(.p) {
               
               RD = rbinom( n = 1,
                            size = 1,
-                           prob = 0.5 ),
+                           prob = expit(-1 + 3*D1) ),
               
               RC = rbinom( n = 1,
                            size = 1,
@@ -1550,7 +1550,7 @@ sim_data = function(.p) {
               
               RD = rbinom( n = 1,
                            size = 1,
-                           prob = 0.5 ),
+                           prob = expit(-1 + 3*D1) ),
               
               RC = rbinom( n = 1,
                            size = 1,
@@ -3387,6 +3387,8 @@ fit_regression = function(form_string,
   if ( miss_method %in% c("gold", "CC", "IPW", "IPW-nm") ) dat = du
   #@ CANDIDATE SWAP TO HANDLE AUXILIARIES
   # if ( miss_method %in% c("IPW-nm") ) dat = di
+  
+  if ( is.null(dat) ) stop("Dataset passed to fit_regression was NULL, maybe bc imputation failed")
 
   
   # ~ CC and gold std  ---------------------

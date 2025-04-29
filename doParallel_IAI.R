@@ -134,12 +134,12 @@ if ( run.local == TRUE ) {
     #rep.methods = "gold ; CC ; MICE-std ; Am-std ; IPW-custom ; adj-form-4-cate", 
     #rep.methods = "gold ; CC ; MICE-std ; IPW-nm ; genloc", 
     #rep.methods = "CC ; MICE-std ; genloc ; IPW-nm",
-    rep.methods = "gold ; IPW-nm",
+    rep.methods = "gold ; genloc ; IPW-nm",
     
     model = "OLS", 
     #model = "logistic",  # outcome model
     coef_of_interest = "A",
-    N = c(10000),
+    N = c(1000),
     
     # MICE parameters
     # as on cluster
@@ -345,15 +345,25 @@ for ( scen in scens_to_run ) {
               message("MI left NAs in dataset - what a butt")
               imps_genloc = NULL
             } 
+            
+            
           }, error = function(e) {
             message("error making genloc imputations: ", e$message)
             imps_genloc = NULL
+            
+            # save the problem dataset
+            if (run.local == FALSE) {
+              
+              #bm
+              setwd("/home/groups/manishad/IAI/rmfiles")
+              fwrite( rs, paste( "rm_data", jobname, ".csv", sep="_" ) )
+              
+            }
+            
+            
           }
           )
-          
-          
-          
-          
+
         }
         
         message("Done imputing using genloc")
@@ -362,6 +372,11 @@ for ( scen in scens_to_run ) {
       } else {
         imps_genloc = NULL
       }
+      
+      
+      
+      
+      
       
       # ~~ MICE-std ----
       # details of how mice() implements pmm:
