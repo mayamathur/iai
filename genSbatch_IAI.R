@@ -33,11 +33,10 @@ lapply( allPackages,
 # SET SIMULATION PARAMETERS -----------------------------------------
 
 
-# debugging
-# full set with continuous outcome
+# debugging: isolated scens
 scen.params = tidyr::expand_grid(
   
-  rep.methods = "gold ; IPW-nm",
+  rep.methods = "gold ; MICE-std ; genloc ; IPW-nm",
   
   model = "OLS",  # FOR CONTINUOUS OUTCOME
   
@@ -50,7 +49,11 @@ scen.params = tidyr::expand_grid(
   imp_maxit = 100,
   mice_method = NA,
   
-  dag_name = "14A" )
+  #dag_name = "14A"
+  
+  dag_name = c("4B", "4C", "14A", "14A-debug")
+  
+  )
 
 
 # # full set with continuous outcome
@@ -133,10 +136,10 @@ write.csv( scen.params, "scen_params.csv", row.names = FALSE )
 source("helper_IAI.R")
 
 # number of sbatches to generate (i.e., iterations within each scenario)
-n.reps.per.scen = 500
-n.reps.in.doParallel = 10
-#n.reps.per.scen = 10
-# n.reps.in.doParallel = 1
+#n.reps.per.scen = 500
+#n.reps.in.doParallel = 10
+n.reps.per.scen = 100
+n.reps.in.doParallel = 1
 ( n.files = ( n.reps.per.scen / n.reps.in.doParallel ) * n.scen )
 
 
@@ -153,8 +156,8 @@ sbatch_params <- data.frame(jobname,
                             outfile,
                             errorfile,
                             #jobtime = "01:00:00",  # with IPW-nm
-                            jobtime = "00:30:00",  # with only MICE
-                            #jobtime = "00:10:00",
+                            #jobtime = "00:30:00",  # with only MICE
+                            jobtime = "01:00:00",
                             quality = "normal",
                             node_number = 1,
                             mem_per_node = 64000,
@@ -177,7 +180,7 @@ n.files
 
 path = "/home/groups/manishad/IAI"
 setwd( paste(path, "/sbatch_files", sep="") )
-for (i in 1:50) {
+for (i in 1:400) {
   system( paste("sbatch -p qsu,owners,normal /home/groups/manishad/IAI/sbatch_files/", i, ".sbatch", sep="") )
 }
 
@@ -195,7 +198,7 @@ source("helper_IAI.R")
 missed.nums = sbatch_not_run( "/home/groups/manishad/IAI/long_results",
                               "/home/groups/manishad/IAI/long_results",
                               .name.prefix = "long_results",
-                              .max.sbatch.num = 850 )
+                              .max.sbatch.num = 400 )
 
 
 

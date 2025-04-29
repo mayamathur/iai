@@ -97,8 +97,8 @@ if (run.local == FALSE ) {
   # ~~****** Cluster sim reps ----------------
   # simulation reps to run within this job
   # **this need to match n.reps.in.doParallel in the genSbatch script
-  sim.reps = 10
-  #sim.reps = 1
+  #sim.reps = 10
+  sim.reps = 1
   
   # set the number of cores
   registerDoParallel(cores=16)
@@ -134,7 +134,7 @@ if ( run.local == TRUE ) {
     #rep.methods = "gold ; CC ; MICE-std ; Am-std ; IPW-custom ; adj-form-4-cate", 
     #rep.methods = "gold ; CC ; MICE-std ; IPW-nm ; genloc", 
     #rep.methods = "CC ; MICE-std ; genloc ; IPW-nm",
-    rep.methods = "IPW-nm",
+    rep.methods = "gold ; IPW-nm",
     
     model = "OLS", 
     #model = "logistic",  # outcome model
@@ -157,9 +157,9 @@ if ( run.local == TRUE ) {
     #              "12A", "12B", "12C",
     #              "13A", "13B")
     
-    dag_name = c("14A-debug")
+    dag_name = c("4B")
     
-    )
+  )
   
   
   # # remove combos that aren't implemented
@@ -283,7 +283,7 @@ for ( scen in scens_to_run ) {
       
       # ~ Make Imputed Data ------------------------------
       
-    
+      
       # ~~ genloc: JM with general location model ----
       
       if ( "genloc" %in% all.methods & !is.null(di) ) {
@@ -315,40 +315,50 @@ for ( scen in scens_to_run ) {
           
         } else {
           
-          # randomize the random seed
-          rngseed( runif(min = 1000000, max = 9999999, n=1) )
+          # this block sometimes throws "improper posterior -- empty cells"
           
-          di3 <- prelim.mix(di2, p = n_bin)
-          
-          thetahat <- em.mix(di3)
-          
-          m <- p$imp_m  
-          imps_genloc <- vector("list", m)
-          
-          for (i in 1:m) {
-            newtheta <- da.mix(di3, thetahat, steps = 100)
-            newimp = as.data.frame( imp.mix(s = di3, theta = newtheta, x = di2) )
+          tryCatch({
+            # randomize the random seed
+            rngseed( runif(min = 1000000, max = 9999999, n=1) )
             
-            # revert to original coding
-            newimp = reverse_recode_binaries(newimp)
+            di3 <- prelim.mix(di2, p = n_bin)
             
-            imps_genloc[[i]] <- newimp
-          }
-          
-          # sanity check
-          imp1 = imps_genloc[[1]]
-          
-          if ( any(is.na(imp1)) ) {
-            message("MI left NAs in dataset - what a butt")
+            thetahat <- em.mix(di3)
+            
+            m <- p$imp_m  
+            imps_genloc <- vector("list", m)
+            
+            for (i in 1:m) {
+              newtheta <- da.mix(di3, thetahat, steps = 100)
+              newimp = as.data.frame( imp.mix(s = di3, theta = newtheta, x = di2) )
+              
+              # revert to original coding
+              newimp = reverse_recode_binaries(newimp)
+              
+              imps_genloc[[i]] <- newimp
+            }
+            
+            # sanity check
+            imp1 = imps_genloc[[1]]
+            
+            if ( any(is.na(imp1)) ) {
+              message("MI left NAs in dataset - what a butt")
+              imps_genloc = NULL
+            } 
+          }, error = function(e) {
+            message("error making genloc imputations: ", e$message)
             imps_genloc = NULL
           }
+          )
+          
+          
           
           
         }
         
         message("Done imputing using genloc")
         
-       
+        
       } else {
         imps_genloc = NULL
       }
@@ -387,7 +397,7 @@ for ( scen in scens_to_run ) {
         }
         
         
-
+        
         
         mice_std_methods = summarize_mice_methods(imps_mice$method)
         

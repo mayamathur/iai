@@ -1338,96 +1338,7 @@ sim_data = function(.p) {
   
   
   
-  
-  # ~ DAG 4B -----------------------------
-  
-  # like 4A, but mediator (now called D) is observed, so available to use in IPMW and MI
 
-  if ( .p$dag_name == "4B" ) {
-    
-    du = data.frame( C1 = rbinom( n = .p$N,
-                                  size = 1, 
-                                  prob = 0.5 ) ) 
-    
-    
-    coefDB = 2
-    coefAD = 3
-    
-    du = du %>% rowwise() %>%
-      mutate( A1 = rbinom( n = 1,
-                           size = 1,
-                           prob = expit(-1 + 3*C1) ),
-              
-              D1 = rbinom( n = 1,
-                           size = 1,
-                           prob = expit(-1 + coefAD*A1) ),
-              
-              B1 = rnorm( n = 1,
-                          mean = coefDB*D1 + 2.6*C1 + D1*C1),
-              
-              RA = rbinom( n = 1,
-                           size = 1,
-                           prob = 0.5 ),
-              
-              RD = rbinom( n = 1,
-                           size = 1,
-                           prob = 0.5 ),
-              
-              RC = rbinom( n = 1,
-                           size = 1,
-                           prob = expit(-1 + 3*C1) ),
-              
-              RD = rbinom( n = 1,
-                           size = 1,
-                           prob = expit(-1 + 3*D1) ) )
-    
-    
-    du = du %>% rowwise() %>%
-      mutate( A = ifelse(RA == 1, A1, NA),
-              B = ifelse(RB == 1, B1, NA),
-              C = ifelse(RC == 1, C1, NA),
-              D = ifelse(RD == 1, D1, NA) )
-    
-    
-    colMeans(du)
-    cor(du %>% select(A1, B1, C1, D1, RA, RB, RC, RD) )
-    
-    
-    # make dataset for imputation
-    di = du %>% select(A, B, C, D)
-    
-    
-    ### For just the intercept of A
-    if ( .p$coef_of_interest == "(Intercept)" ){ 
-      stop("Intercept not implemented for this DAG")
-    }
-    
-    
-    ### For the A-B association
-    if ( .p$coef_of_interest == "A" ){ 
-      
-      # regression strings
-      form_string = "B ~ A * C"
-      
-      # gold-standard model uses underlying variables
-      gold_form_string = "B1 ~ A1 * C1"
-      
-      beta = NA
-      
-      # custom predictor matrix for MICE-ours-pred
-      exclude_from_imp_model = NULL
-    }
-    
-  }  # end of .p$dag_name == "4B"
-  
-  
-  
-  
-  
-  
-  
-  
-  
   # ~ DAG 4A-bin -----------------------------
   
   # for adjustment formula 4, CATE version
@@ -1517,6 +1428,183 @@ sim_data = function(.p) {
     }
     
   }  # end of .p$dag_name == "4A-bin"
+  
+  
+  
+  
+  
+  
+  
+  # ~ DAG 4B -----------------------------
+  
+  # same as 4A, but mediator (now called D) is observed, so available to use in IPMW and MI
+  # however, it's nonmonotone
+  
+  if ( .p$dag_name == "4B" ) {
+    
+    du = data.frame( C1 = rbinom( n = .p$N,
+                                  size = 1, 
+                                  prob = 0.5 ) ) 
+    
+    
+    coefDB = 2
+    coefAD = 3
+    
+    du = du %>% rowwise() %>%
+      mutate( A1 = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(-1 + 3*C1) ),
+              
+              D1 = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(-1 + coefAD*A1) ),
+              
+              B1 = rnorm( n = 1,
+                          mean = coefDB*D1 + 2.6*C1 + D1*C1),
+              
+              RA = rbinom( n = 1,
+                           size = 1,
+                           prob = 0.5 ),
+              
+              RD = rbinom( n = 1,
+                           size = 1,
+                           prob = 0.5 ),
+              
+              RC = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(-1 + 3*C1) ),
+              
+              RB = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(-1 + 3*D1) ) )
+    
+    
+    du = du %>% rowwise() %>%
+      mutate( A = ifelse(RA == 1, A1, NA),
+              B = ifelse(RB == 1, B1, NA),
+              C = ifelse(RC == 1, C1, NA),
+              D = ifelse(RD == 1, D1, NA) )
+    
+    
+    colMeans(du)
+    cor(du %>% select(A1, B1, C1, D1, RA, RB, RC, RD) )
+    
+    
+    # make dataset for imputation
+    di = du %>% select(A, B, C, D)
+    
+    
+    ### For just the intercept of A
+    if ( .p$coef_of_interest == "(Intercept)" ){ 
+      stop("Intercept not implemented for this DAG")
+    }
+    
+    
+    ### For the A-B association
+    if ( .p$coef_of_interest == "A" ){ 
+      
+      # regression strings
+      form_string = "B ~ A * C"
+      
+      # gold-standard model uses underlying variables
+      gold_form_string = "B1 ~ A1 * C1"
+      
+      beta = NA
+      
+      # custom predictor matrix for MICE-ours-pred
+      exclude_from_imp_model = NULL
+    }
+    
+  }  # end of .p$dag_name == "4B"
+  
+  
+  # ~ DAG 4C -----------------------------
+  
+  # like 4B, but partially monotone
+  
+  if ( .p$dag_name == "4C" ) {
+    
+    du = data.frame( C1 = rbinom( n = .p$N,
+                                  size = 1, 
+                                  prob = 0.5 ) ) 
+    
+    
+    coefDB = 2
+    coefAD = 3
+    
+    du = du %>% rowwise() %>%
+      mutate( A1 = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(-1 + 3*C1) ),
+              
+              D1 = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(-1 + coefAD*A1) ),
+              
+              B1 = rnorm( n = 1,
+                          mean = coefDB*D1 + 2.6*C1 + D1*C1),
+              
+              RA = rbinom( n = 1,
+                           size = 1,
+                           prob = 0.5 ),
+              
+              RD = rbinom( n = 1,
+                           size = 1,
+                           prob = 0.5 ),
+              
+              RC = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(-1 + 3*C1) ),
+              
+              RB = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(-1 + 3*D1) ) )
+    
+    # partial monotonicity: B is the most missing
+    du$RB[ du$RA == 0 | du$RC == 0 | du$RD == 0 ] = 0 
+    
+    
+    du = du %>% rowwise() %>%
+      mutate( A = ifelse(RA == 1, A1, NA),
+              B = ifelse(RB == 1, B1, NA),
+              C = ifelse(RC == 1, C1, NA),
+              D = ifelse(RD == 1, D1, NA) )
+    
+    
+    colMeans(du)
+    cor(du %>% select(A1, B1, C1, D1, RA, RB, RC, RD) )
+    
+    
+    # make dataset for imputation
+    di = du %>% select(A, B, C, D)
+    
+    
+    ### For just the intercept of A
+    if ( .p$coef_of_interest == "(Intercept)" ){ 
+      stop("Intercept not implemented for this DAG")
+    }
+    
+    
+    ### For the A-B association
+    if ( .p$coef_of_interest == "A" ){ 
+      
+      # regression strings
+      form_string = "B ~ A * C"
+      
+      # gold-standard model uses underlying variables
+      gold_form_string = "B1 ~ A1 * C1"
+      
+      beta = NA
+      
+      # custom predictor matrix for MICE-ours-pred
+      exclude_from_imp_model = NULL
+    }
+    
+  }  # end of .p$dag_name == "4C"
+  
+  
+  
+  
   
   
   
@@ -2908,7 +2996,7 @@ sim_data = function(.p) {
   
   
   
-  # ~ DAG 14A  -------------------------------------------------
+  # ~ DAG 14A-debug  -------------------------------------------------
   
   # simplify until rjags works
   if ( .p$dag_name == "14A-debug" ) {
@@ -3055,6 +3143,8 @@ sim_data = function(.p) {
   }  # end of .p$dag_name == "14A-debug"
   
   
+  
+  # ~ DAG 14A  -------------------------------------------------
   
   if ( .p$dag_name == "14A" ) {
     
@@ -3392,6 +3482,8 @@ fit_regression = function(form_string,
     #@TEMP ONLY: HANDLE CASE OF AUXILIARY VARS
     # EVENTUALLY, SHOULD MAYBE USE THE IMPUTATION DAT, DI, FOR IPW-NM?
     if ( p$dag_name == "14A" ) analysis_vars = c("C", "A", "D", "E", "B")
+    if ( p$dag_name == "14A-debug" ) analysis_vars = c("C", "A", "D", "B")
+    if ( p$dag_name %in% c("4B", "4C" ) ) analysis_vars = c("C", "A", "D", "B")
     
     # Add pattern indicators
     data_with_patterns <- create_pattern_indicators(dat, analysis_vars)
