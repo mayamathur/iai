@@ -136,10 +136,10 @@ write.csv( scen.params, "scen_params.csv", row.names = FALSE )
 source("helper_IAI.R")
 
 # number of sbatches to generate (i.e., iterations within each scenario)
-#n.reps.per.scen = 500
-#n.reps.in.doParallel = 10
-n.reps.per.scen = 100
-n.reps.in.doParallel = 1
+n.reps.per.scen = 500
+n.reps.in.doParallel = 5
+#n.reps.per.scen = 100
+#n.reps.in.doParallel = 1
 ( n.files = ( n.reps.per.scen / n.reps.in.doParallel ) * n.scen )
 
 
@@ -157,7 +157,7 @@ sbatch_params <- data.frame(jobname,
                             errorfile,
                             #jobtime = "01:00:00",  # with IPW-nm
                             #jobtime = "00:30:00",  # with only MICE
-                            jobtime = "01:00:00",
+                            jobtime = "01:30:00",
                             quality = "normal",
                             node_number = 1,
                             mem_per_node = 64000,
