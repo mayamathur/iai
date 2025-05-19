@@ -859,6 +859,7 @@ for ( scen in scens_to_run ) {
       # ~~ Adj form 4 (CATE on C) ----
       # sum_w { p(b | a, w, c, R = 1) p(w | a, c, RA = RC = RW = 1) }
       
+      # current implementation requires everything except outcome to be binary
       if ( "adj-form-4-cate" %in% all.methods ) {
         rep.res = run_method_safe(method.label = c("adj-form-4-cate"),
                                   

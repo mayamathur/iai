@@ -51,7 +51,7 @@ scen.params = tidyr::expand_grid(
   
   #dag_name = "14A"
   
-  dag_name = c("4B", "4C", "14A", "14A-debug")
+  dag_name = c("4D")
   
   )
 
@@ -180,7 +180,7 @@ n.files
 
 path = "/home/groups/manishad/IAI"
 setwd( paste(path, "/sbatch_files", sep="") )
-for (i in 1:400) {
+for (i in 1:100) {
   system( paste("sbatch -p qsu,owners,normal /home/groups/manishad/IAI/sbatch_files/", i, ".sbatch", sep="") )
 }
 

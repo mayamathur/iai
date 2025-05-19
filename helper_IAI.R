@@ -1609,6 +1609,100 @@ sim_data = function(.p) {
   
   
   
+  
+  
+  # ~ DAG 4D -----------------------------
+  
+  # like 4C, but both D and B are most missing vars
+  
+  if ( .p$dag_name == "4D" ) {
+    
+    du = data.frame( C1 = rbinom( n = .p$N,
+                                  size = 1, 
+                                  prob = 0.5 ) ) 
+    
+    
+    coefDB = 2
+    coefAD = 3
+    
+    du = du %>% rowwise() %>%
+      mutate( A1 = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(-1 + 3*C1) ),
+              
+              D1 = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(-1 + coefAD*A1) ),
+              
+              B1 = rnorm( n = 1,
+                          mean = coefDB*D1 + 2.6*C1 + D1*C1),
+              
+              RA = rbinom( n = 1,
+                           size = 1,
+                           prob = 0.5 ),
+              
+              RD = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(-1 + 3*D1) ),
+              
+              RC = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(-1 + 3*C1) ),
+              
+              RB = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(-1 + 3*D1) ) )
+    
+    # partial monotonicity: B is the most missing
+    du$RB[ du$RA == 0 | du$RC == 0 | du$RD == 0 ] = 0 
+    du$RD[ du$RB == 0 ] = 0  # only change from previous one
+    
+    
+    du = du %>% rowwise() %>%
+      mutate( A = ifelse(RA == 1, A1, NA),
+              B = ifelse(RB == 1, B1, NA),
+              C = ifelse(RC == 1, C1, NA),
+              D = ifelse(RD == 1, D1, NA) )
+    
+    
+    colMeans(du)
+    cor(du %>% select(A1, B1, C1, D1, RA, RB, RC, RD) )
+    
+    
+    # make dataset for imputation
+    di = du %>% select(A, B, C, D)
+    
+    
+    ### For just the intercept of A
+    if ( .p$coef_of_interest == "(Intercept)" ){ 
+      stop("Intercept not implemented for this DAG")
+    }
+    
+    
+    ### For the A-B association
+    if ( .p$coef_of_interest == "A" ){ 
+      
+      # regression strings
+      form_string = "B ~ A * C"
+      
+      # gold-standard model uses underlying variables
+      gold_form_string = "B1 ~ A1 * C1"
+      
+      beta = NA
+      
+      # custom predictor matrix for MICE-ours-pred
+      exclude_from_imp_model = NULL
+    }
+    
+  }  # end of .p$dag_name == "4D"
+  
+  
+  
+  
+  
+  
+  
+
   # ~ DAG 6A -----------------------------
   
   # C1 -> RC -> RB (monotone)
