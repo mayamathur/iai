@@ -131,10 +131,10 @@ if ( run.local == TRUE ) {
   
   scen.params = tidyr::expand_grid(
     
-    #rep.methods = "gold ; CC ; MICE-std ; Am-std ; IPW-custom ; adj-form-4-cate", 
+    #rep.methods = "gold ; CC ; MICE-std ; Am-std ; IPW-custom ; af4", 
     #rep.methods = "gold ; CC ; MICE-std ; IPW-nm ; genloc", 
     #rep.methods = "CC ; MICE-std ; genloc ; IPW-nm",
-    rep.methods = "gold ; genloc ; IPW-nm",
+    rep.methods = "gold ; af4 ; IPW-nm",
     
     model = "OLS", 
     #model = "logistic",  # outcome model
@@ -157,7 +157,7 @@ if ( run.local == TRUE ) {
     #              "12A", "12B", "12C",
     #              "13A", "13B")
     
-    dag_name = c("4B")
+    dag_name = c("1B")
     
   )
   
@@ -321,6 +321,7 @@ for ( scen in scens_to_run ) {
             # randomize the random seed
             rngseed( runif(min = 1000000, max = 9999999, n=1) )
             
+            #bm: this step is failing for new DAG 1B, even though apparently I was able to run genloc for the previous DAG 4B
             di3 <- prelim.mix(di2, p = n_bin)
             
             thetahat <- em.mix(di3)
@@ -770,98 +771,12 @@ for ( scen in scens_to_run ) {
                                   .rep.res = rep.res )
       }
       
-      
-      # ~~ Adj form 1 ----
-      
-      if ( "adj-form-1" %in% all.methods ) {
-        rep.res = run_method_safe(method.label = c("adj-form-1"),
-                                  
-                                  method.fn = function(x) {
-                                    
-                                    
-                                    # p(b(1) | a = 1) = sum_c { p(c | RC = 1) * p(b | a = 1, c, RA = RC = RB = 1) }
-                                    a = 1
-                                    term0 = mean( du$C[ du$RC == 1 ] == 0 ) *
-                                      mean( du$B[ du$A == a & du$C == 0 & du$RA == 1 & du$RB == 1 & du$RC == 1 ] )
-                                    
-                                    term1 = mean( du$C[ du$RC == 1 ] == 1 ) *
-                                      mean( du$B[ du$A == a & du$C == 1 & du$RA == 1 & du$RB == 1 & du$RC == 1 ] )
-                                    
-                                    ( ate_term1 = term0 + term1 )
-                                    
-                                    # c.f. truth (IF no conventional confounding)
-                                    mean(du$B1[du$A1 == a] )
-                                    
-                                    # p(b(1) | a = 0)
-                                    a = 0
-                                    term0 = mean( du$C[ du$RC == 1 ] == 0 ) * mean( du$B[ du$A == a & du$C == 0 & du$RA == 1 & du$RB == 1 & du$RC == 1 ] )
-                                    term1 = mean( du$C[ du$RC == 1 ] == 1 ) * mean( du$B[ du$A == a & du$C == 1 & du$RA == 1 & du$RB == 1 & du$RC == 1 ] )
-                                    ( ate_term0 = term0 + term1 )
-                                    
-                                    # c.f. truth (IF no conventional confounding)
-                                    mean(du$B1[du$A1 == a] )
-                                    
-                                    # correct! :D
-                                    ( ate = ate_term1 - ate_term0 )
-                                    
-                                    return( list( stats = data.frame(bhat = ate) ) )
-                                    
-                                    
-                                  },
-                                  .rep.res = rep.res )
-      }
-      
-      # ~~ Adj form 2 ----
-      # Difference from adj-form-1: This one uses  p(c | a, RC = 1, RA = 1) instead of  p(c | RC = 1)
-      
-      if ( "adj-form-2" %in% all.methods ) {
-        rep.res = run_method_safe(method.label = c("adj-form-2"),
-                                  
-                                  method.fn = function(x) {
-                                    
-                                    
-                                    # p(b(1) | a = 1) = sum_c { p(c | a = 1, RC = 1, RA = 1) * p(b | a = 1, c, RA = RC = RB = 1) }
-                                    a = 1
-                                    term0 = mean( du$C[ du$A == a & du$RA == 1 & du$RC == 1 ] == 0 ) *
-                                      mean( du$B[ du$A == a & du$C == 0 & du$RA == 1 & du$RB == 1 & du$RC == 1 ] )
-                                    
-                                    term1 = mean( du$C[ du$A == a & du$RA == 1 & du$RC == 1 ] == 1 ) *
-                                      mean( du$B[ du$A == a & du$C == 1 & du$RA == 1 & du$RB == 1 & du$RC == 1 ] )
-                                    
-                                    ( ate_term1 = term0 + term1 )
-                                    
-                                    # c.f. truth
-                                    mean(du$B1[du$A1 == a] )
-                                    
-                                    # p(b(1) | a = 0)
-                                    a = 0
-                                    term0 = mean( du$C[ du$A == a & du$RA == 1 & du$RC == 1 ] == 0 ) * mean( du$B[ du$A == a & du$C == 0 & du$RA == 1 & du$RB == 1 & du$RC == 1 ] )
-                                    term1 = mean( du$C[ du$A == a & du$RA == 1 & du$RC == 1 ] == 1 ) * mean( du$B[ du$A == a & du$C == 1 & du$RA == 1 & du$RB == 1 & du$RC == 1 ] )
-                                    ( ate_term0 = term0 + term1 )
-                                    
-                                    # c.f. truth
-                                    mean(du$B1[du$A1 == a] )
-                                    
-                                    # correct! :D
-                                    ( ate = ate_term1 - ate_term0 )
-                                    
-                                    return( list( stats = data.frame(bhat = ate) ) )
-                                    
-                                    
-                                  },
-                                  .rep.res = rep.res )
-      }
-      
-      if (run.local == TRUE) srr(rep.res)
-      
-      
-      
-      # ~~ Adj form 4 (CATE on C) ----
+      # ~~ AF4 (CATE on C) ----
       # sum_w { p(b | a, w, c, R = 1) p(w | a, c, RA = RC = RW = 1) }
       
       # current implementation requires everything except outcome to be binary
-      if ( "adj-form-4-cate" %in% all.methods ) {
-        rep.res = run_method_safe(method.label = c("adj-form-4-cate"),
+      if ( "af4" %in% all.methods ) {
+        rep.res = run_method_safe(method.label = c("af4"),
                                   
                                   method.fn = function(x) {
                                     

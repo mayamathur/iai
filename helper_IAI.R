@@ -18,7 +18,13 @@ sim_data = function(.p) {
   
   if ( .p$dag_name == "1B" ) {
     
-    du = data.frame( C1 = rbinom( n = .p$N,
+    # "fake" variable Z1 is always observed but is independent of everything; used only to 
+    #  prevent all-NA rows
+    du = data.frame( Z1 = rbinom( n = .p$N,
+                                  size = 1, 
+                                  prob = 0.5 ),
+                     
+                     C1 = rbinom( n = .p$N,
                                   size = 1, 
                                   prob = 0.5 ) ) 
     
@@ -30,36 +36,73 @@ sim_data = function(.p) {
       mutate( A1 = rbinom( n = 1,
                            size = 1,
                            prob = expit(-1 + 3*C1) ),
-              
+
               D1 = rbinom( n = 1,
                            size = 1,
                            prob = expit(-1 + coefAD*A1) ),
-              
+
               B1 = rnorm( n = 1,
                           mean = coefDB*D1 + 2.6*C1 + D1*C1),
-              
+
               RA = rbinom( n = 1,
                            size = 1,
                            prob = expit(-1 + 3*D1) ),
-    
+
               RD = rbinom( n = 1,
                            size = 1,
                            prob = 0.5 ),
-              
+
               RC = rbinom( n = 1,
                            size = 1,
                            prob = expit(-1 + 3*D1) ),
-              
+
               RB = rbinom( n = 1,
                            size = 1,
                            prob = expit(-1 + 3*D1) ) )
+    
+    # #@TEMP DEBUGGING: revert to 4B
+    # genloc still throws error:
+    # >             imps_genloc <- vector("list", m)
+    # >               newtheta <- da.mix(di3, thetahat, steps = 100)
+    # 
+    # Error in da.mix(di3, thetahat, steps = 100) : 
+    #   Improper posterior--empty cells
+    # 
+    # du = du %>% rowwise() %>%
+    #   mutate( A1 = rbinom( n = 1,
+    #                        size = 1,
+    #                        prob = expit(-1 + 3*C1) ),
+    #           
+    #           D1 = rbinom( n = 1,
+    #                        size = 1,
+    #                        prob = expit(-1 + coefAD*A1) ),
+    #           
+    #           B1 = rnorm( n = 1,
+    #                       mean = coefDB*D1 + 2.6*C1 + D1*C1),
+    #           
+    #           RA = rbinom( n = 1,
+    #                        size = 1,
+    #                        prob = 0.5 ),
+    #           
+    #           RD = rbinom( n = 1,
+    #                        size = 1,
+    #                        prob = expit(-1 + 3*D1) ),
+    #           
+    #           RC = rbinom( n = 1,
+    #                        size = 1,
+    #                        prob = expit(-1 + 3*C1) ),
+    #           
+    #           RB = rbinom( n = 1,
+    #                        size = 1,
+    #                        prob = expit(-1 + 3*D1) ) )
     
     
     du = du %>% rowwise() %>%
       mutate( A = ifelse(RA == 1, A1, NA),
               B = ifelse(RB == 1, B1, NA),
               C = ifelse(RC == 1, C1, NA),
-              D = ifelse(RD == 1, D1, NA) )
+              D = ifelse(RD == 1, D1, NA),
+              Z = Z1)
     
     
     colMeans(du)
@@ -67,7 +110,7 @@ sim_data = function(.p) {
     
     
     # make dataset for imputation
-    di = du %>% select(A, B, C, D)
+    di = du %>% select(A, B, C, D, Z)
     
     
     ### For just the intercept of A
@@ -261,13 +304,16 @@ fit_regression = function(form_string,
       dat$id <- 1:nrow(dat)
     }
     
+    #bm
     # Identify variables to be used in the analysis
+    # misnomer because we'd also include auxiliaries here! 
     analysis_vars <- all.vars( as.formula(form_string) )
     #@TEMP ONLY: HANDLE CASE OF AUXILIARY VARS
     # EVENTUALLY, SHOULD MAYBE USE THE IMPUTATION DAT, DI, FOR IPW-NM?
-    if ( p$dag_name == "14A" ) analysis_vars = c("C", "A", "D", "E", "B")
-    if ( p$dag_name == "14A-debug" ) analysis_vars = c("C", "A", "D", "B")
-    if ( p$dag_name %in% c("4B", "4C" ) ) analysis_vars = c("C", "A", "D", "B")
+    # if ( p$dag_name == "14A" ) analysis_vars = c("C", "A", "D", "E", "B")
+    # if ( p$dag_name == "14A-debug" ) analysis_vars = c("C", "A", "D", "B")
+    # if ( p$dag_name %in% c("4B", "4C" ) ) analysis_vars = c("C", "A", "D", "B")
+    if ( p$dag_name %in% "1B" ) analysis_vars = c("C", "A", "D", "B") else stop("IPW-nm doesn't have analysis_vars coded for that DAG")
     
     # Add pattern indicators
     data_with_patterns <- create_pattern_indicators(dat, analysis_vars)
