@@ -207,7 +207,7 @@ for ( scen in scens_to_run ) {
     
     rs = foreach( i = 1:sim.reps, .combine = bind_rows ) %dopar% {
       #for debugging (out file will contain all printed things):
-      #for ( i in 1:20 ) {
+      # for ( i in 1:20 ) {
       
       # only print info for first sim rep for visual clarity
       if ( i == 1 ) cat("\n\n~~~~~~~~~~~~~~~~ BEGIN SIM REP", i, "~~~~~~~~~~~~~~~~")
@@ -470,12 +470,6 @@ for ( scen in scens_to_run ) {
       # ~~ Gold standard: No missing data ----
       if ( "gold" %in% all.methods ) {
         
-        # #@debugging
-        # #bm
-        # message("Entered gold part")
-        # cat(str(di$B))
-        # cat(table(di$B, useNA = "ifany"))
-        
         
         rep.res = run_method_safe(method.label = c("gold"),
                                   
@@ -496,9 +490,7 @@ for ( scen in scens_to_run ) {
       
       # ~~ Complete-case analysis (naive) ----
       if ( "CC" %in% all.methods ) {
-        
-        #@debugging
-        #bm
+
         message("Entered CC part")
         cat(str(di$B))
         cat(table(di$B, useNA = "ifany"))
@@ -705,7 +697,7 @@ for ( scen in scens_to_run ) {
       # Sun & ETT
       if ( "IPW-nm" %in% all.methods ) {
         
-        # #@DEBUGGING ONLY!!
+        # #DEBUGGING ONLY!!
         # cat("\n\n ~~~~~~~~~~~~~~~~~~~ About to run IPW-nm for sim rep", i)
         # # save the dataset locally
         # setwd("/Users/mmathur/Dropbox/Personal computer/Independent studies/*Inchoate/2024/2024-10-20 - IAI (Incomplete auxiliaries in imputation)/Simulation study/Results/temp debugging")
@@ -722,7 +714,7 @@ for ( scen in scens_to_run ) {
                                   .rep.res = rep.res )
         
         
-        #@DEBUGGING ONLY!!
+        #DEBUGGING ONLY!!
         cat("\n\n  ~~~~~~~~~~~~~~~~~~~ Done running IPW-nm for sim rep", i)
         
         
@@ -775,6 +767,7 @@ for ( scen in scens_to_run ) {
       # sum_w { p(b | a, w, c, R = 1) p(w | a, c, RA = RC = RW = 1) }
       
       # current implementation requires everything except outcome to be binary
+      # and assumes the aux variable (W) is called D
       if ( "af4" %in% all.methods ) {
         rep.res = run_method_safe(method.label = c("af4"),
                                   
@@ -785,18 +778,20 @@ for ( scen in scens_to_run ) {
                                     # complete-case dataset
                                     dc = du[ complete.cases(du), ]
                                     # restricted dataset for modeling W
-                                    dw = du %>% filter( RA == 1 & RW == 1 & RC == 1 )
+                                    dw = du %>% filter( RA == 1 & RD == 1 & RC == 1 )
                                     
                                     
                                     c = 0  # will fix this level throughout
                                     a = 1
                                     
                                     ### p(b(1) | a = 1, c = c)
-                                    term_w0 = mean( dw$W[ dw$A == a & dw$C == c ] == 0 ) *
-                                      mean( dc$B[ dc$A == a & dc$C == c & dc$W == 0 ] )
+                                    term_w0 = mean( dw$D[ dw$A == a & dw$C == c ] == 0 ) *
+                                      mean( dc$B[ dc$A == a & dc$C == c & dc$D == 0 ] )
                                     
-                                    term_w1 = mean( dw$W[ dw$A == a & dw$C == c ] == 1 ) *
-                                      mean( dc$B[ dc$A == a & dc$C == c & dc$W == 1 ] )
+                                    term_w1 = mean( dw$D[ dw$A == a & dw$C == c ] == 1 ) *
+                                      mean( dc$B[ dc$A == a & dc$C == c & dc$D == 1 ] )
+                                    
+                                    if ( is.na(term_w0) | is.na(term_w1) ) stop("term_w0 or term_w1 was NA, probably because one of the subset datasets had 0 observations")
                                     
                                     ( ate_term1 = term_w0 + term_w1 )
                                     
@@ -804,16 +799,18 @@ for ( scen in scens_to_run ) {
                                     mean(du$B1[du$A1 == a & du$C1 == c] )
                                     
                                     # compare each sub-term to truth
-                                    mean( dc$B[ dc$A == a & dc$C == c & dc$W == 0 ] ); mean( du$B1[ du$A1 == a & du$C1 == c & du$W1 == 0 ] )
-                                    mean( dw$W[ dw$A == a & dw$C == c ] == 0 ); mean( du$W1[ du$A1 == a & du$C1 == c ] == 0 )
+                                    mean( dc$B[ dc$A == a & dc$C == c & dc$D == 0 ] ); mean( du$B1[ du$A1 == a & du$C1 == c & du$D1 == 0 ] )
+                                    mean( dw$D[ dw$A == a & dw$C == c ] == 0 ); mean( du$D1[ du$A1 == a & du$C1 == c ] == 0 )
                                     
                                     ### p(b(1) | a = 0, c = c)
                                     a = 0
-                                    term_w0 = mean( dw$W[ dw$A == a & dw$C == c ] == 0 ) *
-                                      mean( dc$B[ dc$A == a & dc$C == c & dc$W == 0 ] )
+                                    term_w0 = mean( dw$D[ dw$A == a & dw$C == c ] == 0 ) *
+                                      mean( dc$B[ dc$A == a & dc$C == c & dc$D == 0 ] )
                                     
-                                    term_w1 = mean( dw$W[ dw$A == a & dw$C == c ] == 1 ) *
-                                      mean( dc$B[ dc$A == a & dc$C == c & dc$W == 1 ] )
+                                    term_w1 = mean( dw$D[ dw$A == a & dw$C == c ] == 1 ) *
+                                      mean( dc$B[ dc$A == a & dc$C == c & dc$D == 1 ] )
+                                    
+                                    if ( is.na(term_w0) | is.na(term_w1) ) stop("term_w0 or term_w1 was NA, probably because one of the subset datasets had 0 observations")
                                     
                                     ( ate_term0 = term_w0 + term_w1 )
                                     
@@ -836,7 +833,7 @@ for ( scen in scens_to_run ) {
       }
       
       if (run.local == TRUE) srr(rep.res)
-      
+   
       
       
       # ~ Add Scen Params and Sanity Checks --------------------------------------
@@ -917,10 +914,11 @@ for ( scen in scens_to_run ) {
 
 
 
-
 if ( run.local == TRUE ) {
-  # View(rs_all_scens)
-  # dim(rs_all_scens)
+  
+  View(rs_all_scens)
+  
+  dim(rs_all_scens)
   
   
   # fill in true beta

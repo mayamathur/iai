@@ -14,6 +14,86 @@ sim_data = function(.p) {
   
   # ~ DAG 1A -----------------------------
   
+  if ( .p$dag_name == "1A" ) {
+    
+    # "fake" variable Z1 is always observed but is independent of everything; used only to 
+    #  prevent all-NA rows
+    du = data.frame( Z1 = rbinom( n = .p$N,
+                                  size = 1, 
+                                  prob = 0.5 ),
+                     
+                     C1 = rbinom( n = .p$N,
+                                  size = 1, 
+                                  prob = 0.5 ) ) 
+    
+    
+    coefDB = 2
+    coefAD = 3
+    
+    du = du %>% rowwise() %>%
+      mutate( A1 = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(-1 + 3*C1) ),
+              
+              D1 = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(-1 + coefAD*A1) ),
+              
+              B1 = rnorm( n = 1,
+                          mean = coefDB*D1 + 2.6*C1 + D1*C1),
+              
+              RA = 1,
+              
+              RD = rbinom( n = 1,
+                           size = 1,
+                           prob = 0.5 ),
+              
+              RC = 1,
+              
+              RB = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(-1 + 3*D1) ) )
+    
+    du = du %>% rowwise() %>%
+      mutate( A = ifelse(RA == 1, A1, NA),
+              B = ifelse(RB == 1, B1, NA),
+              C = ifelse(RC == 1, C1, NA),
+              D = ifelse(RD == 1, D1, NA),
+              Z = Z1)
+    
+    
+    colMeans(du)
+    cor(du %>% select(A1, B1, C1, D1, RA, RB, RC, RD) )
+    
+    
+    # make dataset for imputation
+    di = du %>% select(A, B, C, D, Z)
+    
+    
+    ### For just the intercept of A
+    if ( .p$coef_of_interest == "(Intercept)" ){ 
+      stop("Intercept not implemented for this DAG")
+    }
+    
+    
+    ### Coefficient of interest
+    if ( .p$coef_of_interest %in% c("A", "C" ) ){ 
+      
+      # regression strings
+      form_string = "B ~ A * C"
+      
+      # gold-standard model uses underlying variables
+      gold_form_string = "B1 ~ A1 * C1"
+      
+      beta = NA
+      
+      # custom predictor matrix for MICE-ours-pred
+      exclude_from_imp_model = NULL
+    }
+    
+    
+  }  # end of .p$dag_name == "1A"
+  
   # ~ DAG 1B -----------------------------
   
   if ( .p$dag_name == "1B" ) {
@@ -313,7 +393,7 @@ fit_regression = function(form_string,
     # if ( p$dag_name == "14A" ) analysis_vars = c("C", "A", "D", "E", "B")
     # if ( p$dag_name == "14A-debug" ) analysis_vars = c("C", "A", "D", "B")
     # if ( p$dag_name %in% c("4B", "4C" ) ) analysis_vars = c("C", "A", "D", "B")
-    if ( p$dag_name %in% "1B" ) analysis_vars = c("C", "A", "D", "B") else stop("IPW-nm doesn't have analysis_vars coded for that DAG")
+    if ( p$dag_name %in% c("1A", "1B") ) analysis_vars = c("C", "A", "D", "B") else stop("IPW-nm doesn't have analysis_vars coded for that DAG")
     
     # Add pattern indicators
     data_with_patterns <- create_pattern_indicators(dat, analysis_vars)
