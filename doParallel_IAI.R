@@ -39,6 +39,7 @@ toLoad = c("crayon",
            "R2jags",  # only needed if running method IPW-nm. If removing, you can also remove "module load openblas/0.3.20" and "module load jags/4.3.1" from genSbatch.
            "geepack", # also only for IPW-nm
            "mix", # only for genloc imputation
+           "boot", # for parametric AF4
            "MASS")
 
 if ( run.local == TRUE | interactive.cluster.run == TRUE ) toLoad = c(toLoad, "here")
@@ -145,8 +146,11 @@ if ( run.local == TRUE ) {
     # as on cluster
     imp_m = 5,  # CURRENTLY SET LOW
     imp_maxit = 5,
-    
     mice_method = NA,  # let MICE use its defaults
+    
+    # Parametric AF4 parameters
+    boot.reps = 50,
+    
     
     # # full set
     # dag_name = c("1A", "1B", "2A",
@@ -823,11 +827,15 @@ for ( scen in scens_to_run ) {
                                     set.seed(2025)
                                     bres <- boot(data = du,
                                                  statistic = boot_stat,
-                                                 R = 1000)
+                                                 R = p$boot.reps)
                                     
                                     ci <- boot.ci(bres, type = "bca")
-                                    print(ci)
                                     
+                                    return( list( stats = data.frame( bhat = point_ate,
+                                                                      bhat_lo = ci$bca[4],
+                                                                      bhat_hi = ci$bca[5],
+                                                                      bhat_width = ci$bca[5] - ci$bca[4] ) ) ) 
+
                                     
                                     # NONPARAMETRIC VERSION THAT SUBSETS THE DATA
                                     # # two restricted datasets
