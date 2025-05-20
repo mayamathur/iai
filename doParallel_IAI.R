@@ -321,7 +321,7 @@ for ( scen in scens_to_run ) {
             # randomize the random seed
             rngseed( runif(min = 1000000, max = 9999999, n=1) )
             
-            #bm: this step is failing for new DAG 1B, even though apparently I was able to run genloc for the previous DAG 4B
+            #2025-05-19: this step is failing for new DAG 1B, even though apparently I was able to run genloc for the previous DAG 4B
             di3 <- prelim.mix(di2, p = n_bin)
             
             thetahat <- em.mix(di3)
@@ -773,59 +773,114 @@ for ( scen in scens_to_run ) {
                                   
                                   method.fn = function(x) {
                                     
+                                    # PARAMETRIC VERSION
                                     
-                                    # two restricted datasets
-                                    # complete-case dataset
-                                    dc = du[ complete.cases(du), ]
-                                    # restricted dataset for modeling W
-                                    dw = du %>% filter( RA == 1 & RD == 1 & RC == 1 )
+                                    #––– 1) define your restricted samples
+                                    dc <- du[ complete.cases(du), ]               # A,C,D,B all observed
+                                    dw <- du %>% filter(RA==1, RD==1, RC==1)       # A,C,D observed
+                                    
+                                    #––– 2) fit the two models with all interactions
+                                    fit_B <- lm( B ~ A * C * D, data = dc )      # E[B|A,C,D]
+                                    fit_D <- glm(D ~ A * C, data = dw, family = binomial)               # P[D|A,C]
+                                    
+                                    #––– 3) AF4 for given levels of a0, c0
+                                    m_B_ac <- function(a0, c0, fit_B, fit_D) {
+                                      
+                                      # assumes D (aka W in AF4) is binary with levels 0, 1
+                                      sum(sapply(0:1, function(d0) {
+                                        p_d <- predict(fit_D,
+                                                       newdata = data.frame(A=a0, C=c0, D=d0),
+                                                       type="response")
+                                        mu  <- predict(fit_B,
+                                                       newdata = data.frame(A=a0, C=c0, D=d0))
+                                        p_d * mu
+                                      }))
+                                    }
+                                    
+                                    #––– 4) conditional ATE at C = c0
+                                    ate_c <- function(c0, fit_B, fit_D) {
+                                      m_B_ac(1, c0, fit_B, fit_D) -
+                                        m_B_ac(0, c0, fit_B, fit_D)
+                                    }
+                                    
+                                    #––– 5) point‐estimate for C = 0 (example)
+                                    c0        <- 0
+                                    point_ate <- ate_c(c0, fit_B, fit_D)
+                                    print(point_ate)
+                                    
+                                    #––– 6) bootstrap (BCa) for the ATE at C = c0
+                                    boot_stat <- function(data, i) {
+                                      d    <- data[i, ]
+                                      dc_i <- d[ complete.cases(d), ]
+                                      dw_i <- d %>% filter(RA==1, RD==1, RC==1)
+                                      
+                                      fb <- lm( B ~ A * C * D, data = dc_i )
+                                      fd <- glm(D ~ A * C,     data = dw_i, family = binomial)
+                                      
+                                      ate_c(c0, fb, fd)
+                                    }
+                                    
+                                    set.seed(2025)
+                                    bres <- boot(data = du,
+                                                 statistic = boot_stat,
+                                                 R = 1000)
+                                    
+                                    ci <- boot.ci(bres, type = "bca")
+                                    print(ci)
                                     
                                     
-                                    c = 0  # will fix this level throughout
-                                    a = 1
-                                    
-                                    ### p(b(1) | a = 1, c = c)
-                                    term_w0 = mean( dw$D[ dw$A == a & dw$C == c ] == 0 ) *
-                                      mean( dc$B[ dc$A == a & dc$C == c & dc$D == 0 ] )
-                                    
-                                    term_w1 = mean( dw$D[ dw$A == a & dw$C == c ] == 1 ) *
-                                      mean( dc$B[ dc$A == a & dc$C == c & dc$D == 1 ] )
-                                    
-                                    if ( is.na(term_w0) | is.na(term_w1) ) stop("term_w0 or term_w1 was NA, probably because one of the subset datasets had 0 observations")
-                                    
-                                    ( ate_term1 = term_w0 + term_w1 )
-                                    
-                                    # c.f. truth
-                                    mean(du$B1[du$A1 == a & du$C1 == c] )
-                                    
-                                    # compare each sub-term to truth
-                                    mean( dc$B[ dc$A == a & dc$C == c & dc$D == 0 ] ); mean( du$B1[ du$A1 == a & du$C1 == c & du$D1 == 0 ] )
-                                    mean( dw$D[ dw$A == a & dw$C == c ] == 0 ); mean( du$D1[ du$A1 == a & du$C1 == c ] == 0 )
-                                    
-                                    ### p(b(1) | a = 0, c = c)
-                                    a = 0
-                                    term_w0 = mean( dw$D[ dw$A == a & dw$C == c ] == 0 ) *
-                                      mean( dc$B[ dc$A == a & dc$C == c & dc$D == 0 ] )
-                                    
-                                    term_w1 = mean( dw$D[ dw$A == a & dw$C == c ] == 1 ) *
-                                      mean( dc$B[ dc$A == a & dc$C == c & dc$D == 1 ] )
-                                    
-                                    if ( is.na(term_w0) | is.na(term_w1) ) stop("term_w0 or term_w1 was NA, probably because one of the subset datasets had 0 observations")
-                                    
-                                    ( ate_term0 = term_w0 + term_w1 )
-                                    
-                                    # c.f. truth
-                                    mean(du$B1[du$A1 == a & du$C1 == c] )
-                                    
-                                    # correct! :D
-                                    ( ate = ate_term1 - ate_term0 )
-                                    
-                                    
-                                    # c.f. gold std 
-                                    #lm(B1 ~ A1, data = du %>% filter(C1 == c))
-                                    
-                                    
-                                    return( list( stats = data.frame(bhat = ate) ) )
+                                    # NONPARAMETRIC VERSION THAT SUBSETS THE DATA
+                                    # # two restricted datasets
+                                    # # complete-case dataset
+                                    # dc = du[ complete.cases(du), ]
+                                    # # restricted dataset for modeling W
+                                    # dw = du %>% filter( RA == 1 & RD == 1 & RC == 1 )
+                                    # 
+                                    # c = 0  # will fix this level throughout
+                                    # a = 1
+                                    # 
+                                    # ### p(b(1) | a = 1, c = c)
+                                    # term_w0 = mean( dw$D[ dw$A == a & dw$C == c ] == 0 ) *
+                                    #   mean( dc$B[ dc$A == a & dc$C == c & dc$D == 0 ] )
+                                    # 
+                                    # term_w1 = mean( dw$D[ dw$A == a & dw$C == c ] == 1 ) *
+                                    #   mean( dc$B[ dc$A == a & dc$C == c & dc$D == 1 ] )
+                                    # 
+                                    # if ( is.na(term_w0) | is.na(term_w1) ) stop("term_w0 or term_w1 was NA, probably because one of the subset datasets had 0 observations")
+                                    # 
+                                    # ( ate_term1 = term_w0 + term_w1 )
+                                    # 
+                                    # # c.f. truth
+                                    # mean(du$B1[du$A1 == a & du$C1 == c] )
+                                    # 
+                                    # # compare each sub-term to truth
+                                    # mean( dc$B[ dc$A == a & dc$C == c & dc$D == 0 ] ); mean( du$B1[ du$A1 == a & du$C1 == c & du$D1 == 0 ] )
+                                    # mean( dw$D[ dw$A == a & dw$C == c ] == 0 ); mean( du$D1[ du$A1 == a & du$C1 == c ] == 0 )
+                                    # 
+                                    # ### p(b(1) | a = 0, c = c)
+                                    # a = 0
+                                    # term_w0 = mean( dw$D[ dw$A == a & dw$C == c ] == 0 ) *
+                                    #   mean( dc$B[ dc$A == a & dc$C == c & dc$D == 0 ] )
+                                    # 
+                                    # term_w1 = mean( dw$D[ dw$A == a & dw$C == c ] == 1 ) *
+                                    #   mean( dc$B[ dc$A == a & dc$C == c & dc$D == 1 ] )
+                                    # 
+                                    # if ( is.na(term_w0) | is.na(term_w1) ) stop("term_w0 or term_w1 was NA, probably because one of the subset datasets had 0 observations")
+                                    # 
+                                    # ( ate_term0 = term_w0 + term_w1 )
+                                    # 
+                                    # # c.f. truth
+                                    # mean(du$B1[du$A1 == a & du$C1 == c] )
+                                    # 
+                                    # # correct! :D
+                                    # ( ate = ate_term1 - ate_term0 )
+                                    # 
+                                    # 
+                                    # # c.f. gold std 
+                                    # #lm(B1 ~ A1, data = du %>% filter(C1 == c))
+                                    # 
+                                    # 
+                                    # return( list( stats = data.frame(bhat = ate) ) )
                                     
                                     
                                   },

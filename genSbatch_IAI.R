@@ -36,7 +36,7 @@ lapply( allPackages,
 # debugging: isolated scens
 scen.params = tidyr::expand_grid(
   
-  rep.methods = "gold ; MICE-std ; genloc ; IPW-nm",
+  rep.methods = "gold ; IPW-nm ; af4",
   
   model = "OLS",  # FOR CONTINUOUS OUTCOME
   
@@ -51,7 +51,7 @@ scen.params = tidyr::expand_grid(
   
   #dag_name = "14A"
   
-  dag_name = c("4D")
+  dag_name = c( "1A", "1B")
   
   )
 
@@ -155,9 +155,9 @@ runfile_path = paste(path, "/testRunFile.R", sep="")
 sbatch_params <- data.frame(jobname,
                             outfile,
                             errorfile,
-                            #jobtime = "01:00:00",  # with IPW-nm
+                            jobtime = "01:00:00",  # with IPW-nm
                             #jobtime = "00:30:00",  # with only MICE
-                            jobtime = "01:30:00",
+                            #jobtime = "01:30:00",
                             quality = "normal",
                             node_number = 1,
                             mem_per_node = 64000,
@@ -180,7 +180,7 @@ n.files
 
 path = "/home/groups/manishad/IAI"
 setwd( paste(path, "/sbatch_files", sep="") )
-for (i in 1:100) {
+for (i in 1:200) {
   system( paste("sbatch -p qsu,owners,normal /home/groups/manishad/IAI/sbatch_files/", i, ".sbatch", sep="") )
 }
 
