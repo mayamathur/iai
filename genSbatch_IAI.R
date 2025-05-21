@@ -49,6 +49,9 @@ scen.params = tidyr::expand_grid(
   imp_maxit = 100,
   mice_method = NA,
   
+  # AF4 parameters
+  boot_reps = 1000,
+  
   #dag_name = "14A"
   
   dag_name = c( "1A", "1B")
@@ -155,9 +158,9 @@ runfile_path = paste(path, "/testRunFile.R", sep="")
 sbatch_params <- data.frame(jobname,
                             outfile,
                             errorfile,
-                            jobtime = "01:00:00",  # with IPW-nm
+                            #jobtime = "01:00:00",  # with IPW-nm
                             #jobtime = "00:30:00",  # with only MICE
-                            #jobtime = "01:30:00",
+                            jobtime = "01:30:00",
                             quality = "normal",
                             node_number = 1,
                             mem_per_node = 64000,

@@ -149,7 +149,7 @@ if ( run.local == TRUE ) {
     mice_method = NA,  # let MICE use its defaults
     
     # Parametric AF4 parameters
-    boot.reps = 50,
+    boot_reps = 50,
     
     
     # # full set
@@ -161,7 +161,9 @@ if ( run.local == TRUE ) {
     #              "12A", "12B", "12C",
     #              "13A", "13B")
     
-    dag_name = c("1B")
+    dag_name = c("1A", "1B", "1C",
+                 "2A", "2B",
+                 "3A", "3B" )
     
   )
   
@@ -359,7 +361,7 @@ for ( scen in scens_to_run ) {
             # save the problem dataset
             if (run.local == FALSE) {
               
-              #bm
+              #@temp debugging
               setwd("/home/groups/manishad/IAI/rmfiles")
               fwrite( rs, paste( "rm_data", jobname, ".csv", sep="_" ) )
               
@@ -391,8 +393,7 @@ for ( scen in scens_to_run ) {
         
         message("Starting to impute using MICE-std")
         
-        
-        #bm
+      
         # ensure all binary vars are factors; otherwise using methods
         #  other than pmm will treat them as continuous
         di2 = convert_binary_to_factor(di)
@@ -813,6 +814,7 @@ for ( scen in scens_to_run ) {
                                     print(point_ate)
                                     
                                     #––– 6) bootstrap (BCa) for the ATE at C = c0
+                                    #bm: never works ("estimated adjustment 'a' is NA")
                                     boot_stat <- function(data, i) {
                                       d    <- data[i, ]
                                       dc_i <- d[ complete.cases(d), ]
@@ -823,13 +825,14 @@ for ( scen in scens_to_run ) {
                                       
                                       ate_c(c0, fb, fd)
                                     }
+                        
                                     
-                                    set.seed(2025)
                                     bres <- boot(data = du,
                                                  statistic = boot_stat,
-                                                 R = p$boot.reps)
+                                                 R = p$boot_reps)
                                     
-                                    ci <- boot.ci(bres, type = "bca")
+                                    #@TEMP: use percentile method because BCA always throws error: "estimated adjustment 'a' is NA"
+                                    ci <- boot.ci(bres, type = "perc")
                                     
                                     return( list( stats = data.frame( bhat = point_ate,
                                                                       bhat_lo = ci$bca[4],

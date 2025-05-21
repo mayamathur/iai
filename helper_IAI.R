@@ -218,6 +218,477 @@ sim_data = function(.p) {
   }  # end of .p$dag_name == "1B"
   
   
+  
+  # ~ DAG 1C -----------------------------
+  
+  # same as 1B, but no D -> Y edge, so IPMW should now work
+  
+  if ( .p$dag_name == "1C" ) {
+    
+    # "fake" variable Z1 is always observed but is independent of everything; used only to 
+    #  prevent all-NA rows
+    du = data.frame( Z1 = rbinom( n = .p$N,
+                                  size = 1, 
+                                  prob = 0.5 ),
+                     
+                     C1 = rbinom( n = .p$N,
+                                  size = 1, 
+                                  prob = 0.5 ) ) 
+    
+    
+    coefDB = 0  # only change from 1B
+    coefAD = 3
+    
+    du = du %>% rowwise() %>%
+      mutate( A1 = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(-1 + 3*C1) ),
+              
+              D1 = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(-1 + coefAD*A1) ),
+              
+              B1 = rnorm( n = 1,
+                          mean = coefDB*D1 + 2.6*C1 + D1*C1),
+              
+              RA = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(-1 + 3*D1) ),
+              
+              RD = rbinom( n = 1,
+                           size = 1,
+                           prob = 0.5 ),
+              
+              RC = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(-1 + 3*D1) ),
+              
+              RB = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(-1 + 3*D1) ) )
+    
+    # #@TEMP DEBUGGING: revert to 4B
+    # genloc still throws error:
+    # >             imps_genloc <- vector("list", m)
+    # >               newtheta <- da.mix(di3, thetahat, steps = 100)
+    # 
+    # Error in da.mix(di3, thetahat, steps = 100) : 
+    #   Improper posterior--empty cells
+    # 
+    # du = du %>% rowwise() %>%
+    #   mutate( A1 = rbinom( n = 1,
+    #                        size = 1,
+    #                        prob = expit(-1 + 3*C1) ),
+    #           
+    #           D1 = rbinom( n = 1,
+    #                        size = 1,
+    #                        prob = expit(-1 + coefAD*A1) ),
+    #           
+    #           B1 = rnorm( n = 1,
+    #                       mean = coefDB*D1 + 2.6*C1 + D1*C1),
+    #           
+    #           RA = rbinom( n = 1,
+    #                        size = 1,
+    #                        prob = 0.5 ),
+    #           
+    #           RD = rbinom( n = 1,
+    #                        size = 1,
+    #                        prob = expit(-1 + 3*D1) ),
+    #           
+    #           RC = rbinom( n = 1,
+    #                        size = 1,
+    #                        prob = expit(-1 + 3*C1) ),
+    #           
+    #           RB = rbinom( n = 1,
+    #                        size = 1,
+    #                        prob = expit(-1 + 3*D1) ) )
+    
+    
+    du = du %>% rowwise() %>%
+      mutate( A = ifelse(RA == 1, A1, NA),
+              B = ifelse(RB == 1, B1, NA),
+              C = ifelse(RC == 1, C1, NA),
+              D = ifelse(RD == 1, D1, NA),
+              Z = Z1)
+    
+    
+    colMeans(du)
+    cor(du %>% select(A1, B1, C1, D1, RA, RB, RC, RD) )
+    
+    
+    # make dataset for imputation
+    di = du %>% select(A, B, C, D, Z)
+    
+    
+    ### For just the intercept of A
+    if ( .p$coef_of_interest == "(Intercept)" ){ 
+      stop("Intercept not implemented for this DAG")
+    }
+    
+    
+    ### Coefficient of interest
+    if ( .p$coef_of_interest %in% c("A", "C" ) ){ 
+      
+      # regression strings
+      form_string = "B ~ A * C"
+      
+      # gold-standard model uses underlying variables
+      gold_form_string = "B1 ~ A1 * C1"
+      
+      beta = NA
+      
+      # custom predictor matrix for MICE-ours-pred
+      exclude_from_imp_model = NULL
+    }
+    
+    
+  }  # end of .p$dag_name == "1C"
+  
+  
+  
+  # ~ DAG 2A -----------------------------
+  
+  if ( .p$dag_name == "2A" ) {
+    
+    # "fake" variable Z1 is always observed but is independent of everything; used only to prevent all-NA rows
+    du = data.frame( Z1 = rbinom( n = .p$N,
+                                  size = 1, 
+                                  prob = 0.5 ),
+                     
+                     C1 = rbinom( n = .p$N,
+                                  size = 1, 
+                                  prob = 0.5 ) ) 
+    
+    
+    coefAB = 2
+    coefBD = 3
+    
+    du = du %>% rowwise() %>%
+      mutate( A1 = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(-1 + 3*C1) ),
+              
+              B1 = rnorm( n = 1,
+                          mean = coefAB*A1 + 2.6*C1 + A1*C1),
+              
+              D1 = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(-1 + coefBD*B1) ),
+              
+              RA = 1,
+              
+              RD = rbinom( n = 1,
+                           size = 1,
+                           prob = 0.5 ),
+              
+              RC = 1,
+              
+              RB = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(-1 + 3*D1) ) )
+    
+    du = du %>% rowwise() %>%
+      mutate( A = ifelse(RA == 1, A1, NA),
+              B = ifelse(RB == 1, B1, NA),
+              C = ifelse(RC == 1, C1, NA),
+              D = ifelse(RD == 1, D1, NA),
+              Z = Z1)
+    
+    
+    colMeans(du)
+    cor(du %>% select(A1, B1, C1, D1, RA, RB, RC, RD) )
+    
+    
+    # make dataset for imputation
+    di = du %>% select(A, B, C, D, Z)
+    
+    
+    ### For just the intercept of A
+    if ( .p$coef_of_interest == "(Intercept)" ){ 
+      stop("Intercept not implemented for this DAG")
+    }
+    
+    
+    ### Coefficient of interest
+    if ( .p$coef_of_interest %in% c("A", "C" ) ){ 
+      
+      # regression strings
+      form_string = "B ~ A * C"
+      
+      # gold-standard model uses underlying variables
+      gold_form_string = "B1 ~ A1 * C1"
+      
+      beta = NA
+      
+      # custom predictor matrix for MICE-ours-pred
+      exclude_from_imp_model = NULL
+    }
+    
+    
+  }  # end of .p$dag_name == "2A"
+  
+  
+  
+  # ~ DAG 2B -----------------------------
+  
+  if ( .p$dag_name == "2B" ) {
+    
+    # "fake" variable Z1 is always observed but is independent of everything; used only to prevent all-NA rows
+    du = data.frame( Z1 = rbinom( n = .p$N,
+                                  size = 1, 
+                                  prob = 0.5 ),
+                     
+                     C1 = rbinom( n = .p$N,
+                                  size = 1, 
+                                  prob = 0.5 ) ) 
+    
+    
+    coefAB = 2
+    coefBD = 3
+    
+    du = du %>% rowwise() %>%
+      mutate( A1 = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(-1 + 3*C1) ),
+              
+              B1 = rnorm( n = 1,
+                          mean = coefAB*A1 + 2.6*C1 + A1*C1),
+              
+              D1 = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(-1 + coefBD*B1) ),
+              
+              RA = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(-1 + 3*D1) ),
+              
+              RD = rbinom( n = 1,
+                           size = 1,
+                           prob = 0.5 ),
+              
+              RC = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(-1 + 3*D1) ),
+              
+              RB = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(-1 + 3*D1) ) )
+    
+    du = du %>% rowwise() %>%
+      mutate( A = ifelse(RA == 1, A1, NA),
+              B = ifelse(RB == 1, B1, NA),
+              C = ifelse(RC == 1, C1, NA),
+              D = ifelse(RD == 1, D1, NA),
+              Z = Z1)
+    
+    
+    colMeans(du)
+    cor(du %>% select(A1, B1, C1, D1, RA, RB, RC, RD) )
+    
+    
+    # make dataset for imputation
+    di = du %>% select(A, B, C, D, Z)
+    
+    
+    ### For just the intercept of A
+    if ( .p$coef_of_interest == "(Intercept)" ){ 
+      stop("Intercept not implemented for this DAG")
+    }
+    
+    
+    ### Coefficient of interest
+    if ( .p$coef_of_interest %in% c("A", "C" ) ){ 
+      
+      # regression strings
+      form_string = "B ~ A * C"
+      
+      # gold-standard model uses underlying variables
+      gold_form_string = "B1 ~ A1 * C1"
+      
+      beta = NA
+      
+      # custom predictor matrix for MICE-ours-pred
+      exclude_from_imp_model = NULL
+    }
+    
+    
+  }  # end of .p$dag_name == "2B"
+  
+  # ~ DAG 3A -----------------------------
+  
+  if ( .p$dag_name == "3A" ) {
+    
+    # "fake" variable Z1 is always observed but is independent of everything; used only to 
+    #  prevent all-NA rows
+    du = data.frame( Z1 = rbinom( n = .p$N,
+                                  size = 1, 
+                                  prob = 0.5 ),
+                     
+                     C1 = rbinom( n = .p$N,
+                                  size = 1, 
+                                  prob = 0.5 ) ) 
+    
+    
+    coefDB = 2
+    coefAD = 3
+    coefAB = 2
+    
+    du = du %>% rowwise() %>%
+      mutate( A1 = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(-1 + 3*C1) ),
+              
+              D1 = rbinom( n = 1,
+                           size = 1,
+                           prob = 0.5 ),
+              
+              B1 = rnorm( n = 1,
+                          mean = coefDB*D1 + 2.6*C1 + D1*C1 + coefAB*A1),
+              
+              RA = 1,
+              
+              RD = 1,
+              
+              RC = 1,
+              
+              RB = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(-1 + 3*D1) ) )
+    
+    
+    du = du %>% rowwise() %>%
+      mutate( A = ifelse(RA == 1, A1, NA),
+              B = ifelse(RB == 1, B1, NA),
+              C = ifelse(RC == 1, C1, NA),
+              D = ifelse(RD == 1, D1, NA),
+              Z = Z1)
+    
+    
+    colMeans(du)
+    cor(du %>% select(A1, B1, C1, D1, RA, RB, RC, RD) )
+    
+    
+    # make dataset for imputation
+    di = du %>% select(A, B, C, D, Z)
+    
+    
+    ### For just the intercept of A
+    if ( .p$coef_of_interest == "(Intercept)" ){ 
+      stop("Intercept not implemented for this DAG")
+    }
+    
+    
+    ### Coefficient of interest
+    if ( .p$coef_of_interest %in% c("A", "C" ) ){ 
+      
+      # regression strings
+      form_string = "B ~ A * C"
+      
+      # gold-standard model uses underlying variables
+      gold_form_string = "B1 ~ A1 * C1"
+      
+      beta = NA
+      
+      # custom predictor matrix for MICE-ours-pred
+      exclude_from_imp_model = NULL
+    }
+    
+    
+  }  # end of .p$dag_name == "3A"
+  
+  
+  
+  
+  # ~ DAG 3B -----------------------------
+  
+  if ( .p$dag_name == "1B" ) {
+    
+    # "fake" variable Z1 is always observed but is independent of everything; used only to 
+    #  prevent all-NA rows
+    du = data.frame( Z1 = rbinom( n = .p$N,
+                                  size = 1, 
+                                  prob = 0.5 ),
+                     
+                     C1 = rbinom( n = .p$N,
+                                  size = 1, 
+                                  prob = 0.5 ) ) 
+    
+    
+    coefDB = 2
+    coefAD = 3
+    coefAB = 2
+    
+    du = du %>% rowwise() %>%
+      mutate( A1 = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(-1 + 3*C1) ),
+              
+              D1 = rbinom( n = 1,
+                           size = 1,
+                           prob = 0.5 ),
+              
+              B1 = rnorm( n = 1,
+                          mean = coefDB*D1 + 2.6*C1 + D1*C1 + coefAB*A1),
+              
+              RA = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(-1 + 3*D1) ),
+              
+              RD = rbinom( n = 1,
+                           size = 1,
+                           prob = 0.5 ),
+              
+              RC = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(-1 + 3*D1) ),
+              
+              RB = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(-1 + 3*D1) ) )
+    
+
+    du = du %>% rowwise() %>%
+      mutate( A = ifelse(RA == 1, A1, NA),
+              B = ifelse(RB == 1, B1, NA),
+              C = ifelse(RC == 1, C1, NA),
+              D = ifelse(RD == 1, D1, NA),
+              Z = Z1)
+    
+    
+    colMeans(du)
+    cor(du %>% select(A1, B1, C1, D1, RA, RB, RC, RD) )
+    
+    
+    # make dataset for imputation
+    di = du %>% select(A, B, C, D, Z)
+    
+    
+    ### For just the intercept of A
+    if ( .p$coef_of_interest == "(Intercept)" ){ 
+      stop("Intercept not implemented for this DAG")
+    }
+    
+    
+    ### Coefficient of interest
+    if ( .p$coef_of_interest %in% c("A", "C" ) ){ 
+      
+      # regression strings
+      form_string = "B ~ A * C"
+      
+      # gold-standard model uses underlying variables
+      gold_form_string = "B1 ~ A1 * C1"
+      
+      beta = NA
+      
+      # custom predictor matrix for MICE-ours-pred
+      exclude_from_imp_model = NULL
+    }
+    
+    
+  }  # end of .p$dag_name == "3B"
+  
+  
+  
   # ~ Finish generating data ----------------
   
   # marginal prevalences
@@ -384,16 +855,12 @@ fit_regression = function(form_string,
       dat$id <- 1:nrow(dat)
     }
     
-    #bm
     # Identify variables to be used in the analysis
     # misnomer because we'd also include auxiliaries here! 
-    analysis_vars <- all.vars( as.formula(form_string) )
-    #@TEMP ONLY: HANDLE CASE OF AUXILIARY VARS
+    #analysis_vars <- all.vars( as.formula(form_string) )
+    #@TEMP ONLY: HANDLE CASE OF AUXILIARY VARS BY EXPLICITLY LISTING VARS INCLUDING W
     # EVENTUALLY, SHOULD MAYBE USE THE IMPUTATION DAT, DI, FOR IPW-NM?
-    # if ( p$dag_name == "14A" ) analysis_vars = c("C", "A", "D", "E", "B")
-    # if ( p$dag_name == "14A-debug" ) analysis_vars = c("C", "A", "D", "B")
-    # if ( p$dag_name %in% c("4B", "4C" ) ) analysis_vars = c("C", "A", "D", "B")
-    if ( p$dag_name %in% c("1A", "1B") ) analysis_vars = c("C", "A", "D", "B") else stop("IPW-nm doesn't have analysis_vars coded for that DAG")
+    analysis_vars = c("C", "A", "D", "B")
     
     # Add pattern indicators
     data_with_patterns <- create_pattern_indicators(dat, analysis_vars)
