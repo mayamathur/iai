@@ -29,6 +29,7 @@ sim_data = function(.p) {
     
     coefDB = 2
     coefAD = 3
+    coefAB = 2
     
     du = du %>% rowwise() %>%
       mutate( A1 = rbinom( n = 1,
@@ -40,7 +41,7 @@ sim_data = function(.p) {
                            prob = expit(-1 + coefAD*A1) ),
               
               B1 = rnorm( n = 1,
-                          mean = coefDB*D1 + 2.6*C1 + D1*C1),
+                          mean = coefDB*D1 + 2.6*C1 + D1*C1 + coefAB*A1 + A1*C1),
               
               RA = 1,
               
@@ -111,6 +112,7 @@ sim_data = function(.p) {
     
     coefDB = 2
     coefAD = 3
+    coefAB = 2
     
     du = du %>% rowwise() %>%
       mutate( A1 = rbinom( n = 1,
@@ -122,7 +124,7 @@ sim_data = function(.p) {
                            prob = expit(-1 + coefAD*A1) ),
 
               B1 = rnorm( n = 1,
-                          mean = coefDB*D1 + 2.6*C1 + D1*C1),
+                          mean = coefDB*D1 + 2.6*C1 + D1*C1 + coefAB*A1 + A1*C1),
 
               RA = rbinom( n = 1,
                            size = 1,
@@ -140,43 +142,7 @@ sim_data = function(.p) {
                            size = 1,
                            prob = expit(-1 + 3*D1) ) )
     
-    # #@TEMP DEBUGGING: revert to 4B
-    # genloc still throws error:
-    # >             imps_genloc <- vector("list", m)
-    # >               newtheta <- da.mix(di3, thetahat, steps = 100)
-    # 
-    # Error in da.mix(di3, thetahat, steps = 100) : 
-    #   Improper posterior--empty cells
-    # 
-    # du = du %>% rowwise() %>%
-    #   mutate( A1 = rbinom( n = 1,
-    #                        size = 1,
-    #                        prob = expit(-1 + 3*C1) ),
-    #           
-    #           D1 = rbinom( n = 1,
-    #                        size = 1,
-    #                        prob = expit(-1 + coefAD*A1) ),
-    #           
-    #           B1 = rnorm( n = 1,
-    #                       mean = coefDB*D1 + 2.6*C1 + D1*C1),
-    #           
-    #           RA = rbinom( n = 1,
-    #                        size = 1,
-    #                        prob = 0.5 ),
-    #           
-    #           RD = rbinom( n = 1,
-    #                        size = 1,
-    #                        prob = expit(-1 + 3*D1) ),
-    #           
-    #           RC = rbinom( n = 1,
-    #                        size = 1,
-    #                        prob = expit(-1 + 3*C1) ),
-    #           
-    #           RB = rbinom( n = 1,
-    #                        size = 1,
-    #                        prob = expit(-1 + 3*D1) ) )
-    
-    
+   
     du = du %>% rowwise() %>%
       mutate( A = ifelse(RA == 1, A1, NA),
               B = ifelse(RB == 1, B1, NA),
@@ -235,9 +201,9 @@ sim_data = function(.p) {
                                   size = 1, 
                                   prob = 0.5 ) ) 
     
-    
-    coefDB = 0  # only change from 1B
+
     coefAD = 3
+    coefAB = 2
     
     du = du %>% rowwise() %>%
       mutate( A1 = rbinom( n = 1,
@@ -249,7 +215,7 @@ sim_data = function(.p) {
                            prob = expit(-1 + coefAD*A1) ),
               
               B1 = rnorm( n = 1,
-                          mean = coefDB*D1 + 2.6*C1 + D1*C1),
+                          mean = 2.6*C1 + coefAB*A1 + A1*C1),
               
               RA = rbinom( n = 1,
                            size = 1,
@@ -543,7 +509,7 @@ sim_data = function(.p) {
                            prob = 0.5 ),
               
               B1 = rnorm( n = 1,
-                          mean = coefDB*D1 + 2.6*C1 + D1*C1 + coefAB*A1),
+                          mean = coefDB*D1 + 2.6*C1 + D1*C1 + coefAB*A1 + A1*C1),
               
               RA = 1,
               
@@ -601,7 +567,7 @@ sim_data = function(.p) {
   
   # ~ DAG 3B -----------------------------
   
-  if ( .p$dag_name == "1B" ) {
+  if ( .p$dag_name == "3B" ) {
     
     # "fake" variable Z1 is always observed but is independent of everything; used only to 
     #  prevent all-NA rows
@@ -628,7 +594,7 @@ sim_data = function(.p) {
                            prob = 0.5 ),
               
               B1 = rnorm( n = 1,
-                          mean = coefDB*D1 + 2.6*C1 + D1*C1 + coefAB*A1),
+                          mean = coefDB*D1 + 2.6*C1 + D1*C1 + coefAB*A1 + A1*C1),
               
               RA = rbinom( n = 1,
                            size = 1,

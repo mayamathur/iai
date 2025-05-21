@@ -832,12 +832,13 @@ for ( scen in scens_to_run ) {
                                                  R = p$boot_reps)
                                     
                                     #@TEMP: use percentile method because BCA always throws error: "estimated adjustment 'a' is NA"
+                                    # if you change boot type, need to change ci$percent[...] below too
                                     ci <- boot.ci(bres, type = "perc")
                                     
                                     return( list( stats = data.frame( bhat = point_ate,
-                                                                      bhat_lo = ci$bca[4],
-                                                                      bhat_hi = ci$bca[5],
-                                                                      bhat_width = ci$bca[5] - ci$bca[4] ) ) ) 
+                                                                      bhat_lo = ci$percent[4],
+                                                                      bhat_hi = ci$percent[5],
+                                                                      bhat_width = ci$percent[5] - ci$percent[4] ) ) ) 
 
                                     
                                     # NONPARAMETRIC VERSION THAT SUBSETS THE DATA

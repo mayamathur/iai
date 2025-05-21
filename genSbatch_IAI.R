@@ -52,9 +52,9 @@ scen.params = tidyr::expand_grid(
   # AF4 parameters
   boot_reps = 1000,
   
-  #dag_name = "14A"
-  
-  dag_name = c( "1A", "1B")
+  dag_name = c("1A", "1B", "1C",
+               "2A", "2B",
+               "3A", "3B" )
   
   )
 
@@ -183,7 +183,7 @@ n.files
 
 path = "/home/groups/manishad/IAI"
 setwd( paste(path, "/sbatch_files", sep="") )
-for (i in 1:200) {
+for (i in 1:700) {
   system( paste("sbatch -p qsu,owners,normal /home/groups/manishad/IAI/sbatch_files/", i, ".sbatch", sep="") )
 }
 
