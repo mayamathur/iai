@@ -118,31 +118,31 @@ sim_data = function(.p) {
       mutate( A1 = rbinom( n = 1,
                            size = 1,
                            prob = expit(-1 + 3*C1) ),
-
+              
               D1 = rbinom( n = 1,
                            size = 1,
                            prob = expit(-1 + coefAD*A1) ),
-
+              
               B1 = rnorm( n = 1,
                           mean = coefDB*D1 + 2.6*C1 + D1*C1 + coefAB*A1 + A1*C1),
-
+              
               RA = rbinom( n = 1,
                            size = 1,
                            prob = expit(-1 + 3*D1) ),
-
+              
               RD = rbinom( n = 1,
                            size = 1,
                            prob = 0.5 ),
-
+              
               RC = rbinom( n = 1,
                            size = 1,
                            prob = expit(-1 + 3*D1) ),
-
+              
               RB = rbinom( n = 1,
                            size = 1,
                            prob = expit(-1 + 3*D1) ) )
     
-   
+    
     du = du %>% rowwise() %>%
       mutate( A = ifelse(RA == 1, A1, NA),
               B = ifelse(RB == 1, B1, NA),
@@ -201,7 +201,7 @@ sim_data = function(.p) {
                                   size = 1, 
                                   prob = 0.5 ) ) 
     
-
+    
     coefAD = 3
     coefAB = 2
     
@@ -232,42 +232,6 @@ sim_data = function(.p) {
               RB = rbinom( n = 1,
                            size = 1,
                            prob = expit(-1 + 3*D1) ) )
-    
-    # #@TEMP DEBUGGING: revert to 4B
-    # genloc still throws error:
-    # >             imps_genloc <- vector("list", m)
-    # >               newtheta <- da.mix(di3, thetahat, steps = 100)
-    # 
-    # Error in da.mix(di3, thetahat, steps = 100) : 
-    #   Improper posterior--empty cells
-    # 
-    # du = du %>% rowwise() %>%
-    #   mutate( A1 = rbinom( n = 1,
-    #                        size = 1,
-    #                        prob = expit(-1 + 3*C1) ),
-    #           
-    #           D1 = rbinom( n = 1,
-    #                        size = 1,
-    #                        prob = expit(-1 + coefAD*A1) ),
-    #           
-    #           B1 = rnorm( n = 1,
-    #                       mean = coefDB*D1 + 2.6*C1 + D1*C1),
-    #           
-    #           RA = rbinom( n = 1,
-    #                        size = 1,
-    #                        prob = 0.5 ),
-    #           
-    #           RD = rbinom( n = 1,
-    #                        size = 1,
-    #                        prob = expit(-1 + 3*D1) ),
-    #           
-    #           RC = rbinom( n = 1,
-    #                        size = 1,
-    #                        prob = expit(-1 + 3*C1) ),
-    #           
-    #           RB = rbinom( n = 1,
-    #                        size = 1,
-    #                        prob = expit(-1 + 3*D1) ) )
     
     
     du = du %>% rowwise() %>%
@@ -612,7 +576,7 @@ sim_data = function(.p) {
                            size = 1,
                            prob = expit(-1 + 3*D1) ) )
     
-
+    
     du = du %>% rowwise() %>%
       mutate( A = ifelse(RA == 1, A1, NA),
               B = ifelse(RB == 1, B1, NA),
@@ -654,6 +618,92 @@ sim_data = function(.p) {
   }  # end of .p$dag_name == "3B"
   
   
+  
+  
+  # ~ DAG 4A -----------------------------
+  
+  if ( .p$dag_name == "4A" ) {
+    
+    # "fake" variable Z1 is always observed but is independent of everything; used only to prevent all-NA rows
+    du = data.frame( Z1 = rbinom( n = .p$N,
+                                  size = 1, 
+                                  prob = 0.5 ),
+                     
+                     W1 = rbinom( n = .p$N,
+                                  size = 1, 
+                                  prob = 0.5 ) ) 
+    
+    
+    coefAB = 2
+    coefBD = 3
+    
+    du = du %>% rowwise() %>%
+      mutate( C1 = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(-1 + 3*W1) ),
+              
+              A1 = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(-1 + 3*C1) ),
+              
+              B1 = rnorm( n = 1,
+                          mean = coefAB*A1 + 2.6*C1 + A1*C1),
+              
+              
+              
+              RA = rbinom( n = 1,
+                           size = 1,
+                           prob = 0.5 ),
+              
+              RD = rbinom( n = 1,
+                           size = 1,
+                           prob = 0.5 ),
+              
+              RC = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(-1 + 3*W1) ),
+              
+              RB = 1 )
+    
+    du = du %>% rowwise() %>%
+      mutate( A = ifelse(RA == 1, A1, NA),
+              B = ifelse(RB == 1, B1, NA),
+              C = ifelse(RC == 1, C1, NA),
+              D = ifelse(RD == 1, D1, NA),
+              Z = Z1)
+    
+    
+    colMeans(du)
+    cor(du %>% select(A1, B1, C1, D1, RA, RB, RC, RD) )
+    
+    
+    # make dataset for imputation
+    di = du %>% select(A, B, C, D, Z)
+    
+    
+    ### For just the intercept of A
+    if ( .p$coef_of_interest == "(Intercept)" ){ 
+      stop("Intercept not implemented for this DAG")
+    }
+    
+    
+    ### Coefficient of interest
+    if ( .p$coef_of_interest %in% c("A", "C" ) ){ 
+      
+      # regression strings
+      form_string = "B ~ A * C"
+      
+      # gold-standard model uses underlying variables
+      gold_form_string = "B1 ~ A1 * C1"
+      
+      beta = NA
+      
+      # custom predictor matrix for MICE-ours-pred
+      exclude_from_imp_model = NULL
+    }
+    
+    
+  }  # end of .p$dag_name == "4A"
   
   # ~ Finish generating data ----------------
   
@@ -731,7 +781,7 @@ fit_regression = function(form_string,
   # if ( miss_method %in% c("IPW-nm") ) dat = di
   
   if ( is.null(dat) ) stop("Dataset passed to fit_regression was NULL, maybe bc imputation failed")
-
+  
   
   # ~ CC and gold std  ---------------------
   if ( miss_method %in% c("CC", "gold") ) {
@@ -1705,7 +1755,7 @@ scale_dataset <- function(data, vars) {
 #' @param vars Variables to check for missingness
 #' @return Dataframe with pattern indicators
 create_pattern_indicators <- function(data, vars) {
-
+  
   
   # Step 1: Create a subset of the data containing only the specified variables
   subset_data <- data[, vars, drop = FALSE]
@@ -1855,7 +1905,7 @@ create_jags_model <- function(num_patterns, vars_per_pattern) {
 #' @return JAGS fit object
 run_missingness_model <- function(data, vars) {
   
-
+  
   vars = sort(vars)
   
   if (!"M" %in% names(data)) {
@@ -2064,7 +2114,7 @@ run_missingness_model <- function(data, vars) {
 #' @return Dataset with IPMW weights
 calculate_ipmw_weights2 <- function(jags_results, data, use_posterior_draws = TRUE) {
   
-
+  
   # ### TEMP DEBUGGING
   # if ( FALSE ) {
   #   load("data")
