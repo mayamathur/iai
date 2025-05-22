@@ -150,20 +150,11 @@ if ( run.local == TRUE ) {
     
     # Parametric AF4 parameters
     boot_reps = 50,
-    
-    
-    # # full set
-    # dag_name = c("1A", "1B", "2A",
-    #              "3A", "3B",
-    #              "3C", "3D", "3E",
-    #              "4A", "6A", "7A",
-    #              "7B",
-    #              "12A", "12B", "12C",
-    #              "13A", "13B")
-    
-    dag_name = c("1A", "1B", "1C",
-                 "2A", "2B",
-                 "3A", "3B" )
+
+    dag_name = "1A"
+    # dag_name = c("1A", "1B", "1C",
+    #              "2A", "2B",
+    #              "3A", "3B" )
     
   )
   
@@ -277,14 +268,7 @@ for ( scen in scens_to_run ) {
         # that's in gold-standard model
         coef_of_interest_gold = paste(coef_of_interest, "1", sep = "")
       }
-      
-      # some methods don't make sense for certain combos of DAG and coef_of_interest
-      # this happens when a variable needed for imputation model is also in the target law
-      #  later could deal with this by adding the variable back into dataset after imputation
-      if ( (p$dag_name == "1D" & coef_of_interest == "A") |
-           (p$dag_name == "1B" & coef_of_interest == "A") ) {
-        all.methods = all.methods[ !all.methods %in% c("MICE-ours", "Am-ours") ]
-      }
+
       
       
       # ~ Make Imputed Data ------------------------------
@@ -842,57 +826,61 @@ for ( scen in scens_to_run ) {
 
                                     
                                     # NONPARAMETRIC VERSION THAT SUBSETS THE DATA
-                                    # # two restricted datasets
-                                    # # complete-case dataset
-                                    # dc = du[ complete.cases(du), ]
-                                    # # restricted dataset for modeling W
-                                    # dw = du %>% filter( RA == 1 & RD == 1 & RC == 1 )
-                                    # 
-                                    # c = 0  # will fix this level throughout
-                                    # a = 1
-                                    # 
-                                    # ### p(b(1) | a = 1, c = c)
-                                    # term_w0 = mean( dw$D[ dw$A == a & dw$C == c ] == 0 ) *
-                                    #   mean( dc$B[ dc$A == a & dc$C == c & dc$D == 0 ] )
-                                    # 
-                                    # term_w1 = mean( dw$D[ dw$A == a & dw$C == c ] == 1 ) *
-                                    #   mean( dc$B[ dc$A == a & dc$C == c & dc$D == 1 ] )
-                                    # 
-                                    # if ( is.na(term_w0) | is.na(term_w1) ) stop("term_w0 or term_w1 was NA, probably because one of the subset datasets had 0 observations")
-                                    # 
-                                    # ( ate_term1 = term_w0 + term_w1 )
-                                    # 
-                                    # # c.f. truth
-                                    # mean(du$B1[du$A1 == a & du$C1 == c] )
-                                    # 
-                                    # # compare each sub-term to truth
-                                    # mean( dc$B[ dc$A == a & dc$C == c & dc$D == 0 ] ); mean( du$B1[ du$A1 == a & du$C1 == c & du$D1 == 0 ] )
-                                    # mean( dw$D[ dw$A == a & dw$C == c ] == 0 ); mean( du$D1[ du$A1 == a & du$C1 == c ] == 0 )
-                                    # 
-                                    # ### p(b(1) | a = 0, c = c)
-                                    # a = 0
-                                    # term_w0 = mean( dw$D[ dw$A == a & dw$C == c ] == 0 ) *
-                                    #   mean( dc$B[ dc$A == a & dc$C == c & dc$D == 0 ] )
-                                    # 
-                                    # term_w1 = mean( dw$D[ dw$A == a & dw$C == c ] == 1 ) *
-                                    #   mean( dc$B[ dc$A == a & dc$C == c & dc$D == 1 ] )
-                                    # 
-                                    # if ( is.na(term_w0) | is.na(term_w1) ) stop("term_w0 or term_w1 was NA, probably because one of the subset datasets had 0 observations")
-                                    # 
-                                    # ( ate_term0 = term_w0 + term_w1 )
-                                    # 
-                                    # # c.f. truth
-                                    # mean(du$B1[du$A1 == a & du$C1 == c] )
-                                    # 
-                                    # # correct! :D
-                                    # ( ate = ate_term1 - ate_term0 )
-                                    # 
-                                    # 
-                                    # # c.f. gold std 
-                                    # #lm(B1 ~ A1, data = du %>% filter(C1 == c))
-                                    # 
-                                    # 
-                                    # return( list( stats = data.frame(bhat = ate) ) )
+                                    
+                                    if (FALSE) {
+                                      # two restricted datasets
+                                      # complete-case dataset
+                                      dc = du[ complete.cases(du), ]
+                                      # restricted dataset for modeling W
+                                      dw = du %>% filter( RA == 1 & RD == 1 & RC == 1 )
+                                      
+                                      c = 0  # will fix this level throughout
+                                      a = 1
+                                      
+                                      ### p(b(1) | a = 1, c = c)
+                                      term_w0 = mean( dw$D[ dw$A == a & dw$C == c ] == 0 ) *
+                                        mean( dc$B[ dc$A == a & dc$C == c & dc$D == 0 ] )
+                                      
+                                      term_w1 = mean( dw$D[ dw$A == a & dw$C == c ] == 1 ) *
+                                        mean( dc$B[ dc$A == a & dc$C == c & dc$D == 1 ] )
+                                      
+                                      if ( is.na(term_w0) | is.na(term_w1) ) stop("term_w0 or term_w1 was NA, probably because one of the subset datasets had 0 observations")
+                                      
+                                      ( ate_term1 = term_w0 + term_w1 )
+                                      
+                                      # c.f. truth
+                                      mean(du$B1[du$A1 == a & du$C1 == c] )
+                                      
+                                      # compare each sub-term to truth
+                                      mean( dc$B[ dc$A == a & dc$C == c & dc$D == 0 ] ); mean( du$B1[ du$A1 == a & du$C1 == c & du$D1 == 0 ] )
+                                      mean( dw$D[ dw$A == a & dw$C == c ] == 0 ); mean( du$D1[ du$A1 == a & du$C1 == c ] == 0 )
+                                      
+                                      ### p(b(1) | a = 0, c = c)
+                                      a = 0
+                                      term_w0 = mean( dw$D[ dw$A == a & dw$C == c ] == 0 ) *
+                                        mean( dc$B[ dc$A == a & dc$C == c & dc$D == 0 ] )
+                                      
+                                      term_w1 = mean( dw$D[ dw$A == a & dw$C == c ] == 1 ) *
+                                        mean( dc$B[ dc$A == a & dc$C == c & dc$D == 1 ] )
+                                      
+                                      if ( is.na(term_w0) | is.na(term_w1) ) stop("term_w0 or term_w1 was NA, probably because one of the subset datasets had 0 observations")
+                                      
+                                      ( ate_term0 = term_w0 + term_w1 )
+                                      
+                                      # c.f. truth
+                                      mean(du$B1[du$A1 == a & du$C1 == c] )
+                                      
+                                      # correct! :D
+                                      ( ate = ate_term1 - ate_term0 )
+                                      
+                                      
+                                      # c.f. gold std
+                                      #lm(B1 ~ A1, data = du %>% filter(C1 == c))
+                                      
+                                      
+                                      return( list( stats = data.frame(bhat = ate) ) )
+                                    }
+                                   
                                     
                                     
                                   },

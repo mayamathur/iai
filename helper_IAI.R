@@ -43,13 +43,13 @@ sim_data = function(.p) {
               B1 = rnorm( n = 1,
                           mean = coefDB*D1 + 2.6*C1 + D1*C1 + coefAB*A1 + A1*C1),
               
+              RC = 1,
+              
               RA = 1,
               
               RD = rbinom( n = 1,
                            size = 1,
                            prob = 0.5 ),
-              
-              RC = 1,
               
               RB = rbinom( n = 1,
                            size = 1,
@@ -94,6 +94,7 @@ sim_data = function(.p) {
     
     
   }  # end of .p$dag_name == "1A"
+  
   
   # ~ DAG 1B -----------------------------
   
