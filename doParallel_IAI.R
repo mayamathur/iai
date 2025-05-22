@@ -186,7 +186,7 @@ if ( run.local == TRUE ) {
 if (run.local == TRUE) ( scens_to_run = scen.params$scen )
 if (run.local == FALSE) ( scens_to_run = scen )  # from sbatch
 
-if (run.local == TRUE) sim.reps = 10
+if (run.local == TRUE) sim.reps = 500
 #  p = scen.params[ scen.params$scen == scen, names(scen.params) != "scen"]
 
 
@@ -779,9 +779,15 @@ for ( scen in scens_to_run ) {
                                         
                                         # assumes D (aka W in AF4) is binary with levels 0, 1
                                         sum(sapply(0:1, function(d0) {
-                                          p_d <- predict(fit_D,
+                                          
+                                          # P(D = 1 | a0, c0)
+                                          p_d1 <- predict(fit_D,
                                                          newdata = data.frame(A=a0, C=c0, D=d0),
                                                          type="response")
+                                          
+                                          if (d0 == 1) p_d = p_d1 else p_d = 1 - pd_1
+     
+                                          
                                           mu  <- predict(fit_B,
                                                          newdata = data.frame(A=a0, C=c0, D=d0))
                                           p_d * mu
@@ -850,11 +856,11 @@ for ( scen in scens_to_run ) {
                                       ( ate_term1 = term_w0 + term_w1 )
                                       
                                       # c.f. truth
-                                      mean(du$B1[du$A1 == a & du$C1 == c] )
+                                      # mean(du$B1[du$A1 == a & du$C1 == c] )
                                       
                                       # compare each sub-term to truth
-                                      mean( dc$B[ dc$A == a & dc$C == c & dc$D == 0 ] ); mean( du$B1[ du$A1 == a & du$C1 == c & du$D1 == 0 ] )
-                                      mean( dw$D[ dw$A == a & dw$C == c ] == 0 ); mean( du$D1[ du$A1 == a & du$C1 == c ] == 0 )
+                                      # mean( dc$B[ dc$A == a & dc$C == c & dc$D == 0 ] ); mean( du$B1[ du$A1 == a & du$C1 == c & du$D1 == 0 ] )
+                                      # mean( dw$D[ dw$A == a & dw$C == c ] == 0 ); mean( du$D1[ du$A1 == a & du$C1 == c ] == 0 )
                                       
                                       ### p(b(1) | a = 0, c = c)
                                       a = 0
