@@ -149,9 +149,9 @@ if ( run.local == TRUE ) {
     mice_method = NA,  # let MICE use its defaults
     
     # AF4 parameters
-    boot_reps_af4 = 50,  # only needed for CIs; if set to 0, won't give CIs
+    boot_reps_af4 = 0,  # only needed for CIs; if set to 0, won't give CIs
     
-    dag_name = "1A"
+    dag_name = "3B"
     # dag_name = c("1A", "1B", "1C",
     #              "2A", "2B",
     #              "3A", "3B" )
@@ -186,7 +186,7 @@ if ( run.local == TRUE ) {
 if (run.local == TRUE) ( scens_to_run = scen.params$scen )
 if (run.local == FALSE) ( scens_to_run = scen )  # from sbatch
 
-if (run.local == TRUE) sim.reps = 3
+if (run.local == TRUE) sim.reps = 500
 #  p = scen.params[ scen.params$scen == scen, names(scen.params) != "scen"]
 
 
@@ -703,7 +703,6 @@ for ( scen in scens_to_run ) {
                                   .rep.res = rep.res )
         
         
-        #DEBUGGING ONLY!!
         cat("\n\n  ~~~~~~~~~~~~~~~~~~~ Done running IPW-nm for sim rep", i)
         
         
@@ -762,33 +761,49 @@ for ( scen in scens_to_run ) {
                                   
                                   method.fn = function(x) {
                                     
-                                    bhat = af4_cate_c(du = du, type = "np", c = 0)
+                                    ests = af4_cate_c(du = du, type = "np", c = 0)
                                       
                                     # no CIs
                                     if ( p$boot_reps_af4 == 0) {
                                       
-                                      return( list( stats = data.frame( bhat = bhat) ) )
+                                      return( list( stats = data.frame( bhat = ests[1],
+                                                                        inthat = ests[2],
+                                                                        # truth for second estimate
+                                                                        int = mean( du$B1[du$A1 == 0 & du$C1 == 0] ) ) ) )
                                     }
                                       
                                       # bootstrapped CIs
                                       if ( p$boot_reps_af4 > 0) {
                                         boot_stat <- function(data, i) {
                                           db    <- data[i, ]
-                                          bhatb = af4_cate_c(du = db, type = "np", c = 0)
+                                          
+                                          # in order: CATE, \hat E[B | a=1, c=0]
+                                          estsb = af4_cate_c(du = db, type = "np", c = 0)
                                         }
                                         
                                         bres <- boot(data = du,
                                                      statistic = boot_stat,
                                                      R = p$boot_reps_af4)
                                         
-                                        #@TEMP: use percentile method because BCA always throws error: "estimated adjustment 'a' is NA"
+                                        #@TEMP: using percentile method because BCA always throws error: "estimated adjustment 'a' is NA"
                                         # if you change boot type, need to change ci$percent[...] below too
-                                        ci <- boot.ci(bres, type = "perc")
+                                        cis = get_boot_CIs(boot.res = bres, type = "perc", n.ests = 2)
+                                        #bm
                                         
-                                        return( list( stats = data.frame( bhat = bhat,
-                                                                          bhat_lo = ci$percent[4],
-                                                                          bhat_hi = ci$percent[5],
-                                                                          bhat_width = ci$percent[5] - ci$percent[4] ) ) )
+                                        return( list( stats = data.frame( bhat = ests[1],
+                                                                          bhat_lo = cis[[1]][1],
+                                                                          bhat_hi = cis[[1]][2],
+                                                                          bhat_width = cis[[1]][2] - cis[[1]][1],
+                                                                          
+                                                                          Ehat_B_a1c0 = ests[2],
+                                                                          Ehat_B_a1c0_lo = cis[[2]][1],
+                                                                          Ehat_B_a1c0_hi = cis[[2]][2],
+                                                                          Ehat_B_a1c0_width = cis[[2]][2] - cis[[2]][1],
+                                                                          
+                                                                          # truth for second estimate
+                                                                          E_B_a1c0 = mean( du$B1[du$A1 == 1 & du$C1 == 0] )
+
+                                                                          ) ) )
                                       } 
                           
                                   },
@@ -808,12 +823,15 @@ for ( scen in scens_to_run ) {
                                   
                                   method.fn = function(x) {
                                     
-                                    bhat = af4_cate_c(du = du, type = "sp", c = 0)
+                                    ests = af4_cate_c(du = du, type = "sp", c = 0)
                                     
                                     # no CIs
                                     if ( p$boot_reps_af4 == 0) {
                                       
-                                      return( list( stats = data.frame( bhat = bhat) ) )
+                                      return( list( stats = data.frame( bhat = ests[1],
+                                                                        inthat = ests[2],
+                                                                        # truth for second estimate
+                                                                        int = mean( du$B1[du$A1 == 0 & du$C1 == 0] ) ) ) )
                                     }
                                     
                                     # bootstrapped CIs
@@ -827,14 +845,25 @@ for ( scen in scens_to_run ) {
                                                    statistic = boot_stat,
                                                    R = p$boot_reps_af4)
                                       
-                                      #@TEMP: use percentile method because BCA always throws error: "estimated adjustment 'a' is NA"
+                                      #@TEMP: using percentile method because BCA always throws error: "estimated adjustment 'a' is NA"
                                       # if you change boot type, need to change ci$percent[...] below too
-                                      ci <- boot.ci(bres, type = "perc")
+                                      cis = get_boot_CIs(boot.res = bres, type = "perc", n.ests = 2)
+                                      #bm
                                       
-                                      return( list( stats = data.frame( bhat = bhat,
-                                                                        bhat_lo = ci$percent[4],
-                                                                        bhat_hi = ci$percent[5],
-                                                                        bhat_width = ci$percent[5] - ci$percent[4] ) ) )
+                                      return( list( stats = data.frame( bhat = ests[1],
+                                                                        bhat_lo = cis[[1]][1],
+                                                                        bhat_hi = cis[[1]][2],
+                                                                        bhat_width = cis[[1]][2] - cis[[1]][1],
+                                                                        
+                                                                        inthat = ests[2],
+                                                                        int_lo = cis[[2]][1],
+                                                                        int_hi = cis[[2]][2],
+                                                                        int_width = cis[[2]][2] - cis[[2]][1],
+                                                                        
+                                                                        # truth for second estimate
+                                                                        int = mean( du$B1[du$A1 == 0 & du$C1 == 0] )
+                                                                        
+                                      ) ) )
                                     } 
                                     
                                   },
@@ -955,6 +984,25 @@ if ( run.local == TRUE ) {
                                  lo = bhat_lo,
                                  hi = bhat_hi) ),
       EYpred = meanNA(EY_prediction) ) %>%
+    arrange() %>%
+    mutate_if(is.numeric, function(x) round(x,2)) 
+  
+  as.data.frame(t)
+  
+  # with E[B |A,C]
+  t = rs_all_scens %>% group_by(method) %>%
+    summarise( 
+      reps = n(),
+      Bhat = meanNA(bhat),
+      BhatBias = meanNA(bhat - beta),
+      BhatLo = meanNA(bhat_lo),
+      BhatHi = meanNA(bhat_hi),
+      BhatRMSE = sqrt( meanNA( (bhat - beta)^2 ) ),
+      BhatCover = meanNA( covers(truth = beta,
+                                 lo = bhat_lo,
+                                 hi = bhat_hi) ),
+      Ehat_B_a1c0 = meanNA(Ehat_B_a1c0),
+      E_B_a1c0 = meanNA(E_B_a1c0)) %>%
     arrange() %>%
     mutate_if(is.numeric, function(x) round(x,2)) 
   

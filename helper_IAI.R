@@ -848,6 +848,9 @@ fit_regression = function(form_string,
     cat("\n bhat:", as.numeric( bhats[coef_of_interest]) )
     cat("\n bhat lo:", mod_hc0$lo )
     
+    mod_hc0_int <- my_ols_hc0(coefName = "(Intercept)",
+                          ols = mod)
+    
     # should work even for logistic regression
     # mod_hc0 = my_ols_hc0(coefName = coef_of_interest,
     #                      ols = mod)
@@ -855,13 +858,17 @@ fit_regression = function(form_string,
     # previous: model-based CIs
     #CI = as.numeric( confint(mod)[coef_of_interest,] )
     
+    #bm
     return( list( stats = data.frame( bhat = as.numeric( bhats[coef_of_interest] ),
                                       
                                       bhat_lo = mod_hc0$lo,
                                       bhat_hi = mod_hc0$hi,
                                       bhat_width = mod_hc0$hi - mod_hc0$lo,
                                       
-                                      EY_prediction = EY_prediction ) ) )
+                                      inthat = mod_hc0_int$est,
+                                      int_lo = mod_hc0_int$lo,
+                                      int_hi = mod_hc0_int$hi,
+                                      int_width = mod_hc0_int$hi - mod_hc0_int$lo ) ) ) 
   }
   
   # ~ IPW-nm  ---------------------
@@ -927,11 +934,27 @@ fit_regression = function(form_string,
     mod_hc0 = my_ols_hc0(coefName = "A",
                          ols = mod_wls)
     
+    #bm: try to also extract intercept!
+    mod_hc0_int = my_ols_hc0(coefName = "(Intercept)",
+                         ols = mod_wls)
     
+    # if looking at both bhat and intercept
+    # if only looking at bhat
     return( list( stats = data.frame( bhat = mod_hc0$est,
                                       bhat_lo = mod_hc0$lo,
                                       bhat_hi = mod_hc0$hi,
-                                      bhat_width = mod_hc0$hi - mod_hc0$lo ) ) ) 
+                                      bhat_width = mod_hc0$hi - mod_hc0$lo,
+                                      
+                                      inthat = mod_hc0_int$est,
+                                      int_lo = mod_hc0_int$lo,
+                                      int_hi = mod_hc0_int$hi,
+                                      int_width = mod_hc0_int$hi - mod_hc0_int$lo ) ) ) 
+    
+    # # if only looking at bhat
+    # return( list( stats = data.frame( bhat = mod_hc0$est,
+    #                                   bhat_lo = mod_hc0$lo,
+    #                                   bhat_hi = mod_hc0$hi,
+    #                                   bhat_width = mod_hc0$hi - mod_hc0$lo ) ) ) 
     
   }
   
@@ -1018,6 +1041,8 @@ fit_regression = function(form_string,
     
     bhat_lo = summ$`2.5 %`[ summ$term == coef_of_interest_recoded ]
     bhat_hi = summ$`97.5 %`[ summ$term == coef_of_interest_recoded ]
+    
+    #bm: IPW-nm: this is where you'd save the intercept
     
     # also return the summarized string
     if( class(imps) == "mids" ) imp_methods = summarize_mice_methods(imps$method) else imp_methods = NA
@@ -2573,25 +2598,33 @@ af4_cate_c = function( du, c, type){
         
         # P(D = 1 | a0, c0)
         p_d1 <- mean( dw$D[ dw$A == a & dw$C == c ] == 1 )
+        # c.f. truth
+        # mean( du$D1[ du$A1 == a & du$C1 == c ] == 1 )
         
+        #bm: for DAG 3A, the above IS wrong, as expected
+        # could look at coef of C in the regression below?
+        # doesn't this mean that at least the D=1 term is wrong, i.e., m_B_ac? - try it.
+
         if (d == 1) p_d = p_d1 else p_d = 1 - p_d1
         
         mu  = mean( dc$B[ dc$A == a & dc$C == c & dc$D == d ] )
+        # c.f. truth
+        # mean( du$B1[ du$A1 == a & du$C1 == c & du$D1 == d ] )
         
         p_d * mu
       } ) )
+      
       return(est)
+      
     } # end type = np
     
+    
     if (type == "sp") {
-      
       
       # fit the two models with all interactions
       fit_B <- lm( B ~ A * C * D, data = dc )      # E[B|A,C,D]
       fit_D <- glm(D ~ A * C, data = dw, family = binomial)               # P[D|A,C]
-      
-      
-      
+  
       # assumes D (aka W in AF4) is binary with levels 0, 1
       est = sum( sapply(0:1, function(d) {
         
@@ -2607,23 +2640,37 @@ af4_cate_c = function( du, c, type){
         p_d * mu
         
       } ) )
+      
       return(est)
+      
     } # end type = sp
-    
-    
-    
+
   }  # end m_B_ac fn
   
   
   
   # conditional ATE at C = c
-  ate_c =  m_B_ac(a=1, c=0, type = type) - m_B_ac(a=0, c=0, type = type)
+  cate_c =  m_B_ac(a=1, c=0, type = type) - m_B_ac(a=0, c=0, type = type)
   
-  return(ate_c)
-  
+  # return both the CATE and \hat E[B | a=0, c=0]
+  return( c( cate_c, m_B_ac(a=0, c=0, type = type ) ) )
   
 }
 
+
+# list with an entry for each stat that the fn returns
+# n.ests: how many parameters were estimated?
+get_boot_CIs = function(boot.res, type, n.ests) {
+  bootCIs = lapply( 1:n.ests, function(x) boot.ci(boot.res, type = type, index = x) )
+  
+  # list with first entry for b and second entry for t2
+  # the middle index "4" on the bootCIs accesses the stats vector
+  # the final index chooses the CI lower (4) or upper (5) bound
+  lapply( 1:n.ests, function(x) c( bootCIs[[x]][[4]][4],
+                                             bootCIs[[x]][[4]][5] ) )
+  
+  
+}
 
 
 # MODEL-FITTING HELPERS ---------------------
