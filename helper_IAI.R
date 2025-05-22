@@ -478,7 +478,9 @@ sim_data = function(.p) {
               
               RA = 1,
               
-              RD = 1,
+              RD = rbinom( n = 1,
+                           size = 1,
+                           prob = 0.5 ),
               
               RC = 1,
               

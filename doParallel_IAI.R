@@ -826,7 +826,6 @@ for ( scen in scens_to_run ) {
 
                                     
                                     # NONPARAMETRIC VERSION THAT SUBSETS THE DATA
-                                    
                                     if (FALSE) {
                                       # two restricted datasets
                                       # complete-case dataset
