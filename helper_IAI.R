@@ -488,7 +488,7 @@ sim_data = function(.p) {
                            size = 1,
                            prob = expit(-1 + 3*D1) ) )
     
-    
+
     du = du %>% rowwise() %>%
       mutate( A = ifelse(RA == 1, A1, NA),
               B = ifelse(RB == 1, B1, NA),
