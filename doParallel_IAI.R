@@ -135,12 +135,12 @@ if ( run.local == TRUE ) {
     #rep.methods = "gold ; CC ; MICE-std ; Am-std ; IPW-custom ; af4", 
     #rep.methods = "gold ; CC ; MICE-std ; IPW-nm ; genloc", 
     #rep.methods = "CC ; MICE-std ; genloc ; IPW-nm",
-    rep.methods = "gold ; af4-np ; af4-sp",
+    rep.methods = "gold ; af4-np ; af4-sp ; IPW-nm",
     
     model = "OLS", 
     #model = "logistic",  # outcome model
     coef_of_interest = "A",
-    N = c(10000),
+    N = c(1000),
     
     # MICE parameters
     # as on cluster
@@ -186,7 +186,7 @@ if ( run.local == TRUE ) {
 if (run.local == TRUE) ( scens_to_run = scen.params$scen )
 if (run.local == FALSE) ( scens_to_run = scen )  # from sbatch
 
-if (run.local == TRUE) sim.reps = 500
+if (run.local == TRUE) sim.reps = 1
 #  p = scen.params[ scen.params$scen == scen, names(scen.params) != "scen"]
 
 
@@ -767,9 +767,7 @@ for ( scen in scens_to_run ) {
                                     if ( p$boot_reps_af4 == 0) {
                                       
                                       return( list( stats = data.frame( bhat = ests[1],
-                                                                        inthat = ests[2],
-                                                                        # truth for second estimate
-                                                                        int = mean( du$B1[du$A1 == 0 & du$C1 == 0] ) ) ) )
+                                                                        inthat = ests[2] ) ) )
                                     }
                                       
                                       # bootstrapped CIs
@@ -795,13 +793,10 @@ for ( scen in scens_to_run ) {
                                                                           bhat_hi = cis[[1]][2],
                                                                           bhat_width = cis[[1]][2] - cis[[1]][1],
                                                                           
-                                                                          Ehat_B_a1c0 = ests[2],
-                                                                          Ehat_B_a1c0_lo = cis[[2]][1],
-                                                                          Ehat_B_a1c0_hi = cis[[2]][2],
-                                                                          Ehat_B_a1c0_width = cis[[2]][2] - cis[[2]][1],
-                                                                          
-                                                                          # truth for second estimate
-                                                                          E_B_a1c0 = mean( du$B1[du$A1 == 1 & du$C1 == 0] )
+                                                                          inthat = ests[2],
+                                                                          int_lo = cis[[2]][1],
+                                                                          int_hi = cis[[2]][2],
+                                                                          int_width = cis[[2]][2] - cis[[2]][1]
 
                                                                           ) ) )
                                       } 
@@ -829,9 +824,7 @@ for ( scen in scens_to_run ) {
                                     if ( p$boot_reps_af4 == 0) {
                                       
                                       return( list( stats = data.frame( bhat = ests[1],
-                                                                        inthat = ests[2],
-                                                                        # truth for second estimate
-                                                                        int = mean( du$B1[du$A1 == 0 & du$C1 == 0] ) ) ) )
+                                                                        inthat = ests[2] ) ) )
                                     }
                                     
                                     # bootstrapped CIs
@@ -858,12 +851,9 @@ for ( scen in scens_to_run ) {
                                                                         inthat = ests[2],
                                                                         int_lo = cis[[2]][1],
                                                                         int_hi = cis[[2]][2],
-                                                                        int_width = cis[[2]][2] - cis[[2]][1],
+                                                                        int_width = cis[[2]][2] - cis[[2]][1] )
                                                                         
-                                                                        # truth for second estimate
-                                                                        int = mean( du$B1[du$A1 == 0 & du$C1 == 0] )
-                                                                        
-                                      ) ) )
+                                      ) ) 
                                     } 
                                     
                                   },

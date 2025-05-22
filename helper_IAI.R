@@ -839,7 +839,7 @@ fit_regression = function(form_string,
     cat("\n bhats: ", bhats)    
     
     #@DEBUGGING ONLY
-    #bm: something about this fn is breaking for CC only, but no idea what
+    # something about this fn is breaking for CC only, but no idea what
     #  and why does it only break for CC, not the other ones?
     mod_hc0 <- my_ols_hc0(coefName = coef_of_interest,
                           ols = mod)
@@ -858,7 +858,6 @@ fit_regression = function(form_string,
     # previous: model-based CIs
     #CI = as.numeric( confint(mod)[coef_of_interest,] )
     
-    #bm
     return( list( stats = data.frame( bhat = as.numeric( bhats[coef_of_interest] ),
                                       
                                       bhat_lo = mod_hc0$lo,
@@ -934,7 +933,7 @@ fit_regression = function(form_string,
     mod_hc0 = my_ols_hc0(coefName = "A",
                          ols = mod_wls)
     
-    #bm: try to also extract intercept!
+    # also extract intercept!
     mod_hc0_int = my_ols_hc0(coefName = "(Intercept)",
                          ols = mod_wls)
     
@@ -1042,7 +1041,7 @@ fit_regression = function(form_string,
     bhat_lo = summ$`2.5 %`[ summ$term == coef_of_interest_recoded ]
     bhat_hi = summ$`97.5 %`[ summ$term == coef_of_interest_recoded ]
     
-    #bm: IPW-nm: this is where you'd save the intercept
+
     
     # also return the summarized string
     if( class(imps) == "mids" ) imp_methods = summarize_mice_methods(imps$method) else imp_methods = NA
