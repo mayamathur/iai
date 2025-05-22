@@ -135,7 +135,7 @@ if ( run.local == TRUE ) {
     #rep.methods = "gold ; CC ; MICE-std ; Am-std ; IPW-custom ; af4", 
     #rep.methods = "gold ; CC ; MICE-std ; IPW-nm ; genloc", 
     #rep.methods = "CC ; MICE-std ; genloc ; IPW-nm",
-    rep.methods = "gold ; af4",
+    rep.methods = "gold ; af4-np ; af4-sp",
     
     model = "OLS", 
     #model = "logistic",  # outcome model
@@ -148,8 +148,8 @@ if ( run.local == TRUE ) {
     imp_maxit = 5,
     mice_method = NA,  # let MICE use its defaults
     
-    # Parametric AF4 parameters
-    boot_reps = 50,
+    # AF4 parameters
+    boot_reps_af4 = 100,  # only needed for CIs; if set to 0, won't give CIs
     
     dag_name = "1A"
     # dag_name = c("1A", "1B", "1C",
@@ -186,7 +186,7 @@ if ( run.local == TRUE ) {
 if (run.local == TRUE) ( scens_to_run = scen.params$scen )
 if (run.local == FALSE) ( scens_to_run = scen )  # from sbatch
 
-if (run.local == TRUE) sim.reps = 500
+if (run.local == TRUE) sim.reps = 1
 #  p = scen.params[ scen.params$scen == scen, names(scen.params) != "scen"]
 
 
@@ -752,144 +752,45 @@ for ( scen in scens_to_run ) {
                                   .rep.res = rep.res )
       }
       
-      # ~~ AF4 (CATE on C) ----
+      # ~~ AF4 - nonparametric ----
       # sum_w { p(b | a, w, c, R = 1) p(w | a, c, RA = RC = RW = 1) }
       
       # current implementation requires everything except outcome to be binary
       # and assumes the aux variable (W) is called D
-      if ( "af4" %in% all.methods ) {
-        rep.res = run_method_safe(method.label = c("af4"),
+      if ( "af4-np" %in% all.methods ) {
+        rep.res = run_method_safe(method.label = c("af4-np"),
                                   
                                   method.fn = function(x) {
                                     
-                                    # PARAMETRIC VERSION
-                                    if (FALSE) {
+                                    bhat = af4_cate_c(du = du, type = "np", c = 0)
                                       
+                                    # no CIs
+                                    if ( p$boot_reps_af4 > 0) {
                                       
-                                      #––– 1) define your restricted samples
-                                      dc <- du[ complete.cases(du), ]               # A,C,D,B all observed
-                                      dw <- du %>% filter(RA==1, RD==1, RC==1)       # A,C,D observed
-                                      
-                                      #––– 2) fit the two models with all interactions
-                                      fit_B <- lm( B ~ A * C * D, data = dc )      # E[B|A,C,D]
-                                      fit_D <- glm(D ~ A * C, data = dw, family = binomial)               # P[D|A,C]
-                                      
-                                      #––– 3) AF4 for given levels of a0, c0
-                                      m_B_ac <- function(a0, c0, fit_B, fit_D) {
-                                        
-                                        # assumes D (aka W in AF4) is binary with levels 0, 1
-                                        sum(sapply(0:1, function(d0) {
-                                          
-                                          # P(D = 1 | a0, c0)
-                                          p_d1 <- predict(fit_D,
-                                                         newdata = data.frame(A=a0, C=c0, D=d0),
-                                                         type="response")
-                                          
-                                          if (d0 == 1) p_d = p_d1 else p_d = 1 - pd_1
-     
-                                          
-                                          mu  <- predict(fit_B,
-                                                         newdata = data.frame(A=a0, C=c0, D=d0))
-                                          p_d * mu
-                                        }))
-                                      }
-                                      
-                                      #––– 4) conditional ATE at C = c0
-                                      ate_c <- function(c0, fit_B, fit_D) {
-                                        m_B_ac(1, c0, fit_B, fit_D) -
-                                          m_B_ac(0, c0, fit_B, fit_D)
-                                      }
-                                      
-                                      #––– 5) point‐estimate for C = 0 (example)
-                                      c0        <- 0
-                                      point_ate <- ate_c(c0, fit_B, fit_D)
-                                      print(point_ate)
-                                      
-                                      #––– 6) bootstrap (BCa) for the ATE at C = c0
-                                      #bm: never works ("estimated adjustment 'a' is NA")
-                                      boot_stat <- function(data, i) {
-                                        d    <- data[i, ]
-                                        dc_i <- d[ complete.cases(d), ]
-                                        dw_i <- d %>% filter(RA==1, RD==1, RC==1)
-                                        
-                                        fb <- lm( B ~ A * C * D, data = dc_i )
-                                        fd <- glm(D ~ A * C,     data = dw_i, family = binomial)
-                                        
-                                        ate_c(c0, fb, fd)
-                                      }
-                                      
-                                      
-                                      bres <- boot(data = du,
-                                                   statistic = boot_stat,
-                                                   R = p$boot_reps)
-                                      
-                                      #@TEMP: use percentile method because BCA always throws error: "estimated adjustment 'a' is NA"
-                                      # if you change boot type, need to change ci$percent[...] below too
-                                      ci <- boot.ci(bres, type = "perc")
-                                      
-                                      return( list( stats = data.frame( bhat = point_ate,
-                                                                        bhat_lo = ci$percent[4],
-                                                                        bhat_hi = ci$percent[5],
-                                                                        bhat_width = ci$percent[5] - ci$percent[4] ) ) ) 
+                                      return( list( stats = data.frame( bhat = bhat) ) )
                                     }
-                                    
-                                    # NONPARAMETRIC VERSION THAT SUBSETS THE DATA
-                                    if (TRUE) {
-                                      # two restricted datasets
-                                      # complete-case dataset
-                                      dc = du[ complete.cases(du), ]
-                                      # restricted dataset for modeling W
-                                      dw = du %>% filter( RA == 1 & RD == 1 & RC == 1 )
                                       
-                                      c = 0  # will fix this level throughout
-                                      a = 1
-                                      
-                                      ### p(b(1) | a = 1, c = c)
-                                      term_w0 = mean( dw$D[ dw$A == a & dw$C == c ] == 0 ) *
-                                        mean( dc$B[ dc$A == a & dc$C == c & dc$D == 0 ] )
-                                      
-                                      term_w1 = mean( dw$D[ dw$A == a & dw$C == c ] == 1 ) *
-                                        mean( dc$B[ dc$A == a & dc$C == c & dc$D == 1 ] )
-                                      
-                                      if ( is.na(term_w0) | is.na(term_w1) ) stop("term_w0 or term_w1 was NA, probably because one of the subset datasets had 0 observations")
-                                      
-                                      ( ate_term1 = term_w0 + term_w1 )
-                                      
-                                      # c.f. truth
-                                      # mean(du$B1[du$A1 == a & du$C1 == c] )
-                                      
-                                      # compare each sub-term to truth
-                                      # mean( dc$B[ dc$A == a & dc$C == c & dc$D == 0 ] ); mean( du$B1[ du$A1 == a & du$C1 == c & du$D1 == 0 ] )
-                                      # mean( dw$D[ dw$A == a & dw$C == c ] == 0 ); mean( du$D1[ du$A1 == a & du$C1 == c ] == 0 )
-                                      
-                                      ### p(b(1) | a = 0, c = c)
-                                      a = 0
-                                      term_w0 = mean( dw$D[ dw$A == a & dw$C == c ] == 0 ) *
-                                        mean( dc$B[ dc$A == a & dc$C == c & dc$D == 0 ] )
-                                      
-                                      term_w1 = mean( dw$D[ dw$A == a & dw$C == c ] == 1 ) *
-                                        mean( dc$B[ dc$A == a & dc$C == c & dc$D == 1 ] )
-                                      
-                                      if ( is.na(term_w0) | is.na(term_w1) ) stop("term_w0 or term_w1 was NA, probably because one of the subset datasets had 0 observations")
-                                      
-                                      ( ate_term0 = term_w0 + term_w1 )
-                                      
-                                      # c.f. truth
-                                      mean(du$B1[du$A1 == a & du$C1 == c] )
-                                      
-                                      # correct! :D
-                                      ( ate = ate_term1 - ate_term0 )
-                                      
-                                      
-                                      # c.f. gold std
-                                      #lm(B1 ~ A1, data = du %>% filter(C1 == c))
-                                      
-                                      
-                                      return( list( stats = data.frame(bhat = ate) ) )
-                                    }
-                                    
-                                    
-                                    
+                                      # bootstrapped CIs
+                                      if ( p$boot_reps_af4 > 0) {
+                                        boot_stat <- function(data, i) {
+                                          db    <- data[i, ]
+                                          bhatb = af4_cate_c(du = db, type = "np", c = 0)
+                                        }
+                                        
+                                        bres <- boot(data = du,
+                                                     statistic = boot_stat,
+                                                     R = p$boot_reps)
+                                        
+                                        #@TEMP: use percentile method because BCA always throws error: "estimated adjustment 'a' is NA"
+                                        # if you change boot type, need to change ci$percent[...] below too
+                                        ci <- boot.ci(bres, type = "perc")
+                                        
+                                        return( list( stats = data.frame( bhat = bhat,
+                                                                          bhat_lo = ci$percent[4],
+                                                                          bhat_hi = ci$percent[5],
+                                                                          bhat_width = ci$percent[5] - ci$percent[4] ) ) )
+                                      } 
+                          
                                   },
                                   .rep.res = rep.res )
       }
@@ -898,6 +799,7 @@ for ( scen in scens_to_run ) {
       
       
       
+  
       # ~ Add Scen Params and Sanity Checks --------------------------------------
       
       # add in scenario parameters

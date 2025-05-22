@@ -2550,6 +2550,81 @@ calculate_ipmw_weights <- function(jags_results, data, use_posterior_draws = TRU
 
 
 
+# AF4  -------------------------------------------------
+
+# type: "np" for nonparametric; "sp" for semiparametric
+# c: level of C at which to calculate the CATE
+af4_cate_c = function( du, c, type){
+
+  
+  # two restricted datasets
+  # complete-case dataset
+  dc = du[ complete.cases(du), ]
+  # restricted dataset for modeling W
+  dw = du %>% filter( RA == 1 & RD == 1 & RC == 1 )
+  
+  # AF4 for D=d (i.e., \hat E [B | a, d] )
+  m_B_ac <- function(a, c, type) {
+    
+    
+    if (type == "np") {
+      # assumes D (aka W in AF4) is binary with levels 0, 1
+      est = sum( sapply(0:1, function(d) {
+        
+        # P(D = 1 | a0, c0)
+        p_d1 <- mean( dw$D[ dw$A == a & dw$C == c ] == 1 )
+        
+        if (d == 1) p_d = p_d1 else p_d = 1 - p_d1
+        
+        mu  = mean( dc$B[ dc$A == a & dc$C == c & dc$D == d ] )
+        
+        p_d * mu
+      } ) )
+      return(est)
+    } # end type = np
+    
+    if (type == "sp") {
+      
+      
+      # fit the two models with all interactions
+      fit_B <- lm( B ~ A * C * D, data = dc )      # E[B|A,C,D]
+      fit_D <- glm(D ~ A * C, data = dw, family = binomial)               # P[D|A,C]
+      
+      
+      
+      # assumes D (aka W in AF4) is binary with levels 0, 1
+      est = sum( sapply(0:1, function(d) {
+        
+        # P(D = 1 | a, c)
+        p_d1 <- predict(fit_D,
+                        newdata = data.frame(A=a, C=c),
+                        type="response")
+        
+        if (d == 1) p_d = p_d1 else p_d = 1 - p_d1
+        
+        mu  <- predict(fit_B,
+                       newdata = data.frame(A=a, C=c, D=d))
+        p_d * mu
+        
+      } ) )
+      return(est)
+    } # end type = sp
+    
+    
+    
+  }  # end m_B_ac fn
+  
+  
+  
+  # conditional ATE at C = c
+  ate_c =  m_B_ac(a=1, c=0, type = type) - m_B_ac(a=0, c=0, type = type)
+  
+  return(ate_c)
+  
+  
+}
+
+
 
 # MODEL-FITTING HELPERS ---------------------
 
