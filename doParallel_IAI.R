@@ -135,12 +135,12 @@ if ( run.local == TRUE ) {
     #rep.methods = "gold ; CC ; MICE-std ; Am-std ; IPW-custom ; af4", 
     #rep.methods = "gold ; CC ; MICE-std ; IPW-nm ; genloc", 
     #rep.methods = "CC ; MICE-std ; genloc ; IPW-nm",
-    rep.methods = "gold ; af4 ; IPW-nm",
+    rep.methods = "gold ; af4",
     
     model = "OLS", 
     #model = "logistic",  # outcome model
     coef_of_interest = "A",
-    N = c(1000),
+    N = c(10000),
     
     # MICE parameters
     # as on cluster
@@ -150,7 +150,7 @@ if ( run.local == TRUE ) {
     
     # Parametric AF4 parameters
     boot_reps = 50,
-
+    
     dag_name = "1A"
     # dag_name = c("1A", "1B", "1C",
     #              "2A", "2B",
@@ -186,7 +186,7 @@ if ( run.local == TRUE ) {
 if (run.local == TRUE) ( scens_to_run = scen.params$scen )
 if (run.local == FALSE) ( scens_to_run = scen )  # from sbatch
 
-if (run.local == TRUE) sim.reps = 1
+if (run.local == TRUE) sim.reps = 10
 #  p = scen.params[ scen.params$scen == scen, names(scen.params) != "scen"]
 
 
@@ -268,7 +268,7 @@ for ( scen in scens_to_run ) {
         # that's in gold-standard model
         coef_of_interest_gold = paste(coef_of_interest, "1", sep = "")
       }
-
+      
       
       
       # ~ Make Imputed Data ------------------------------
@@ -354,7 +354,7 @@ for ( scen in scens_to_run ) {
             
           }
           )
-
+          
         }
         
         message("Done imputing using genloc")
@@ -377,7 +377,7 @@ for ( scen in scens_to_run ) {
         
         message("Starting to impute using MICE-std")
         
-      
+        
         # ensure all binary vars are factors; otherwise using methods
         #  other than pmm will treat them as continuous
         di2 = convert_binary_to_factor(di)
@@ -479,7 +479,7 @@ for ( scen in scens_to_run ) {
       
       # ~~ Complete-case analysis (naive) ----
       if ( "CC" %in% all.methods ) {
-
+        
         message("Entered CC part")
         cat(str(di$B))
         cat(table(di$B, useNA = "ifany"))
@@ -763,70 +763,72 @@ for ( scen in scens_to_run ) {
                                   method.fn = function(x) {
                                     
                                     # PARAMETRIC VERSION
-                                    
-                                    #––– 1) define your restricted samples
-                                    dc <- du[ complete.cases(du), ]               # A,C,D,B all observed
-                                    dw <- du %>% filter(RA==1, RD==1, RC==1)       # A,C,D observed
-                                    
-                                    #––– 2) fit the two models with all interactions
-                                    fit_B <- lm( B ~ A * C * D, data = dc )      # E[B|A,C,D]
-                                    fit_D <- glm(D ~ A * C, data = dw, family = binomial)               # P[D|A,C]
-                                    
-                                    #––– 3) AF4 for given levels of a0, c0
-                                    m_B_ac <- function(a0, c0, fit_B, fit_D) {
+                                    if (FALSE) {
                                       
-                                      # assumes D (aka W in AF4) is binary with levels 0, 1
-                                      sum(sapply(0:1, function(d0) {
-                                        p_d <- predict(fit_D,
-                                                       newdata = data.frame(A=a0, C=c0, D=d0),
-                                                       type="response")
-                                        mu  <- predict(fit_B,
-                                                       newdata = data.frame(A=a0, C=c0, D=d0))
-                                        p_d * mu
-                                      }))
-                                    }
-                                    
-                                    #––– 4) conditional ATE at C = c0
-                                    ate_c <- function(c0, fit_B, fit_D) {
-                                      m_B_ac(1, c0, fit_B, fit_D) -
-                                        m_B_ac(0, c0, fit_B, fit_D)
-                                    }
-                                    
-                                    #––– 5) point‐estimate for C = 0 (example)
-                                    c0        <- 0
-                                    point_ate <- ate_c(c0, fit_B, fit_D)
-                                    print(point_ate)
-                                    
-                                    #––– 6) bootstrap (BCa) for the ATE at C = c0
-                                    #bm: never works ("estimated adjustment 'a' is NA")
-                                    boot_stat <- function(data, i) {
-                                      d    <- data[i, ]
-                                      dc_i <- d[ complete.cases(d), ]
-                                      dw_i <- d %>% filter(RA==1, RD==1, RC==1)
                                       
-                                      fb <- lm( B ~ A * C * D, data = dc_i )
-                                      fd <- glm(D ~ A * C,     data = dw_i, family = binomial)
+                                      #––– 1) define your restricted samples
+                                      dc <- du[ complete.cases(du), ]               # A,C,D,B all observed
+                                      dw <- du %>% filter(RA==1, RD==1, RC==1)       # A,C,D observed
                                       
-                                      ate_c(c0, fb, fd)
+                                      #––– 2) fit the two models with all interactions
+                                      fit_B <- lm( B ~ A * C * D, data = dc )      # E[B|A,C,D]
+                                      fit_D <- glm(D ~ A * C, data = dw, family = binomial)               # P[D|A,C]
+                                      
+                                      #––– 3) AF4 for given levels of a0, c0
+                                      m_B_ac <- function(a0, c0, fit_B, fit_D) {
+                                        
+                                        # assumes D (aka W in AF4) is binary with levels 0, 1
+                                        sum(sapply(0:1, function(d0) {
+                                          p_d <- predict(fit_D,
+                                                         newdata = data.frame(A=a0, C=c0, D=d0),
+                                                         type="response")
+                                          mu  <- predict(fit_B,
+                                                         newdata = data.frame(A=a0, C=c0, D=d0))
+                                          p_d * mu
+                                        }))
+                                      }
+                                      
+                                      #––– 4) conditional ATE at C = c0
+                                      ate_c <- function(c0, fit_B, fit_D) {
+                                        m_B_ac(1, c0, fit_B, fit_D) -
+                                          m_B_ac(0, c0, fit_B, fit_D)
+                                      }
+                                      
+                                      #––– 5) point‐estimate for C = 0 (example)
+                                      c0        <- 0
+                                      point_ate <- ate_c(c0, fit_B, fit_D)
+                                      print(point_ate)
+                                      
+                                      #––– 6) bootstrap (BCa) for the ATE at C = c0
+                                      #bm: never works ("estimated adjustment 'a' is NA")
+                                      boot_stat <- function(data, i) {
+                                        d    <- data[i, ]
+                                        dc_i <- d[ complete.cases(d), ]
+                                        dw_i <- d %>% filter(RA==1, RD==1, RC==1)
+                                        
+                                        fb <- lm( B ~ A * C * D, data = dc_i )
+                                        fd <- glm(D ~ A * C,     data = dw_i, family = binomial)
+                                        
+                                        ate_c(c0, fb, fd)
+                                      }
+                                      
+                                      
+                                      bres <- boot(data = du,
+                                                   statistic = boot_stat,
+                                                   R = p$boot_reps)
+                                      
+                                      #@TEMP: use percentile method because BCA always throws error: "estimated adjustment 'a' is NA"
+                                      # if you change boot type, need to change ci$percent[...] below too
+                                      ci <- boot.ci(bres, type = "perc")
+                                      
+                                      return( list( stats = data.frame( bhat = point_ate,
+                                                                        bhat_lo = ci$percent[4],
+                                                                        bhat_hi = ci$percent[5],
+                                                                        bhat_width = ci$percent[5] - ci$percent[4] ) ) ) 
                                     }
-                        
-                                    
-                                    bres <- boot(data = du,
-                                                 statistic = boot_stat,
-                                                 R = p$boot_reps)
-                                    
-                                    #@TEMP: use percentile method because BCA always throws error: "estimated adjustment 'a' is NA"
-                                    # if you change boot type, need to change ci$percent[...] below too
-                                    ci <- boot.ci(bres, type = "perc")
-                                    
-                                    return( list( stats = data.frame( bhat = point_ate,
-                                                                      bhat_lo = ci$percent[4],
-                                                                      bhat_hi = ci$percent[5],
-                                                                      bhat_width = ci$percent[5] - ci$percent[4] ) ) ) 
-
                                     
                                     # NONPARAMETRIC VERSION THAT SUBSETS THE DATA
-                                    if (FALSE) {
+                                    if (TRUE) {
                                       # two restricted datasets
                                       # complete-case dataset
                                       dc = du[ complete.cases(du), ]
@@ -879,7 +881,7 @@ for ( scen in scens_to_run ) {
                                       
                                       return( list( stats = data.frame(bhat = ate) ) )
                                     }
-                                   
+                                    
                                     
                                     
                                   },
@@ -887,7 +889,7 @@ for ( scen in scens_to_run ) {
       }
       
       if (run.local == TRUE) srr(rep.res)
-   
+      
       
       
       # ~ Add Scen Params and Sanity Checks --------------------------------------
