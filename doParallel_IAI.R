@@ -149,7 +149,7 @@ if ( run.local == TRUE ) {
     mice_method = NA,  # let MICE use its defaults
     
     # AF4 parameters
-    boot_reps_af4 = 100,  # only needed for CIs; if set to 0, won't give CIs
+    boot_reps_af4 = 50,  # only needed for CIs; if set to 0, won't give CIs
     
     dag_name = "1A"
     # dag_name = c("1A", "1B", "1C",
@@ -186,7 +186,7 @@ if ( run.local == TRUE ) {
 if (run.local == TRUE) ( scens_to_run = scen.params$scen )
 if (run.local == FALSE) ( scens_to_run = scen )  # from sbatch
 
-if (run.local == TRUE) sim.reps = 1
+if (run.local == TRUE) sim.reps = 3
 #  p = scen.params[ scen.params$scen == scen, names(scen.params) != "scen"]
 
 
@@ -765,7 +765,7 @@ for ( scen in scens_to_run ) {
                                     bhat = af4_cate_c(du = du, type = "np", c = 0)
                                       
                                     # no CIs
-                                    if ( p$boot_reps_af4 > 0) {
+                                    if ( p$boot_reps_af4 == 0) {
                                       
                                       return( list( stats = data.frame( bhat = bhat) ) )
                                     }
@@ -779,7 +779,7 @@ for ( scen in scens_to_run ) {
                                         
                                         bres <- boot(data = du,
                                                      statistic = boot_stat,
-                                                     R = p$boot_reps)
+                                                     R = p$boot_reps_af4)
                                         
                                         #@TEMP: use percentile method because BCA always throws error: "estimated adjustment 'a' is NA"
                                         # if you change boot type, need to change ci$percent[...] below too
@@ -791,6 +791,52 @@ for ( scen in scens_to_run ) {
                                                                           bhat_width = ci$percent[5] - ci$percent[4] ) ) )
                                       } 
                           
+                                  },
+                                  .rep.res = rep.res )
+      }
+      
+      if (run.local == TRUE) srr(rep.res)
+      
+      
+      # ~~ AF4 - semiparametric ----
+      # sum_w { p(b | a, w, c, R = 1) p(w | a, c, RA = RC = RW = 1) }
+      
+      # current implementation requires everything except outcome to be binary
+      # and assumes the aux variable (W) is called D
+      if ( "af4-sp" %in% all.methods ) {
+        rep.res = run_method_safe(method.label = c("af4-sp"),
+                                  
+                                  method.fn = function(x) {
+                                    
+                                    bhat = af4_cate_c(du = du, type = "sp", c = 0)
+                                    
+                                    # no CIs
+                                    if ( p$boot_reps_af4 == 0) {
+                                      
+                                      return( list( stats = data.frame( bhat = bhat) ) )
+                                    }
+                                    
+                                    # bootstrapped CIs
+                                    if ( p$boot_reps_af4 > 0) {
+                                      boot_stat <- function(data, i) {
+                                        db    <- data[i, ]
+                                        bhatb = af4_cate_c(du = db, type = "sp", c = 0)
+                                      }
+                                      
+                                      bres <- boot(data = du,
+                                                   statistic = boot_stat,
+                                                   R = p$boot_reps_af4)
+                                      
+                                      #@TEMP: use percentile method because BCA always throws error: "estimated adjustment 'a' is NA"
+                                      # if you change boot type, need to change ci$percent[...] below too
+                                      ci <- boot.ci(bres, type = "perc")
+                                      
+                                      return( list( stats = data.frame( bhat = bhat,
+                                                                        bhat_lo = ci$percent[4],
+                                                                        bhat_hi = ci$percent[5],
+                                                                        bhat_width = ci$percent[5] - ci$percent[4] ) ) )
+                                    } 
+                                    
                                   },
                                   .rep.res = rep.res )
       }

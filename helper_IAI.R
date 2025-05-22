@@ -632,7 +632,7 @@ sim_data = function(.p) {
                                   size = 1, 
                                   prob = 0.5 ),
                      
-                     W1 = rbinom( n = .p$N,
+                     D1 = rbinom( n = .p$N,
                                   size = 1, 
                                   prob = 0.5 ) ) 
     

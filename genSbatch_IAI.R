@@ -36,7 +36,7 @@ lapply( allPackages,
 # debugging: isolated scens
 scen.params = tidyr::expand_grid(
   
-  rep.methods = "gold ; IPW-nm ; af4",
+  rep.methods = "gold ; IPW-nm ; af4-np ; af4-sp",
   
   model = "OLS",  # FOR CONTINUOUS OUTCOME
   
@@ -50,11 +50,12 @@ scen.params = tidyr::expand_grid(
   mice_method = NA,
   
   # AF4 parameters
-  boot_reps = 1000,
+  boot_reps_af4 = 1000,  # only needed for CIs; if set to 0, won't give CIs
   
   dag_name = c("1A", "1B", "1C",
                "2A", "2B",
-               "3A", "3B" )
+               "3A", "3B",
+               "4A")
   
   )
 
@@ -160,7 +161,7 @@ sbatch_params <- data.frame(jobname,
                             errorfile,
                             #jobtime = "01:00:00",  # with IPW-nm
                             #jobtime = "00:30:00",  # with only MICE
-                            jobtime = "01:30:00",
+                            jobtime = "02:00:00",
                             quality = "normal",
                             node_number = 1,
                             mem_per_node = 64000,
@@ -183,7 +184,7 @@ n.files
 
 path = "/home/groups/manishad/IAI"
 setwd( paste(path, "/sbatch_files", sep="") )
-for (i in 1:700) {
+for (i in 1:800) {
   system( paste("sbatch -p qsu,owners,normal /home/groups/manishad/IAI/sbatch_files/", i, ".sbatch", sep="") )
 }
 
