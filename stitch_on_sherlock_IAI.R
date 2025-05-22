@@ -99,7 +99,8 @@ table(s$dag_name)
 table(s$dag_name, s$coef_of_interest)
 
 correct.order = c("gold", "CC", "MICE-std", "Am-std", "genloc", "IPW-custom", "IPW-nm",
-                  "af4", "g-form", "custom")
+                  "af4-np", "af4-sp",
+                  "g-form", "custom")
 s$method = factor(s$method, levels = correct.order)
 
 # fill in beta (where it's NA) using gold-standard
@@ -148,10 +149,6 @@ t = s2 %>% group_by(dag_name, method) %>%
 as.data.frame(t)
 
 
-
-
-# check MICE methods
-table(s$sancheck.mice_std_methods)
 
 
 # save agg data

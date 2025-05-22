@@ -643,7 +643,7 @@ sim_data = function(.p) {
     du = du %>% rowwise() %>%
       mutate( C1 = rbinom( n = 1,
                            size = 1,
-                           prob = expit(-1 + 3*W1) ),
+                           prob = expit(-1 + 3*D1) ),
               
               A1 = rbinom( n = 1,
                            size = 1,
@@ -656,15 +656,15 @@ sim_data = function(.p) {
               
               RA = rbinom( n = 1,
                            size = 1,
-                           prob = 0.5 ),
+                           prob = expit(-1 + 3*D1) ),
               
               RD = rbinom( n = 1,
                            size = 1,
-                           prob = 0.5 ),
+                           prob = expit(-1 + 3*D1) ),
               
               RC = rbinom( n = 1,
                            size = 1,
-                           prob = expit(-1 + 3*W1) ),
+                           prob = expit(-1 + 3*D1) ),
               
               RB = 1 )
     
