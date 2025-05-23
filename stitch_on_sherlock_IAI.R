@@ -114,17 +114,24 @@ beta_emp = s %>% filter(method == "gold") %>%
   summarise(beta = meanNA(bhat)) 
 as.data.frame(beta_emp)
 
+# same for intercept
+int_emp = s %>% filter(method == "gold") %>%
+  group_by(scen.name) %>%
+  summarise(int = meanNA(inthat)) 
+as.data.frame(int_emp)
+
 s2 = s
 
 s2 = s2 %>% rowwise() %>%
   mutate( beta = ifelse( !is.na(beta),
                          beta,
-                         beta_emp$beta[ beta_emp$scen.name == scen.name ] ) )
+                         beta_emp$beta[ beta_emp$scen.name == scen.name ] ),
+          int = int_emp$int[ int_emp$scen.name == scen.name ] )
 
 # sanity check
 as.data.frame( s2 %>% group_by(dag_name, coef_of_interest) %>%
                 summarise(beta[1]) )
-# end of filling in beta
+# end of filling in beta and int
 
 # in this case, don't need to group by coef_of_interest because they're all A
 t = s2 %>% group_by(dag_name, method) %>%
@@ -139,6 +146,15 @@ t = s2 %>% group_by(dag_name, method) %>%
     BhatCover = meanNA( covers(truth = beta,
                                lo = bhat_lo,
                                hi = bhat_hi) ),
+    
+    IntHat = meanNA(inthat),
+    IntBias = meanNA(inthat - int),
+    #BhatRelBias = meanNA( (bhat - beta)/beta ),
+    #BhatWidth = meanNA(bhat_hi - bhat_lo),
+    #BhatRMSE = sqrt( meanNA( (bhat - beta)^2 ) ),
+    IntCover = meanNA( covers(truth = int,
+                               lo = int_lo,
+                               hi = int_hi) ),
     
     sancheck.mean_RB = meanNA(sancheck.mean_RB),
     sancheck.mean_RC = meanNA(sancheck.mean_RC),

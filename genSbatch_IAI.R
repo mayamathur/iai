@@ -54,69 +54,9 @@ scen.params = tidyr::expand_grid(
   
   dag_name = c("1A", "1B", "1C",
                "2A", "2B",
-               "3A", "3B",
-               "4A")
+               "3A", "3B")
   
   )
-
-
-# # full set with continuous outcome
-# scen.params = tidyr::expand_grid(
-# 
-#   rep.methods = "gold ; CC ; MICE-std ; genloc ; IPW-nm",
-#   
-#   model = "OLS",  # FOR CONTINUOUS OUTCOME
-#   
-#   coef_of_interest = "A",
-#   N = c(10000),
-#   
-#   # MICE parameters
-#   # as on cluster
-#   imp_m = 50,  
-#   imp_maxit = 100,
-#   mice_method = NA,
-#   
-#   # full set with continuous outcome
-#   dag_name = c("1A", "1B", "2A",
-#                "3A", "3B",
-#                "3C", "3D", "3E",
-#                "4A", "6A", "7A",
-#                "7B",
-#                "12A", "12B", "12C",
-#                "13A", "13B")
-#   
-# )
-
-# #### full set with binary outcome
-# scen.params = tidyr::expand_grid(
-#   
-#   rep.methods = "gold ; CC ; MICE-std ; genloc ; IPW-nm",
-#   
-#   model = "logistic", # FOR BINARY OUTCOME
-#   
-#   coef_of_interest = "A",
-#   N = c(10000),
-#   
-#   # MICE parameters
-#   # as on cluster
-#   imp_m = 50,  
-#   imp_maxit = 100,
-#   mice_method = NA,
-# 
-#   # full set with binary outcome
-#   dag_name = c("1A-bin", "1B-bin", "2A-bin",
-#                "3A-bin", "3B-bin",
-#                "3C-bin", "3D-bin", "3E-bin",
-#                "4A-bin", "6A-bin", "7A-bin",
-#                "7B-bin",
-#                "12A-bin", "12B-bin", "12C-bin",
-#                "13A-bin", "13B-bin")
-#   
-# )
-
-# # remove combos that aren't implemented
-# scen.params = scen.params %>% filter( !(dag_name %in% c("1G", "1H", "1F", "1J") &
-#                                           coef_of_interest == "(Intercept)") )
 
 
 # add scen numbers
@@ -184,7 +124,7 @@ n.files
 
 path = "/home/groups/manishad/IAI"
 setwd( paste(path, "/sbatch_files", sep="") )
-for (i in 700:800) {
+for (i in 1:700) {
   system( paste("sbatch -p qsu,owners,normal /home/groups/manishad/IAI/sbatch_files/", i, ".sbatch", sep="") )
 }
 
