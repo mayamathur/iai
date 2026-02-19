@@ -66,7 +66,7 @@ s <- do.call(bind_rows, tables)
 names(s) = names( read.csv(keepers[1], header= TRUE) )
 
 if( is.na(s[1,1]) ) s = s[-1,]  # delete annoying NA row
-# write.csv(s, paste(.results.stitched.write.path, .stitch.file.name, sep="/") )
+write.csv(s, paste(.results.stitched.write.path, .stitch.file.name, sep="/") )
 
 cat("\n\n nrow(s) =", nrow(s))
 cat("\n nuni(s$scen.name) =", nuni(s$scen.name) )
@@ -142,16 +142,17 @@ t = s2 %>% group_by(dag_name, method) %>%
     BhatBias = meanNA(bhat - beta),
     #BhatRelBias = meanNA( (bhat - beta)/beta ),
     #BhatWidth = meanNA(bhat_hi - bhat_lo),
-    #BhatRMSE = sqrt( meanNA( (bhat - beta)^2 ) ),
+    BhatRMSE = sqrt( meanNA( (bhat - beta)^2 ) ),
     BhatCover = meanNA( covers(truth = beta,
                                lo = bhat_lo,
                                hi = bhat_hi) ),
     
     IntHat = meanNA(inthat),
     IntBias = meanNA(inthat - int),
+    IntRMSE = sqrt( meanNA( (inthat - int)^2 ) ),
     #BhatRelBias = meanNA( (bhat - beta)/beta ),
     #BhatWidth = meanNA(bhat_hi - bhat_lo),
-    #BhatRMSE = sqrt( meanNA( (bhat - beta)^2 ) ),
+    BhatRMSE = sqrt( meanNA( (bhat - beta)^2 ) ),
     IntCover = meanNA( covers(truth = int,
                                lo = int_lo,
                                hi = int_hi) ),

@@ -33,7 +33,6 @@ lapply( allPackages,
 # SET SIMULATION PARAMETERS -----------------------------------------
 
 
-# debugging: isolated scens
 scen.params = tidyr::expand_grid(
   
   rep.methods = "gold ; IPW-nm ; af4-np ; af4-sp",
