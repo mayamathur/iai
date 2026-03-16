@@ -134,7 +134,7 @@ if ( run.local == TRUE ) {
     
     #rep.methods = "gold ; CC ; MICE-std ; Am-std ; IPW-custom ; af4", 
     #rep.methods = "gold ; CC ; MICE-std ; IPW-nm ; genloc", 
-    #rep.methods = "CC ; MICE-std ; genloc ; IPW-nm",
+    #rep.methods = "CC ; MICE-std ; genloc ; IPW-nm", 
     rep.methods = "gold ; af4-np ; af4-sp ; IPW-nm",
     
     model = "OLS", 
