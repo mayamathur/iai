@@ -32,30 +32,52 @@ lapply( allPackages,
 
 # SET SIMULATION PARAMETERS -----------------------------------------
 
-
 scen.params = tidyr::expand_grid(
+
+  rep.methods = "gold ; CC ; MICE-std ; IPW-nm",
   
-  rep.methods = "gold ; IPW-nm ; af4-np ; af4-sp",
-  
-  model = "OLS",  # FOR CONTINUOUS OUTCOME
-  
+  model = "OLS", 
   coef_of_interest = "A",
-  N = c(10000),
+  N = c(1000),
   
   # MICE parameters
   # as on cluster
-  imp_m = 50,  
+  #imp_m = 5,  # CURRENTLY SET LOW
+  imp_m = 50,
   imp_maxit = 100,
-  mice_method = NA,
+  mice_method = NA,  # let MICE use its defaults
   
   # AF4 parameters
-  boot_reps_af4 = 1000,  # only needed for CIs; if set to 0, won't give CIs
+  boot_reps_af4 = 0,  # only needed for CIs; if set to 0, won't give CIs
   
-  dag_name = c("1A", "1B", "1C",
-               "2A", "2B",
-               "3A", "3B")
+  dag_name = "5A"
   
-  )
+)
+
+# # FULL SET
+# scen.params = tidyr::expand_grid(
+#   
+#   rep.methods = "gold ; IPW-nm ; af4-np ; af4-sp",
+#   
+#   model = "OLS",  # FOR CONTINUOUS OUTCOME
+#   
+#   coef_of_interest = "A",
+#   N = c(10000),
+#   
+#   # MICE parameters
+#   # as on cluster
+#   imp_m = 50,  
+#   imp_maxit = 100,
+#   mice_method = NA,
+#   
+#   # AF4 parameters
+#   boot_reps_af4 = 1000,  # only needed for CIs; if set to 0, won't give CIs
+#   
+#   dag_name = c("1A", "1B", "1C",
+#                "2A", "2B",
+#                "3A", "3B")
+#   
+#   )
 
 
 # add scen numbers
@@ -123,7 +145,7 @@ n.files
 
 path = "/home/groups/manishad/IAI"
 setwd( paste(path, "/sbatch_files", sep="") )
-for (i in 1:700) {
+for (i in 1:500) {
   system( paste("sbatch -p qsu,owners,normal /home/groups/manishad/IAI/sbatch_files/", i, ".sbatch", sep="") )
 }
 

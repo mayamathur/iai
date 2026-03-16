@@ -135,7 +135,8 @@ if ( run.local == TRUE ) {
     #rep.methods = "gold ; CC ; MICE-std ; Am-std ; IPW-custom ; af4", 
     #rep.methods = "gold ; CC ; MICE-std ; IPW-nm ; genloc", 
     #rep.methods = "CC ; MICE-std ; genloc ; IPW-nm", 
-    rep.methods = "gold ; af4-np ; af4-sp ; IPW-nm",
+    #rep.methods = "gold ; af4-np ; af4-sp ; IPW-nm",
+    rep.methods = "gold ; CC ; MICE-std ; IPW-nm",
     
     model = "OLS", 
     #model = "logistic",  # outcome model
@@ -144,14 +145,15 @@ if ( run.local == TRUE ) {
     
     # MICE parameters
     # as on cluster
-    imp_m = 5,  # CURRENTLY SET LOW
+    #imp_m = 5,  # CURRENTLY SET LOW
+    imp_m = 10,
     imp_maxit = 5,
     mice_method = NA,  # let MICE use its defaults
     
     # AF4 parameters
     boot_reps_af4 = 0,  # only needed for CIs; if set to 0, won't give CIs
     
-    dag_name = "3B"
+    dag_name = "5A"
     # dag_name = c("1A", "1B", "1C",
     #              "2A", "2B",
     #              "3A", "3B" )
@@ -972,8 +974,8 @@ if ( run.local == TRUE ) {
       BhatRMSE = sqrt( meanNA( (bhat - beta)^2 ) ),
       BhatCover = meanNA( covers(truth = beta,
                                  lo = bhat_lo,
-                                 hi = bhat_hi) ),
-      EYpred = meanNA(EY_prediction) ) %>%
+                                 hi = bhat_hi) ) ) %>%
+      # EYpred = meanNA(EY_prediction) ) %>%
     arrange() %>%
     mutate_if(is.numeric, function(x) round(x,2)) 
   
@@ -1030,6 +1032,8 @@ if ( run.local == TRUE ) {
 
 # ~ WRITE LONG RESULTS ------------------------------
 if ( run.local == FALSE ) {
+  cat("\n *** FLAG 1: About to write long results")
   setwd("/home/groups/manishad/IAI/long_results")
   fwrite( rs, paste( "long_results", jobname, ".csv", sep="_" ) )
+  cat("\n *** FLAG 3: Done writing long results")
 }

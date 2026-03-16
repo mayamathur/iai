@@ -34,7 +34,8 @@ nano /home/groups/manishad/IAI/sim_results/overall_stitched/sti*
 # CODE -> SHERLOCK ----------------------------------
 
 # push all Sherlock code
-scp /Users/mmathur/Dropbox/Personal\ computer/Independent\ studies/\*Inchoate/2024/2024-10-20\ -\ IAI\ \(Incomplete\ auxiliaries\ in\ imputation\)/Simulation\ study/Code/* mmathur@login.sherlock.stanford.edu:/home/groups/manishad/IAI
+scp /Users/mmathur/Dropbox/Personal\ computer/Independent\ studies/\*Inchoate/2024/2024-10-20\ -\ IAI\ \(Incomplete\ auxiliaries\ in\ imputation\)/Simulation\ study/Linked\ to\ git\ \(IAI\)/simulation_study/* mmathur@login.sherlock.stanford.edu:/home/groups/manishad/IAI
+
 
 
 
