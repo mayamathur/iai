@@ -721,6 +721,9 @@ sim_data = function(.p) {
   
   # ~ DAG 5A -----------------------------
   
+  # A -> Y -> RA and separately W -> RW
+  # Y is complete
+  
   if ( .p$dag_name == "5A" ) {
     
     # "fake" variable Z1 is always observed but is independent of everything; used only to prevent all-NA rows
@@ -792,6 +795,158 @@ sim_data = function(.p) {
     }
     
   }  # end of .p$dag_name == "5A"
+  
+  
+  
+  # ~ DAG 5C -----------------------------
+  
+  # MAR sanity check for 5A: remove the W -> RW edge
+  # A -> Y -> RA and separately W and RW
+  # Y is complete
+  
+  if ( .p$dag_name == "5C" ) {
+    
+    # "fake" variable Z1 is always observed but is independent of everything; used only to prevent all-NA rows
+    du = data.frame( Z1 = rbinom( n = .p$N,
+                                  size = 1, 
+                                  prob = 0.5 ),
+                     
+                     # auxiliary W
+                     D1 = rbinom( n = .p$N,
+                                  size = 1, 
+                                  prob = 0.5 ) ) 
+    
+    
+    coefAB = 2
+    coefBD = 3
+    
+    du = du %>% rowwise() %>%
+      mutate( A1 = rbinom( n = 1,
+                           size = 1,
+                           prob = 0.5 ),
+              
+              B1 = rnorm( n = 1,
+                          mean = coefAB*A1 ),
+              
+              RA = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(-1 + 3*B1) ),
+              
+              RD = rbinom( n = 1,
+                           size = 1,
+                           prob = 0.5 ),
+              
+              RB = 1 )
+    
+    du = du %>% rowwise() %>%
+      mutate( A = ifelse(RA == 1, A1, NA),
+              B = ifelse(RB == 1, B1, NA),
+              D = ifelse(RD == 1, D1, NA),
+              Z = Z1)
+    
+    
+    colMeans(du)
+    cor(du %>% select(A1, B1, D1, RA, RB, RD) )
+    
+    
+    # make dataset for imputation
+    di = du %>% select(A, B, D, Z)
+    
+    
+    ### For just the intercept of A
+    if ( .p$coef_of_interest == "(Intercept)" ){ 
+      stop("Intercept not implemented for this DAG")
+    }
+    
+    
+    ### Coefficient of interest
+    if ( .p$coef_of_interest %in% c("A" ) ){ 
+      
+      # regression strings
+      form_string = "B ~ A"
+      
+      # gold-standard model uses underlying variables
+      gold_form_string = "B1 ~ A1"
+      
+      beta = NA
+      
+      # custom predictor matrix for MICE-ours-pred
+      exclude_from_imp_model = NULL
+    }
+    
+  }  # end of .p$dag_name == "5C"
+  
+  
+  
+  # ~ DAG 5D -----------------------------
+  
+  # same as 5C, but remove D
+  # A -> Y -> RA. that's it.
+  # Y is complete
+  
+  if ( .p$dag_name == "5C" ) {
+    
+    # "fake" variable Z1 is always observed but is independent of everything; used only to prevent all-NA rows
+    du = data.frame( Z1 = rbinom( n = .p$N,
+                                  size = 1, 
+                                  prob = 0.5 ) ) 
+    
+    
+    coefAB = 2
+    coefBD = 3
+    
+    du = du %>% rowwise() %>%
+      mutate( A1 = rbinom( n = 1,
+                           size = 1,
+                           prob = 0.5 ),
+              
+              B1 = rnorm( n = 1,
+                          mean = coefAB*A1 ),
+              
+              RA = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(-1 + 3*B1) ),
+              
+              RB = 1 )
+    
+    du = du %>% rowwise() %>%
+      mutate( A = ifelse(RA == 1, A1, NA),
+              B = ifelse(RB == 1, B1, NA),
+              Z = Z1)
+    
+    
+    colMeans(du)
+    cor(du %>% select(A1, B1, RA, RB) )
+    
+    
+    # make dataset for imputation
+    di = du %>% select(A, B, Z)
+    
+    
+    ### For just the intercept of A
+    if ( .p$coef_of_interest == "(Intercept)" ){ 
+      stop("Intercept not implemented for this DAG")
+    }
+    
+    
+    ### Coefficient of interest
+    if ( .p$coef_of_interest %in% c("A" ) ){ 
+      
+      # regression strings
+      form_string = "B ~ A"
+      
+      # gold-standard model uses underlying variables
+      gold_form_string = "B1 ~ A1"
+      
+      beta = NA
+      
+      # custom predictor matrix for MICE-ours-pred
+      exclude_from_imp_model = NULL
+    }
+    
+  }  # end of .p$dag_name == "5C"
+  
+  
   
   # ~ Finish generating data ----------------
  
