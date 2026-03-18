@@ -1,8 +1,10 @@
 
 stitch = function(){
-  path = "/home/groups/manishad/IWN"
+
+  
+  path = "/home/groups/manishad/IAI"
   setwd(path)
-  source("helper_IWN.R")
+  source("helper_IAI.R")
   
   
   # PRELIMINARIES ----------------------------------------------
@@ -11,14 +13,12 @@ stitch = function(){
   library(dplyr)
   library(testthat)
   library(xlsx)
-  # s = stitch_files(.results.singles.path = "/home/groups/manishad/IWN/sim_results/long",
-  #                  .results.stitched.write.path = "/home/groups/manishad/IWN/sim_results/overall_stitched",
-  #                  .name.prefix = "long_results",
-  #                  .stitch.file.name="stitched.csv")
+  library(xtable)
   
-  .results.singles.path = "/home/groups/manishad/IWN/long_results"
-  .results.stitched.write.path = "/home/groups/manishad/IWN/overall_stitched"
-  .name.prefix = "long_results"
+  
+  .results.singles.path = "/home/groups/manishad/IAI/long_results"
+  .results.stitched.write.path = "/home/groups/manishad/IAI/overall_stitched"
+  .name.prefix = "long_results_job"
   .stitch.file.name="stitched.csv"
   
   
@@ -32,10 +32,15 @@ stitch = function(){
   length(keepers)
   
   # grab variable names from first file
-  names = names( read.csv(keepers[1] ) )
+  names = names( read.csv(keepers[1]) )
+  
+  # temp = lapply(keepers, function(x){
+  #   dat = read.csv(x, header = TRUE)
+  #   "dag_name" %in% names(dat) } )
+  # which(temp == FALSE)
   
   # read in and rbind the keepers
-  tables <- lapply( keepers, function(x) read.csv(x, header= TRUE) )
+  tables <- lapply(keepers, function(x) read.csv(x, header = TRUE, colClasses = c(dag_name = "character")))
   
   # sanity check: do all files have the same names?
   # if not, could be because some jobs were killed early so didn't get doParallelTime
@@ -53,7 +58,7 @@ stitch = function(){
   names(s) = names( read.csv(keepers[1], header= TRUE) )
   
   if( is.na(s[1,1]) ) s = s[-1,]  # delete annoying NA row
-  # write.csv(s, paste(.results.stitched.write.path, .stitch.file.name, sep="/") )
+  write.csv(s, paste(.results.stitched.write.path, .stitch.file.name, sep="/") )
   
   cat("\n\n nrow(s) =", nrow(s))
   cat("\n nuni(s$scen.name) =", nuni(s$scen.name) )
@@ -79,12 +84,15 @@ stitch = function(){
   
   table(s$dag_name)
   
+  
   # Quick Look ----------------------------------------------
   
   # sanity check
   table(s$dag_name, s$coef_of_interest)
   
-  correct.order = c("gold", "CC", "Am-std", "Am-ours", "MICE-std", "MICE-ours", "MICE-ours-pred")
+  correct.order = c("gold", "CC", "MICE-std", "Am-std", "genloc", "IPW-custom", "IPW-nm",
+                    "af4-np", "af4-sp",
+                    "g-form", "custom")
   s$method = factor(s$method, levels = correct.order)
   
   # fill in beta (where it's NA) using gold-standard
@@ -98,35 +106,82 @@ stitch = function(){
     summarise(beta = meanNA(bhat)) 
   as.data.frame(beta_emp)
   
+  # same for intercept
+  int_emp = s %>% filter(method == "gold") %>%
+    group_by(scen.name) %>%
+    summarise(int = meanNA(inthat)) 
+  as.data.frame(int_emp)
+  
   s2 = s
   
   s2 = s2 %>% rowwise() %>%
     mutate( beta = ifelse( !is.na(beta),
                            beta,
-                           beta_emp$beta[ beta_emp$scen.name == scen.name ] ) )
+                           beta_emp$beta[ beta_emp$scen.name == scen.name ] ),
+            int = int_emp$int[ int_emp$scen.name == scen.name ] )
   
   # sanity check
-  as.data.frame( s2 %>% group_by(dag_name, coef_of_interest) %>%
+  as.data.frame( s2 %>% group_by(dag_name, coef_of_interest, model) %>%
                    summarise(beta[1]) )
-  # end of filling in beta
+  # end of filling in beta and int
   
-  
-  t = s2 %>% group_by(dag_name, coef_of_interest, method) %>%
+  # in this case, don't need to group by coef_of_interest because they're all A
+  t = s2 %>% group_by(dag_name, method) %>%
     summarise( 
       reps = n(),
+      PropNA = mean(is.na(bhat)),
       Bhat = meanNA(bhat),
       BhatBias = meanNA(bhat - beta),
-      BhatLo = meanNA(bhat_lo),
-      BhatHi = meanNA(bhat_hi),
+      #BhatRelBias = meanNA( (bhat - beta)/beta ),
+      #BhatWidth = meanNA(bhat_hi - bhat_lo),
       BhatRMSE = sqrt( meanNA( (bhat - beta)^2 ) ),
       BhatCover = meanNA( covers(truth = beta,
                                  lo = bhat_lo,
-                                 hi = bhat_hi) ) ) %>%
+                                 hi = bhat_hi) ),
+      
+      IntHat = meanNA(inthat),
+      IntBias = meanNA(inthat - int),
+      IntRMSE = sqrt( meanNA( (inthat - int)^2 ) ),
+      #BhatRelBias = meanNA( (bhat - beta)/beta ),
+      #BhatWidth = meanNA(bhat_hi - bhat_lo),
+      BhatRMSE = sqrt( meanNA( (bhat - beta)^2 ) ),
+      IntCover = meanNA( covers(truth = int,
+                                lo = int_lo,
+                                hi = int_hi) ),
+      
+      sancheck.mean_RB = meanNA(sancheck.mean_RB),
+      sancheck.mean_RC = meanNA(sancheck.mean_RC),
+      sancheck.prop_complete = meanNA(sancheck.prop_complete),
+    ) %>%
     arrange() %>%
     mutate_if(is.numeric, function(x) round(x,2)) 
-  
-  
-  
-  
   as.data.frame(t)
-}
+  
+  
+  
+  
+  # save agg data
+  path = "/home/groups/manishad/IAI/overall_stitched"
+  setwd(path)
+  write.xlsx(as.data.frame(t),
+             paste(Sys.Date(), "agg.xlsx") )
+  
+  
+  # xtable
+  t2 = t %>% ungroup() %>% select(dag_name, method, Bhat, BhatBias, BhatCover, BhatWidth, BhatRMSE)
+  print( xtable(t2), include.rownames = FALSE )
+  
+  
+  
+  # ~ Write stitched.csv ---------------------------
+  
+  setwd(.results.stitched.write.path)
+  fwrite(s, .stitch.file.name)
+  
+  # also make a zipped version
+  string = paste("zip -m stitched.zip", .stitch.file.name)
+  system(string)
+  
+  
+  
+}  # end of stitch()

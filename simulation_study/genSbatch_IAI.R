@@ -34,9 +34,9 @@ lapply( allPackages,
 
 scen.params = tidyr::expand_grid(
 
-  rep.methods = "gold ; CC ; MICE-std ; IPW-nm",
+  rep.methods = "gold ; MICE-std ; genloc ; IPW-nm",
   
-  model = "OLS", 
+  model = c("OLS", "logistic"),   #***** TEMP FOR BINARY Y
   coef_of_interest = "A",
   N = c(1000),
   
@@ -50,9 +50,17 @@ scen.params = tidyr::expand_grid(
   # AF4 parameters
   boot_reps_af4 = 0,  # only needed for CIs; if set to 0, won't give CIs
   
-  dag_name = "5C"
+  dag_name = c("5D", "5D-bin",
+               "6D", "6D-bin",
+               "7D", "7D-bin")  # make sure to pick appropriate outcome model for the DAG
   
 )
+
+
+# remove combos that aren't implemented
+scen.params = scen.params %>% filter( !(dag_name %in% c("5D", "6D", "7D") &
+                                          model == "logistic" ) )
+
 
 # # FULL SET
 # scen.params = tidyr::expand_grid(
@@ -145,7 +153,7 @@ n.files
 
 path = "/home/groups/manishad/IAI"
 setwd( paste(path, "/sbatch_files", sep="") )
-for (i in 1:500) {
+for (i in 1:n.files) {
   system( paste("sbatch -p qsu,owners,normal /home/groups/manishad/IAI/sbatch_files/", i, ".sbatch", sep="") )
 }
 

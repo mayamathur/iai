@@ -880,11 +880,11 @@ sim_data = function(.p) {
   
   # ~ DAG 5D -----------------------------
   
-  # same as 5C, but remove D
-  # A -> Y -> RA. that's it.
+  # same as 5C, but remove D completely: still MAR
+  # A -> Y -> RA. that's it. so it's MAR.
   # Y is complete
   
-  if ( .p$dag_name == "5C" ) {
+  if ( .p$dag_name == "5D" ) {
     
     # "fake" variable Z1 is always observed but is independent of everything; used only to prevent all-NA rows
     du = data.frame( Z1 = rbinom( n = .p$N,
@@ -944,10 +944,359 @@ sim_data = function(.p) {
       exclude_from_imp_model = NULL
     }
     
-  }  # end of .p$dag_name == "5C"
+  }  # end of .p$dag_name == "5D"
   
   
   
+  
+  
+  # ~ DAG 5D-bin -----------------------------
+  
+  # same as 5C, but remove D completely: still MAR
+  # A -> Y -> RA. that's it. so it's MAr.
+  # Y is complete
+  
+  if ( .p$dag_name == "5D-bin" ) {
+    
+    # "fake" variable Z1 is always observed but is independent of everything; used only to prevent all-NA rows
+    du = data.frame( Z1 = rbinom( n = .p$N,
+                                  size = 1, 
+                                  prob = 0.5 ) ) 
+    
+    
+    coefAB = 2
+    coefBD = 3
+    
+    du = du %>% rowwise() %>%
+      mutate( A1 = rbinom( n = 1,
+                           size = 1,
+                           prob = 0.5 ),
+              
+              B1 = rbinom( n = 1,
+                           size = 1,
+                           prob = plogis( -2 + coefAB*A1 ) ),
+              
+              RA = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(-1 + 3*B1) ),
+              
+              RB = 1 )
+    
+    du = du %>% rowwise() %>%
+      mutate( A = ifelse(RA == 1, A1, NA),
+              B = ifelse(RB == 1, B1, NA),
+              Z = Z1)
+    
+    
+    colMeans(du)
+    cor(du %>% select(A1, B1, RA, RB) )
+    
+    
+    # make dataset for imputation
+    di = du %>% select(A, B, Z)
+    
+    
+    ### For just the intercept of A
+    if ( .p$coef_of_interest == "(Intercept)" ){ 
+      stop("Intercept not implemented for this DAG")
+    }
+    
+    
+    ### Coefficient of interest
+    if ( .p$coef_of_interest %in% c("A" ) ){ 
+      
+      # regression strings
+      form_string = "B ~ A"
+      
+      # gold-standard model uses underlying variables
+      gold_form_string = "B1 ~ A1"
+      
+      beta = NA
+      
+      # custom predictor matrix for MICE-ours-pred
+      exclude_from_imp_model = NULL
+    }
+    
+  }  # end of .p$dag_name == "5D-bin"
+  
+  
+  # ~ DAG 6D -----------------------------
+  
+  if ( .p$dag_name == "6D" ) {
+    
+    # "fake" variable Z1 is always observed but is independent of everything; used only to prevent all-NA rows
+    du = data.frame( Z1 = rbinom( n = .p$N,
+                                  size = 1, 
+                                  prob = 0.5 ) ) 
+    
+    
+    coefAB = 2
+    
+    du = du %>% rowwise() %>%
+      mutate( A1 = rbinom( n = 1,
+                           size = 1,
+                           prob = 0.5 ),
+              
+              B1 = rnorm( n = 1,
+                          mean = coefAB*A1 ),
+              
+              RA = 1,
+              
+              RB = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(-1 + 3*A1) ) )
+    
+    du = du %>% rowwise() %>%
+      mutate( A = ifelse(RA == 1, A1, NA),
+              B = ifelse(RB == 1, B1, NA),
+              Z = Z1)
+    
+    
+    colMeans(du)
+    cor(du %>% select(A1, B1, RA, RB) )
+    
+    
+    # make dataset for imputation
+    di = du %>% select(A, B, Z)
+    
+    
+    ### For just the intercept of A
+    if ( .p$coef_of_interest == "(Intercept)" ){ 
+      stop("Intercept not implemented for this DAG")
+    }
+    
+    
+    ### Coefficient of interest
+    if ( .p$coef_of_interest %in% c("A" ) ){ 
+      
+      # regression strings
+      form_string = "B ~ A"
+      
+      # gold-standard model uses underlying variables
+      gold_form_string = "B1 ~ A1"
+      
+      beta = NA
+      
+      # custom predictor matrix for MICE-ours-pred
+      exclude_from_imp_model = NULL
+    }
+    
+  }  # end of .p$dag_name == "6D"
+  
+  
+  
+  
+  
+  
+  
+  # ~ DAG 6D-bin -----------------------------
+  
+  # same as 5D, but roles of A and B are reversed
+  # now A is continuous & complete and B is binary
+  # Y <- A -> RY. 
+  
+  if ( .p$dag_name == "6D-bin" ) {
+    
+    # "fake" variable Z1 is always observed but is independent of everything; used only to prevent all-NA rows
+    du = data.frame( Z1 = rbinom( n = .p$N,
+                                  size = 1, 
+                                  prob = 0.5 ) ) 
+    
+    
+    coefAB = 2
+    coefBD = 3
+    
+    du = du %>% rowwise() %>%
+      mutate( A1 = rnorm( n = 1,
+                          mean = 0 ),
+              
+              B1 = rbinom( n = 1,
+                           size = 1,
+                           prob = plogis( -2 + coefAB*A1 ) ),
+              
+              RA = 1,
+              
+              RB = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(-1 + 3*A1) ) )
+    
+    du = du %>% rowwise() %>%
+      mutate( A = ifelse(RA == 1, A1, NA),
+              B = ifelse(RB == 1, B1, NA),
+              Z = Z1)
+    
+    
+    colMeans(du)
+    cor(du %>% select(A1, B1, RA, RB) )
+    
+    
+    # make dataset for imputation
+    di = du %>% select(A, B, Z)
+    
+    
+    ### For just the intercept of A
+    if ( .p$coef_of_interest == "(Intercept)" ){ 
+      stop("Intercept not implemented for this DAG")
+    }
+    
+    
+    ### Coefficient of interest
+    if ( .p$coef_of_interest %in% c("A" ) ){ 
+      
+      # regression strings
+      form_string = "B ~ A"
+      
+      # gold-standard model uses underlying variables
+      gold_form_string = "B1 ~ A1"
+      
+      beta = NA
+      
+      # custom predictor matrix for MICE-ours-pred
+      exclude_from_imp_model = NULL
+    }
+    
+  }  # end of .p$dag_name == "6D-bin"
+  
+  
+  
+
+  # ~ DAG 7D -----------------------------
+  
+  # B -> A -> RB
+  # A binary & complete, B continuous
+  
+  if ( .p$dag_name == "7D" ) {
+    
+    # "fake" variable Z1 is always observed but is independent of everything; used only to prevent all-NA rows
+    du = data.frame( Z1 = rbinom( n = .p$N,
+                                  size = 1, 
+                                  prob = 0.5 ) ) 
+    
+    
+    coefBA = 2
+    
+    du = du %>% rowwise() %>%
+      mutate( B1 = rnorm( n = 1,
+                          mean = 0 ),
+              
+              A1 = rbinom( n = 1,
+                           size = 1,
+                           prob = plogis( -1 + coefBA*B1 ) ),
+              
+              RA = 1,
+              
+              RB = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(-1 + 3*B1) ) )
+    
+    du = du %>% rowwise() %>%
+      mutate( A = ifelse(RA == 1, A1, NA),
+              B = ifelse(RB == 1, B1, NA),
+              Z = Z1)
+    
+    
+    colMeans(du)
+    cor(du %>% select(A1, B1, RA, RB) )
+    
+    
+    # make dataset for imputation
+    di = du %>% select(A, B, Z)
+    
+    
+    ### For just the intercept of A
+    if ( .p$coef_of_interest == "(Intercept)" ){ 
+      stop("Intercept not implemented for this DAG")
+    }
+    
+    
+    ### Coefficient of interest
+    if ( .p$coef_of_interest %in% c("A" ) ){ 
+      
+      # regression strings
+      form_string = "B ~ A"
+      
+      # gold-standard model uses underlying variables
+      gold_form_string = "B1 ~ A1"
+      
+      beta = NA
+      
+      # custom predictor matrix for MICE-ours-pred
+      exclude_from_imp_model = NULL
+    }
+    
+  }  # end of .p$dag_name == "7D"
+  
+  
+  
+  
+  
+  # ~ DAG 7D-bin -----------------------------
+  
+  # B -> A -> RB
+  # A continuous & complete, B binary
+  
+  if ( .p$dag_name == "7D-bin" ) {
+    
+    # "fake" variable Z1 is always observed but is independent of everything; used only to prevent all-NA rows
+    du = data.frame( Z1 = rbinom( n = .p$N,
+                                  size = 1, 
+                                  prob = 0.5 ) ) 
+    
+    
+    coefBA = 2
+    
+    du = du %>% rowwise() %>%
+      mutate( B1 = rbinom( n = 1,
+                           size = 1,
+                           prob = 0.5 ),
+              
+              A1 = rnorm( n = 1,
+                          mean = coefBA*B1 ),
+              
+              RA = 1,
+              
+              RB = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(-1 + 3*B1) ) )
+    
+    du = du %>% rowwise() %>%
+      mutate( A = ifelse(RA == 1, A1, NA),
+              B = ifelse(RB == 1, B1, NA),
+              Z = Z1)
+    
+    
+    colMeans(du)
+    cor(du %>% select(A1, B1, RA, RB) )
+    
+    
+    # make dataset for imputation
+    di = du %>% select(A, B, Z)
+    
+    
+    ### For just the intercept of A
+    if ( .p$coef_of_interest == "(Intercept)" ){ 
+      stop("Intercept not implemented for this DAG")
+    }
+    
+    
+    ### Coefficient of interest
+    if ( .p$coef_of_interest %in% c("A" ) ){ 
+      
+      # regression strings
+      form_string = "B ~ A"
+      
+      # gold-standard model uses underlying variables
+      gold_form_string = "B1 ~ A1"
+      
+      beta = NA
+      
+      # custom predictor matrix for MICE-ours-pred
+      exclude_from_imp_model = NULL
+    }
+    
+  }  # end of .p$dag_name == "7D-bin"
+  
+
   # ~ Finish generating data ----------------
  
   
@@ -1143,6 +1492,8 @@ fit_regression = function(form_string,
     }
     
     if ( model == "logistic" ) {
+      # will throw warning "In eval(family$initialize) : non-integer #successes in a binomial glm!"
+      #  due to the weights. Don't worry about that.
       ( mod_wls = glm( eval( parse(text = form_string) ),
                        data = weighted_data,
                        weights = ipmw,
@@ -2158,8 +2509,7 @@ create_jags_model <- function(num_patterns, vars_per_pattern) {
 #' @param vars Variables for model
 #' @return JAGS fit object
 run_missingness_model <- function(data, vars) {
-  
-  
+
   vars = sort(vars)
   
   if (!"M" %in% names(data)) {
@@ -2348,8 +2698,7 @@ run_missingness_model <- function(data, vars) {
   
   
   cat("/n/n ********** run_missingness_model flag 3: about to return")
-  #bm: running on cluster with these flags. 
-  
+
   return(list(
     fit = jags_fit,
     scaled_data = scaled_data,

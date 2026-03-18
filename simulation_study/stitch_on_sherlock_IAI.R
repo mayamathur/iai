@@ -4,7 +4,7 @@ path = "/home/groups/manishad/IAI"
 setwd(path)
 source("stitch_on_sherlock_helper.R")
 
-#stitch()
+# stitch()
 
 
 
@@ -129,7 +129,7 @@ s2 = s2 %>% rowwise() %>%
           int = int_emp$int[ int_emp$scen.name == scen.name ] )
 
 # sanity check
-as.data.frame( s2 %>% group_by(dag_name, coef_of_interest) %>%
+as.data.frame( s2 %>% group_by(dag_name, coef_of_interest, model) %>%
                 summarise(beta[1]) )
 # end of filling in beta and int
 

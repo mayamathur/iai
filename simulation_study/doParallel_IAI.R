@@ -138,8 +138,8 @@ if ( run.local == TRUE ) {
     #rep.methods = "gold ; af4-np ; af4-sp ; IPW-nm",
     rep.methods = "gold ; CC ; MICE-std ; IPW-nm",
     
-    model = "OLS", 
-    #model = "logistic",  # outcome model
+    #model = "OLS", 
+    model = c( "OLS", "logistic"), # TEMP FOR BINARY-Y MODEL
     coef_of_interest = "A",
     N = c(1000),
     
@@ -153,7 +153,10 @@ if ( run.local == TRUE ) {
     # AF4 parameters
     boot_reps_af4 = 0,  # only needed for CIs; if set to 0, won't give CIs
     
-    dag_name = "5A"
+    dag_name = c("5D", "5D-bin",
+                 "6D", "6D-bin",
+                 "7D", "7D-bin"
+                 )  # make sure to pick appropriate outcome model for the DAG
     # dag_name = c("1A", "1B", "1C",
     #              "2A", "2B",
     #              "3A", "3B" )
@@ -161,9 +164,9 @@ if ( run.local == TRUE ) {
   )
   
   
-  # # remove combos that aren't implemented
-  # scen.params = scen.params %>% filter( !(dag_name %in% c("1G", "1H", "1F") &
-  #                                           coef_of_interest == "(Intercept)") )
+  # remove combos that aren't implemented
+  scen.params = scen.params %>% filter( !(dag_name %in% c("5D", "6D", "7D") &
+                                            model == "logistic" ) )
   
   start.at = 1  # scen name to start at
   scen.params$scen = start.at:( nrow(scen.params) + start.at - 1 )
@@ -688,7 +691,7 @@ for ( scen in scens_to_run ) {
       # Sun & ETT
       if ( "IPW-nm" %in% all.methods ) {
         
-        # #DEBUGGING ONLY!!
+        # #FOR DEBUGGING ONLY!!
         # cat("\n\n ~~~~~~~~~~~~~~~~~~~ About to run IPW-nm for sim rep", i)
         # # save the dataset locally
         # setwd("/Users/mmathur/Dropbox/Personal computer/Independent studies/*Inchoate/2024/2024-10-20 - IAI (Incomplete auxiliaries in imputation)/Simulation study/Results/temp debugging")
@@ -947,7 +950,7 @@ for ( scen in scens_to_run ) {
 
 if ( run.local == TRUE ) {
   
-  View(rs_all_scens)
+  #View(rs_all_scens)
   
   dim(rs_all_scens)
   
@@ -964,7 +967,7 @@ if ( run.local == TRUE ) {
                            beta_emp$beta[ beta_emp$scen.name == scen.name ] ) )
   
   
-  t = rs_all_scens %>% group_by(method) %>%
+  t = rs_all_scens %>% group_by(dag_name, method) %>%
     summarise( 
       reps = n(),
       Bhat = meanNA(bhat),
@@ -981,24 +984,24 @@ if ( run.local == TRUE ) {
   
   as.data.frame(t)
   
-  # with E[B |A,C]
-  t = rs_all_scens %>% group_by(method) %>%
-    summarise( 
-      reps = n(),
-      Bhat = meanNA(bhat),
-      BhatBias = meanNA(bhat - beta),
-      BhatLo = meanNA(bhat_lo),
-      BhatHi = meanNA(bhat_hi),
-      BhatRMSE = sqrt( meanNA( (bhat - beta)^2 ) ),
-      BhatCover = meanNA( covers(truth = beta,
-                                 lo = bhat_lo,
-                                 hi = bhat_hi) ),
-      Ehat_B_a1c0 = meanNA(Ehat_B_a1c0),
-      E_B_a1c0 = meanNA(E_B_a1c0)) %>%
-    arrange() %>%
-    mutate_if(is.numeric, function(x) round(x,2)) 
-  
-  as.data.frame(t)
+  # # with E[B |A,C]
+  # t = rs_all_scens %>% group_by(method) %>%
+  #   summarise( 
+  #     reps = n(),
+  #     Bhat = meanNA(bhat),
+  #     BhatBias = meanNA(bhat - beta),
+  #     BhatLo = meanNA(bhat_lo),
+  #     BhatHi = meanNA(bhat_hi),
+  #     BhatRMSE = sqrt( meanNA( (bhat - beta)^2 ) ),
+  #     BhatCover = meanNA( covers(truth = beta,
+  #                                lo = bhat_lo,
+  #                                hi = bhat_hi) ),
+  #     Ehat_B_a1c0 = meanNA(Ehat_B_a1c0),
+  #     E_B_a1c0 = meanNA(E_B_a1c0)) %>%
+  #   arrange() %>%
+  #   mutate_if(is.numeric, function(x) round(x,2)) 
+  # 
+  # as.data.frame(t)
   
   # setwd(data.dir)
   # fwrite( rs_all_scens,
