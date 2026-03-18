@@ -1546,6 +1546,7 @@ fit_regression = function(form_string,
       #  from MICE/Amelia or genloc
       if ( class(imps) %in% c("mids", "amelia") ) {
         
+        #bm
         # works for both MICE and Amelia
         mod = with(imps,
                    glm( eval( parse(text = form_string) ) ) )

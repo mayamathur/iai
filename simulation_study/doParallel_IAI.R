@@ -388,12 +388,22 @@ for ( scen in scens_to_run ) {
         
         # only pass method arg if it's not NA or NULL
         if ( is.na(p$mice_method) | is.null(p$mice_method) ) {
-          imps_mice = mice( di2,
+          imps_mice_raw = mice( di2,
                             maxit = p$imp_maxit,
                             m = p$imp_m,
                             printFlag = FALSE )
+          
+          
+          # reorganize the complicated mids object into list of imputed datasets
+          # needed for fit_regression to find the imputed datasets
+          imps_mice = lapply(seq_len(imps_mice_raw$m), function(i) complete(imps_mice_raw, i))
+          
+          # recode any 0/1 factors as numeric for regression joy
+          imps_mice <- lapply(imps_mice, function(.d) 
+            .d %>% mutate(across(where(is.factor), ~ as.numeric(as.character(.)))))
+          
         } else {
-          imps_mice = mice( di2,
+          imps_mice_raw = mice( di2,
                             maxit = p$imp_maxit,
                             m = p$imp_m,
                             
@@ -403,15 +413,22 @@ for ( scen in scens_to_run ) {
                             
                             method = p$mice_method,
                             printFlag = FALSE )
+          
+          # reorganize the complicated mids object into list of imputed datasets
+          # needed for fit_regression to find the imputed datasets
+          imps_mice = lapply(seq_len(imps_mice_raw$m), function(i) complete(imps_mice_raw, i))
+          
+          # recode any 0/1 factors as numeric for regression joy
+          imps_mice <- lapply(imps_mice, function(.d) 
+            .d %>% mutate(across(where(is.factor), ~ as.numeric(as.character(.)))))
         }
         
-        
-        
+      
         
         mice_std_methods = summarize_mice_methods(imps_mice$method)
         
         # sanity check
-        imp1 = complete(imps_mice, 1)
+        imp1 = imps_mice[[1]]
         
         if ( any(is.na(imp1)) ) {
           message("MI left NAs in dataset - what a butt")
