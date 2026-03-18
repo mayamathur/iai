@@ -136,10 +136,10 @@ if ( run.local == TRUE ) {
     #rep.methods = "gold ; CC ; MICE-std ; IPW-nm ; genloc", 
     #rep.methods = "CC ; MICE-std ; genloc ; IPW-nm", 
     #rep.methods = "gold ; af4-np ; af4-sp ; IPW-nm",
-    rep.methods = "gold ; CC ; MICE-std ; IPW-nm",
+    rep.methods = "gold ; MICE-std ; genloc",
     
-    #model = "OLS", 
-    model = c( "OLS", "logistic"), # TEMP FOR BINARY-Y MODEL
+    model = "OLS", 
+    #model = c( "OLS", "logistic"), 
     coef_of_interest = "A",
     N = c(1000),
     
@@ -153,13 +153,12 @@ if ( run.local == TRUE ) {
     # AF4 parameters
     boot_reps_af4 = 0,  # only needed for CIs; if set to 0, won't give CIs
     
-    dag_name = c("5D", "5D-bin",
-                 "6D", "6D-bin",
-                 "7D", "7D-bin"
-                 )  # make sure to pick appropriate outcome model for the DAG
-    # dag_name = c("1A", "1B", "1C",
-    #              "2A", "2B",
-    #              "3A", "3B" )
+    dag_name = "5D-bin"
+    
+    # dag_name = c("5D", "5D-bin",
+    #              "6D", "6D-bin",
+    #              "7D", "7D-bin"
+    #              )  # make sure to pick appropriate outcome model for the DAG
     
   )
   
