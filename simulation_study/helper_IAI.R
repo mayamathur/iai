@@ -905,7 +905,7 @@ sim_data = function(.p) {
               
               RA = rbinom( n = 1,
                            size = 1,
-                           prob = expit(-1 + 3*B1) ),
+                           prob = expit(0.5 + 1*B1) ),
               
               RB = 1 )
     
@@ -917,6 +917,7 @@ sim_data = function(.p) {
     
     colMeans(du)
     suppressWarnings( cor(du %>% select(A1, B1, RA, RB) ) )
+   
     
     
     # make dataset for imputation
@@ -1118,7 +1119,7 @@ sim_data = function(.p) {
               
               RB = rbinom( n = 1,
                            size = 1,
-                           prob = expit(-1 + 3*A1) ) )
+                           prob = expit(-1 + 3*B1) ) )
     
     du = du %>% rowwise() %>%
       mutate( A = ifelse(RA == 1, A1, NA),
