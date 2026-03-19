@@ -1546,7 +1546,6 @@ fit_regression = function(form_string,
       #  from MICE/Amelia or genloc
       if ( class(imps) %in% c("mids", "amelia") ) {
         
-        #bm
         # works for both MICE and Amelia
         mod = with(imps,
                    glm( eval( parse(text = form_string) ) ) )
@@ -1620,6 +1619,9 @@ fit_regression = function(form_string,
     bhat_lo = summ$`2.5 %`[ summ$term == coef_of_interest_recoded ]
     bhat_hi = summ$`97.5 %`[ summ$term == coef_of_interest_recoded ]
     
+    int_lo = summ$`2.5 %`[ summ$term == "(Intercept)" ]
+    int_hi = summ$`97.5 %`[ summ$term == "(Intercept)" ]
+    
 
     
     # also return the summarized string
@@ -1629,7 +1631,13 @@ fit_regression = function(form_string,
                                       bhat_lo = bhat_lo,
                                       bhat_hi = bhat_hi,
                                       bhat_width = bhat_hi - bhat_lo,
-                                      imp_methods = imp_methods) ) )
+                                      
+                                      inthat = mod_pool$pooled$estimate[ mod_pool$pooled$term == "(Intercept)" ],
+                                      int_lo = int_lo,
+                                      int_hi = int_hi,
+                                      int_width = int_hi - int_lo,
+                                      
+                                      imp_methods = imp_methods ) ) )
   }
   
   
