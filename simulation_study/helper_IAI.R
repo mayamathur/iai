@@ -1163,79 +1163,10 @@ sim_data = function(.p) {
   # ~ DAG 7D -----------------------------
   
   # B -> A -> RB
-  # A binary & complete, B continuous
+  # since the outcome in the estimand is now A instead of B, we'll keep B binary throughout
+  # B binary; A continuous & complete
   
   if ( .p$dag_name == "7D" ) {
-    
-    # "fake" variable Z1 is always observed but is independent of everything; used only to prevent all-NA rows
-    du = data.frame( Z1 = rbinom( n = .p$N,
-                                  size = 1, 
-                                  prob = 0.5 ) ) 
-    
-    
-    coefBA = 2
-    
-    du = du %>% rowwise() %>%
-      mutate( B1 = rnorm( n = 1,
-                          mean = 0 ),
-              
-              A1 = rbinom( n = 1,
-                           size = 1,
-                           prob = plogis( -1 + coefBA*B1 ) ),
-              
-              RA = 1,
-              
-              RB = rbinom( n = 1,
-                           size = 1,
-                           prob = expit(-1 + 3*B1) ) )
-    
-    du = du %>% rowwise() %>%
-      mutate( A = ifelse(RA == 1, A1, NA),
-              B = ifelse(RB == 1, B1, NA),
-              Z = Z1)
-    
-    
-    colMeans(du)
-    cor(du %>% select(A1, B1, RA, RB) )
-    
-    
-    # make dataset for imputation
-    di = du %>% select(A, B, Z)
-    
-    
-    ### For just the intercept of A
-    if ( .p$coef_of_interest == "(Intercept)" ){ 
-      stop("Intercept not implemented for this DAG")
-    }
-    
-    
-    ### Coefficient of interest
-    if ( .p$coef_of_interest %in% c("A" ) ){ 
-      
-      # regression strings
-      form_string = "B ~ A"
-      
-      # gold-standard model uses underlying variables
-      gold_form_string = "B1 ~ A1"
-      
-      beta = NA
-      
-      # custom predictor matrix for MICE-ours-pred
-      exclude_from_imp_model = NULL
-    }
-    
-  }  # end of .p$dag_name == "7D"
-  
-  
-  
-  
-  
-  # ~ DAG 7D-bin -----------------------------
-  
-  # B -> A -> RB
-  # A continuous & complete, B binary
-  
-  if ( .p$dag_name == "7D-bin" ) {
     
     # "fake" variable Z1 is always observed but is independent of everything; used only to prevent all-NA rows
     du = data.frame( Z1 = rbinom( n = .p$N,
@@ -1283,10 +1214,81 @@ sim_data = function(.p) {
     if ( .p$coef_of_interest %in% c("A" ) ){ 
       
       # regression strings
-      form_string = "B ~ A"
+      form_string = "A ~ B"
       
       # gold-standard model uses underlying variables
-      gold_form_string = "B1 ~ A1"
+      gold_form_string = "A1 ~ B1"
+      
+      beta = NA
+      
+      # custom predictor matrix for MICE-ours-pred
+      exclude_from_imp_model = NULL
+    }
+    
+  }  # end of .p$dag_name == "7D"
+  
+  
+  
+  
+  
+  # ~ DAG 7D-bin -----------------------------
+  
+  # B -> A -> RB
+  # B binary, A binary & complete
+  
+  if ( .p$dag_name == "7D-bin" ) {
+    
+    # "fake" variable Z1 is always observed but is independent of everything; used only to prevent all-NA rows
+    du = data.frame( Z1 = rbinom( n = .p$N,
+                                  size = 1, 
+                                  prob = 0.5 ) ) 
+    
+    
+    coefBA = 2
+    
+    du = du %>% rowwise() %>%
+      mutate( B1 = rbinom( n = 1,
+                           size = 1,
+                           prob = 0.5 ),
+              
+              A1 = rbinom( n = 1,
+                           size = 1,
+                           prob = plogis( -2 + coefBA*B1 ) ),
+              
+              RA = 1,
+              
+              RB = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(-1 + 3*B1) ) )
+    
+    du = du %>% rowwise() %>%
+      mutate( A = ifelse(RA == 1, A1, NA),
+              B = ifelse(RB == 1, B1, NA),
+              Z = Z1)
+    
+    
+    colMeans(du)
+    cor(du %>% select(A1, B1, RA, RB) )
+    
+    
+    # make dataset for imputation
+    di = du %>% select(A, B, Z)
+    
+    
+    ### For just the intercept of A
+    if ( .p$coef_of_interest == "(Intercept)" ){ 
+      stop("Intercept not implemented for this DAG")
+    }
+    
+    
+    ### Coefficient of interest
+    if ( .p$coef_of_interest %in% c("A" ) ){ 
+      
+      # regression strings
+      form_string = "A ~ B"
+      
+      # gold-standard model uses underlying variables
+      gold_form_string = "A1 ~ B1"
       
       beta = NA
       
