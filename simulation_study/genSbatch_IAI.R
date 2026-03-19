@@ -38,7 +38,7 @@ scen.params = tidyr::expand_grid(
   
   model = c("OLS", "logistic"),   #***** TEMP FOR BINARY Y
   coef_of_interest = "A",
-  N = c(1000),
+  N = c(10000),
   
   # MICE parameters
   # as on cluster
