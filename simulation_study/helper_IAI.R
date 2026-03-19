@@ -74,7 +74,7 @@ sim_data = function(.p) {
     
     
     colMeans(du)
-    cor(du %>% select(A1, B1, C1, D1, RA, RB, RC, RD) )
+    suppressWarnings( cor(du %>% select(A1, B1, C1, D1, RA, RB, RC, RD) ) )
     
     
     # make dataset for imputation
@@ -163,7 +163,7 @@ sim_data = function(.p) {
     
     
     colMeans(du)
-    cor(du %>% select(A1, B1, C1, D1, RA, RB, RC, RD) )
+    suppressWarnings( cor(du %>% select(A1, B1, C1, D1, RA, RB, RC, RD) ) )
     
     
     # make dataset for imputation
@@ -254,7 +254,7 @@ sim_data = function(.p) {
     
     
     colMeans(du)
-    cor(du %>% select(A1, B1, C1, D1, RA, RB, RC, RD) )
+    suppressWarnings( cor(du %>% select(A1, B1, C1, D1, RA, RB, RC, RD) ) )
     
     
     # make dataset for imputation
@@ -337,7 +337,7 @@ sim_data = function(.p) {
     
     
     colMeans(du)
-    cor(du %>% select(A1, B1, C1, D1, RA, RB, RC, RD) )
+    suppressWarnings( cor(du %>% select(A1, B1, C1, D1, RA, RB, RC, RD) ) )
     
     
     # make dataset for imputation
@@ -424,7 +424,7 @@ sim_data = function(.p) {
     
     
     colMeans(du)
-    cor(du %>% select(A1, B1, C1, D1, RA, RB, RC, RD) )
+    suppressWarnings( cor(du %>% select(A1, B1, C1, D1, RA, RB, RC, RD) ) )
     
     
     # make dataset for imputation
@@ -508,7 +508,7 @@ sim_data = function(.p) {
     
     
     colMeans(du)
-    cor(du %>% select(A1, B1, C1, D1, RA, RB, RC, RD) )
+    suppressWarnings( cor(du %>% select(A1, B1, C1, D1, RA, RB, RC, RD) ) )
     
     
     # make dataset for imputation
@@ -599,7 +599,7 @@ sim_data = function(.p) {
     
     
     colMeans(du)
-    cor(du %>% select(A1, B1, C1, D1, RA, RB, RC, RD) )
+    suppressWarnings( cor(du %>% select(A1, B1, C1, D1, RA, RB, RC, RD) ) )
     
     
     # make dataset for imputation
@@ -687,7 +687,7 @@ sim_data = function(.p) {
     
     
     colMeans(du)
-    cor(du %>% select(A1, B1, C1, D1, RA, RB, RC, RD) )
+    suppressWarnings( cor(du %>% select(A1, B1, C1, D1, RA, RB, RC, RD) ) )
     
     
     # make dataset for imputation
@@ -766,7 +766,7 @@ sim_data = function(.p) {
     
     
     colMeans(du)
-    cor(du %>% select(A1, B1, D1, RA, RB, RD) )
+    suppressWarnings( cor(du %>% select(A1, B1, D1, RA, RB, RD) ) )
     
     
     # make dataset for imputation
@@ -846,7 +846,7 @@ sim_data = function(.p) {
     
     
     colMeans(du)
-    cor(du %>% select(A1, B1, D1, RA, RB, RD) )
+    suppressWarnings( cor(du %>% select(A1, B1, D1, RA, RB, RD) ) )
     
     
     # make dataset for imputation
@@ -916,7 +916,7 @@ sim_data = function(.p) {
     
     
     colMeans(du)
-    cor(du %>% select(A1, B1, RA, RB) )
+    suppressWarnings( cor(du %>% select(A1, B1, RA, RB) ) )
     
     
     # make dataset for imputation
@@ -989,7 +989,7 @@ sim_data = function(.p) {
     
     
     colMeans(du)
-    cor(du %>% select(A1, B1, RA, RB) )
+    suppressWarnings( cor(du %>% select(A1, B1, RA, RB) ) )
     
     
     # make dataset for imputation
@@ -1053,7 +1053,7 @@ sim_data = function(.p) {
     
     
     colMeans(du)
-    cor(du %>% select(A1, B1, RA, RB) )
+    suppressWarnings( cor(du %>% select(A1, B1, RA, RB) ) )
     
     
     # make dataset for imputation
@@ -1127,7 +1127,7 @@ sim_data = function(.p) {
     
     
     colMeans(du)
-    cor(du %>% select(A1, B1, RA, RB) )
+    suppressWarnings( cor(du %>% select(A1, B1, RA, RB) ) )
     
     
     # make dataset for imputation
@@ -1197,7 +1197,7 @@ sim_data = function(.p) {
     
     
     colMeans(du)
-    cor(du %>% select(A1, B1, RA, RB) )
+    suppressWarnings( cor(du %>% select(A1, B1, RA, RB) ) )
     
     
     # make dataset for imputation
@@ -1211,7 +1211,7 @@ sim_data = function(.p) {
     
     
     ### Coefficient of interest
-    if ( .p$coef_of_interest %in% c("A" ) ){ 
+    if ( .p$coef_of_interest %in% c("B" ) ){ 
       
       # regression strings
       form_string = "A ~ B"
@@ -1232,6 +1232,7 @@ sim_data = function(.p) {
   
   
   # ~ DAG 7D-bin -----------------------------
+  # since A is the outcome, "bin" for 7D-bin refers to A
   
   # B -> A -> RB
   # B binary, A binary & complete
@@ -1268,7 +1269,7 @@ sim_data = function(.p) {
     
     
     colMeans(du)
-    cor(du %>% select(A1, B1, RA, RB) )
+    suppressWarnings( cor(du %>% select(A1, B1, RA, RB) ) )
     
     
     # make dataset for imputation
@@ -1282,7 +1283,7 @@ sim_data = function(.p) {
     
     
     ### Coefficient of interest
-    if ( .p$coef_of_interest %in% c("A" ) ){ 
+    if ( .p$coef_of_interest %in% c("B" ) ){ 
       
       # regression strings
       form_string = "A ~ B"
@@ -1360,8 +1361,6 @@ fit_regression = function(form_string,
   
   if ( miss_method == "MI" ) dat = imps
   if ( miss_method %in% c("gold", "CC", "IPW", "IPW-nm") ) dat = du
-  #@ CANDIDATE SWAP TO HANDLE AUXILIARIES
-  # if ( miss_method %in% c("IPW-nm") ) dat = di
   
   if ( is.null(dat) ) stop("Dataset passed to fit_regression was NULL, maybe bc imputation failed")
   
@@ -1380,7 +1379,6 @@ fit_regression = function(form_string,
     
     if ( model == "logistic" ) {
       
-      #@DEBUGGING ONLY
       mod <- tryCatch(
         glm( eval( parse(text = form_string) ),
              data = dat,
@@ -1392,10 +1390,6 @@ fit_regression = function(form_string,
         }
       )
       
-      
-      # mod = glm( eval( parse(text = form_string) ),
-      #            data = dat,
-      #            family = binomial(link = "logit") )
       
       
       # debugging
@@ -1418,9 +1412,7 @@ fit_regression = function(form_string,
     cat("\n coef_of_interest: ", coef_of_interest)
     cat("\n bhats: ", bhats)    
     
-    #@DEBUGGING ONLY
-    # something about this fn is breaking for CC only, but no idea what
-    #  and why does it only break for CC, not the other ones?
+    # should work even for logistic regression
     mod_hc0 <- my_ols_hc0(coefName = coef_of_interest,
                           ols = mod)
     
@@ -1430,13 +1422,7 @@ fit_regression = function(form_string,
     
     mod_hc0_int <- my_ols_hc0(coefName = "(Intercept)",
                           ols = mod)
-    
-    # should work even for logistic regression
-    # mod_hc0 = my_ols_hc0(coefName = coef_of_interest,
-    #                      ols = mod)
-    
-    # previous: model-based CIs
-    #CI = as.numeric( confint(mod)[coef_of_interest,] )
+
     
     return( list( stats = data.frame( bhat = as.numeric( bhats[coef_of_interest] ),
                                       
@@ -1509,8 +1495,9 @@ fit_regression = function(form_string,
                        family = binomial(link = "log") ) )
     }
     
+    
     # to get robust SEs:
-    mod_hc0 = my_ols_hc0(coefName = "A",
+    mod_hc0 = my_ols_hc0(coefName = coef_of_interest,
                          ols = mod_wls)
     
     # also extract intercept!
@@ -2045,7 +2032,7 @@ fit_regression = function(form_string,
       
       
       colMeans(du)
-      cor(du %>% select( A1, B1, C1, RB, RC) )
+      suppressWarnings( cor(du %>% select( A1, B1, C1, RB, RC) ) )
       
       
       # make dataset for imputation (standard way: all measured variables)
@@ -2173,7 +2160,7 @@ fit_regression = function(form_string,
       
       
       colMeans(du)
-      cor(du %>% select( A1, B1, C1, RB, RC) )
+      suppressWarnings( cor(du %>% select( A1, B1, C1, RB, RC) ) )
       
       
       # make dataset for imputation (standard way: all measured variables)

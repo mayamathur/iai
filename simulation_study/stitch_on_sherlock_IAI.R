@@ -78,7 +78,7 @@ cat("\n nuni(s$scen.name) =", nuni(s$scen.name) )
 
 # ~ Check for Bad Column Names ---------------------------
 
-# not sure why this is needed - has NA columns at end
+# remove any all-NA columns
 names(s)
 any(is.na(names(s)))
 
@@ -175,9 +175,9 @@ write.xlsx(as.data.frame(t),
            paste(Sys.Date(), "agg.xlsx") )
 
 
-# xtable
-t2 = t %>% ungroup() %>% select(dag_name, method, Bhat, BhatBias, BhatCover, BhatWidth, BhatRMSE)
-print( xtable(t2), include.rownames = FALSE )
+# # xtable
+# t2 = t %>% ungroup() %>% select(dag_name, method, Bhat, BhatBias, BhatCover, BhatWidth, BhatRMSE)
+# print( xtable(t2), include.rownames = FALSE )
 
 
 

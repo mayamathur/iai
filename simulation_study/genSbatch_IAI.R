@@ -61,6 +61,9 @@ scen.params = tidyr::expand_grid(
 scen.params = scen.params %>% filter( !(dag_name %in% c("5D", "6D", "7D") &
                                           model == "logistic" ) )
 
+# for these DAGs, the outcome is A rather than B
+scen.params$coef_of_interest[ scen.params$dag_name %in% c("7D", "7D-bin") & scen.params$coef_of_interest == "A"] = "B"
+
 
 # # FULL SET
 # scen.params = tidyr::expand_grid(

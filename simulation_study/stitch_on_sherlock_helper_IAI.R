@@ -70,7 +70,7 @@ stitch = function(){
   
   # ~ Check for Bad Column Names ---------------------------
   
-  # not sure why this is needed - has NA columns at end
+  # remove any all-NA columns
   names(s)
   any(is.na(names(s)))
   
@@ -126,7 +126,7 @@ stitch = function(){
   # end of filling in beta and int
   
   # in this case, don't need to group by coef_of_interest because they're all A
-  t = s2 %>% group_by(dag_name, method) %>%
+  t = s2 %>% group_by(dag_name, model, method) %>%
     summarise( 
       reps = n(),
       PropNA = mean(is.na(bhat)),
@@ -167,9 +167,9 @@ stitch = function(){
              paste(Sys.Date(), "agg.xlsx") )
   
   
-  # xtable
-  t2 = t %>% ungroup() %>% select(dag_name, method, Bhat, BhatBias, BhatCover, BhatWidth, BhatRMSE)
-  print( xtable(t2), include.rownames = FALSE )
+  # # xtable
+  # t2 = t %>% ungroup() %>% select(dag_name, method, Bhat, BhatBias, BhatCover, BhatWidth, BhatRMSE)
+  # print( xtable(t2), include.rownames = FALSE )
   
   
   
@@ -181,7 +181,5 @@ stitch = function(){
   # also make a zipped version
   string = paste("zip -m stitched.zip", .stitch.file.name)
   system(string)
-  
-  
   
 }  # end of stitch()

@@ -136,11 +136,11 @@ if ( run.local == TRUE ) {
     #rep.methods = "gold ; CC ; MICE-std ; IPW-nm ; genloc", 
     #rep.methods = "CC ; MICE-std ; genloc ; IPW-nm", 
     #rep.methods = "gold ; af4-np ; af4-sp ; IPW-nm",
-    rep.methods = "gold ; MICE-std ; genloc",
+    rep.methods = "IPW-nm",
     
-    model = "OLS", 
-    #model = c( "OLS", "logistic"), 
-    coef_of_interest = "A",
+    #model = "OLS", 
+    model = c( "OLS", "logistic"), 
+    coef_of_interest = "B",  # ***** for 7D and 7D-bin
     N = c(1000),
     
     # MICE parameters
@@ -153,7 +153,7 @@ if ( run.local == TRUE ) {
     # AF4 parameters
     boot_reps_af4 = 0,  # only needed for CIs; if set to 0, won't give CIs
     
-    dag_name = "5D-bin"
+    dag_name = "7D-bin"
     
     # dag_name = c("5D", "5D-bin",
     #              "6D", "6D-bin",
@@ -322,12 +322,11 @@ for ( scen in scens_to_run ) {
         
           
           # this block sometimes throws "improper posterior -- empty cells"
-          
           tryCatch({
             # randomize the random seed
             rngseed( runif(min = 1000000, max = 9999999, n=1) )
             
-            #2025-05-19: this step is failing for new DAG 1B, even though apparently I was able to run genloc for the previous DAG 4B
+            # *** generate the imputations
             di3 <- prelim.mix(di2, p = n_bin)
             
             thetahat <- em.mix(di3)
@@ -925,8 +924,8 @@ for ( scen in scens_to_run ) {
       }
       
       # missing data in each variable
-      rep.res = rep.res %>% add_column( sancheck.mean_RB = mean(du$RB) )
-      rep.res = rep.res %>% add_column( sancheck.mean_RC = mean(du$RC) )
+      #rep.res = rep.res %>% add_column( sancheck.mean_RB = mean(du$RB) )
+      #rep.res = rep.res %>% add_column( sancheck.mean_RC = mean(du$RC) )
       
       # MICE method for each imputation model
       if ( exists("mice_std_methods") ) rep.res = rep.res %>% add_column( sancheck.mice_std_methods = mice_std_methods )
