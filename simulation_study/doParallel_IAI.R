@@ -297,17 +297,29 @@ for ( scen in scens_to_run ) {
         di2 = temp$df
         n_bin = temp$num_binaries
         
-        if (n_bin == 0){
+        
+        
+        if (n_bin == 0) {
           
-          message("Can't use genloc with no binaries")
-          imps_genloc = NULL
+          message("No binaries found — adding fake binary column for genloc compatibility")
+          di2$z_fake <- sample(1:2, nrow(di2), replace = TRUE)  # coded 1/2 as mix requires
+          n_bin <- 1
+          # move fake binary to front (mix requires binaries in first p columns)
+          di2 <- di2[ , c("z_fake", setdiff(names(di2), "z_fake")) ]
+          added_fake <- "binary"
           
         } else if (n_bin == ncol(di2)) {
           
-          message("Can't use genloc with no continuous vars")
-          imps_genloc = NULL 
+          message("All columns are binary — adding fake continuous column for genloc compatibility")
+          di2$z_fake <- rnorm(nrow(di2))
+          added_fake <- "continuous"
           
         } else {
+          
+          added_fake <- "none"
+          
+        }
+        
           
           # this block sometimes throws "improper posterior -- empty cells"
           
@@ -325,12 +337,10 @@ for ( scen in scens_to_run ) {
             
             for (i in 1:m) {
               newtheta <- da.mix(di3, thetahat, steps = 100)
-              newimp = as.data.frame( imp.mix(s = di3, theta = newtheta, x = di2) )
-              
-              # revert to original coding
-              newimp = reverse_recode_binaries(newimp)
-              
-              imps_genloc[[i]] <- newimp
+              newimp   <- as.data.frame( imp.mix(s = di3, theta = newtheta, x = di2) )
+              newimp   <- reverse_recode_binaries(newimp)
+              newimp$z_fake <- NULL          # <-- dropped from each imputed dataset before storing
+              imps_genloc[[i]] <- newimp    # <-- stored without z_fake
             }
             
             # sanity check
@@ -349,17 +359,15 @@ for ( scen in scens_to_run ) {
             # save the problem dataset
             if (run.local == FALSE) {
               
-              #@temp debugging
+              # for debugging
               setwd("/home/groups/manishad/IAI/rmfiles")
               fwrite( rs, paste( "rm_data", jobname, ".csv", sep="_" ) )
               
             }
-            
-            
           }
           )
           
-        }
+      
         
         message("Done imputing using genloc")
         

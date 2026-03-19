@@ -1622,7 +1622,6 @@ fit_regression = function(form_string,
     int_lo = summ$`2.5 %`[ summ$term == "(Intercept)" ]
     int_hi = summ$`97.5 %`[ summ$term == "(Intercept)" ]
     
-
     
     # also return the summarized string
     if( class(imps) == "mids" ) imp_methods = summarize_mice_methods(imps$method) else imp_methods = NA
