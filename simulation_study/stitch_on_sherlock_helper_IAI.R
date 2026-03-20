@@ -125,8 +125,7 @@ stitch = function(){
                    summarise(beta[1]) )
   # end of filling in beta and int
   
-  # in this case, don't need to group by coef_of_interest because they're all A
-  t = s2 %>% group_by(dag_name, model, method) %>%
+  t = s2 %>% group_by(dag_name, coef_of_interest, model, method) %>%
     summarise( 
       reps = n(),
       PropNA = mean(is.na(bhat)),

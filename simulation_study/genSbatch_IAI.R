@@ -50,18 +50,19 @@ scen.params = tidyr::expand_grid(
   # AF4 parameters
   boot_reps_af4 = 0,  # only needed for CIs; if set to 0, won't give CIs
   
-  dag_name = "6D-bin" )
+  # dag_name = "6D-bin" )
   
-# full set
-  # dag_name = c("5D", "5D-bin",
-  #              "6D", "6D-bin",
-  #              "7D", "7D-bin")  # make sure to pick appropriate outcome model for the DAG
+  # full set
+  dag_name = c( "5A", "5D",
+                "5D-bin",
+               "6D", "6D-bin",
+               "7D", "7D-bin")  ) # make sure to pick appropriate outcome model for the DAG
   
 
 
 
 # remove combos that aren't implemented
-scen.params = scen.params %>% filter( !(dag_name %in% c("5D", "6D", "7D") &
+scen.params = scen.params %>% filter( !(dag_name %in% c( "5A", "5D", "6D", "7D") &
                                           model == "logistic" ) )
 
 # for these DAGs, the outcome is A rather than B

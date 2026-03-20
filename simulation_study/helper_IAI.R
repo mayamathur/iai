@@ -719,7 +719,7 @@ sim_data = function(.p) {
   }  # end of .p$dag_name == "4A"
   
   
-  # ~~~~~~~~~ 2026-03 explorations ~~~~~~~~~ 
+  # ~~~~ 2026-03 explorations -----------------------------
   
   
   # ~ DAG 5A -----------------------------
