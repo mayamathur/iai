@@ -52,17 +52,23 @@ scen.params = tidyr::expand_grid(
   
   # dag_name = "6D-bin" )
   
-  # full set
-  dag_name = c( "5A", "5D",
-                "5D-bin",
-               "6D", "6D-bin",
-               "7D", "7D-bin")  ) # make sure to pick appropriate outcome model for the DAG
+  dag_name = c( "5A",
+                "5A-bin",
+                "6A", "6A-bin",
+                "7A", "7A-bin")  ) # make sure to pick appropriate outcome model for the DAG
+
+  
+  # # D series
+  # dag_name = c( "5D",
+  #               "5D-bin",
+  #              "6D", "6D-bin",
+  #              "7D", "7D-bin")  ) # make sure to pick appropriate outcome model for the DAG
   
 
 
 
 # remove combos that aren't implemented
-scen.params = scen.params %>% filter( !(dag_name %in% c( "5A", "5D", "6D", "7D") &
+scen.params = scen.params %>% filter( !(dag_name %in% c( ,"5D", "6D", "7D") &
                                           model == "logistic" ) )
 
 # for these DAGs, the outcome is A rather than B
