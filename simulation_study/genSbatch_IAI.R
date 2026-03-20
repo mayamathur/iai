@@ -36,7 +36,7 @@ scen.params = tidyr::expand_grid(
 
   rep.methods = "gold ; MICE-std ; genloc ; IPW-nm",
   
-  model = c("OLS", "logistic"),   #***** TEMP FOR BINARY Y
+  model = c("OLS", "logistic"),   
   coef_of_interest = "A",
   N = c(10000),
   
@@ -50,11 +50,14 @@ scen.params = tidyr::expand_grid(
   # AF4 parameters
   boot_reps_af4 = 0,  # only needed for CIs; if set to 0, won't give CIs
   
-  dag_name = c("5D", "5D-bin",
-               "6D", "6D-bin",
-               "7D", "7D-bin")  # make sure to pick appropriate outcome model for the DAG
+  dag_name = "6D-bin" )
   
-)
+# full set
+  # dag_name = c("5D", "5D-bin",
+  #              "6D", "6D-bin",
+  #              "7D", "7D-bin")  # make sure to pick appropriate outcome model for the DAG
+  
+
 
 
 # remove combos that aren't implemented

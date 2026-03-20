@@ -4,7 +4,7 @@ path = "/home/groups/manishad/IAI"
 setwd(path)
 source("stitch_on_sherlock_helper_IAI.R")
 
-# stitch()
+stitch()
 
 
 

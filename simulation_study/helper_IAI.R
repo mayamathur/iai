@@ -719,6 +719,9 @@ sim_data = function(.p) {
   }  # end of .p$dag_name == "4A"
   
   
+  # ~~~~~~~~~ 2026-03 explorations ~~~~~~~~~ 
+  
+  
   # ~ DAG 5A -----------------------------
   
   # A -> Y -> RA and separately W -> RW
@@ -731,10 +734,11 @@ sim_data = function(.p) {
                                   size = 1, 
                                   prob = 0.5 ),
                      
-                     # auxiliary W
+                     # W (auxiliary)
                      D1 = rbinom( n = .p$N,
                                   size = 1, 
                                   prob = 0.5 ) ) 
+    #bm
     
     
     coefAB = 2
@@ -750,13 +754,13 @@ sim_data = function(.p) {
               
               RA = rbinom( n = 1,
                            size = 1,
-                           prob = expit(-1 + 3*B1) ),
+                           prob = expit(0.5 + 1*B1) ),
+              
+              RB = 1,
               
               RD = rbinom( n = 1,
-                           size = 1,
-                           prob = expit(-1 + 3*D1) ),
-              
-              RB = 1 )
+                      size = 1,
+                      prob = expit(-1 + 3*D1) ) )
     
     du = du %>% rowwise() %>%
       mutate( A = ifelse(RA == 1, A1, NA),
@@ -767,6 +771,7 @@ sim_data = function(.p) {
     
     colMeans(du)
     suppressWarnings( cor(du %>% select(A1, B1, D1, RA, RB, RD) ) )
+    
     
     
     # make dataset for imputation

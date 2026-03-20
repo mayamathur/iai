@@ -149,8 +149,8 @@ stitch = function(){
                                 lo = int_lo,
                                 hi = int_hi) ),
       
-      sancheck.mean_RB = meanNA(sancheck.mean_RB),
-      sancheck.mean_RC = meanNA(sancheck.mean_RC),
+      # sancheck.mean_RB = meanNA(sancheck.mean_RB),
+      # sancheck.mean_RC = meanNA(sancheck.mean_RC),
       sancheck.prop_complete = meanNA(sancheck.prop_complete),
     ) %>%
     arrange() %>%

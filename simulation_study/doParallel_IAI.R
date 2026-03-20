@@ -133,14 +133,15 @@ if ( run.local == TRUE ) {
   scen.params = tidyr::expand_grid(
     
     #rep.methods = "gold ; CC ; MICE-std ; Am-std ; IPW-custom ; af4", 
-    #rep.methods = "gold ; CC ; MICE-std ; IPW-nm ; genloc", 
+    rep.methods = "gold ; CC ; MICE-std ; IPW-nm ; genloc", 
     #rep.methods = "CC ; MICE-std ; genloc ; IPW-nm", 
     #rep.methods = "gold ; af4-np ; af4-sp ; IPW-nm",
-    rep.methods = "IPW-nm",
+    #rep.methods = "IPW-nm",
     
-    #model = "OLS", 
-    model = c( "OLS", "logistic"), 
-    coef_of_interest = "B",  # ***** for 7D and 7D-bin
+    model = "OLS", 
+    #model = c( "OLS", "logistic"), 
+    coef_of_interest = "A",
+    #coef_of_interest = "B",  # ***** for 7D and 7D-bin
     N = c(1000),
     
     # MICE parameters
@@ -153,7 +154,7 @@ if ( run.local == TRUE ) {
     # AF4 parameters
     boot_reps_af4 = 0,  # only needed for CIs; if set to 0, won't give CIs
     
-    dag_name = "7D-bin"
+    dag_name = "5A"
     
     # dag_name = c("5D", "5D-bin",
     #              "6D", "6D-bin",
