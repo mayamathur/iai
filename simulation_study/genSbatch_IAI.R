@@ -65,14 +65,12 @@ scen.params = tidyr::expand_grid(
   #              "7D", "7D-bin")  ) # make sure to pick appropriate outcome model for the DAG
   
 
-
-
-# remove combos that aren't implemented
-scen.params = scen.params %>% filter( !(dag_name %in% c( ,"5D", "6D", "7D") &
-                                          model == "logistic" ) )
+# remove nonsensical combinations of parameters:
+# i.e., logistic regression when outcome is continuous
+scen.params = scen.params %>% filter(   filter( !(model == "logistic" & !grepl("-bin", dag_name) ) ) )
 
 # for these DAGs, the outcome is A rather than B
-scen.params$coef_of_interest[ scen.params$dag_name %in% c("7D", "7D-bin") & scen.params$coef_of_interest == "A"] = "B"
+scen.params$coef_of_interest[ scen.params$dag_name %in% c("7A", "7D", "7A-bin", "7D-bin") & scen.params$coef_of_interest == "A"] = "B"
 
 
 # # FULL SET
