@@ -140,21 +140,21 @@ if ( run.local == TRUE ) {
     
     model = "OLS", 
     #model = c( "OLS", "logistic"), 
-    coef_of_interest = "A",
-    #coef_of_interest = "B",  # ***** for 7D and 7D-bin
+    #coef_of_interest = "A",
+    coef_of_interest = "B",  # ***** for 7D and 7D-bin
     N = c(1000),
     
     # MICE parameters
     # as on cluster
     #imp_m = 5,  # CURRENTLY SET LOW
-    imp_m = 10,
-    imp_maxit = 5,
+    imp_m = 50,
+    imp_maxit = 100,
     mice_method = NA,  # let MICE use its defaults
     
     # AF4 parameters
     boot_reps_af4 = 0,  # only needed for CIs; if set to 0, won't give CIs
     
-    dag_name = "5A"
+    dag_name = "7D-bin"
     
     # dag_name = c("5D", "5D-bin",
     #              "6D", "6D-bin",

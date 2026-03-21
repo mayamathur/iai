@@ -1174,7 +1174,7 @@ sim_data = function(.p) {
               
               RB = rbinom( n = 1,
                            size = 1,
-                           prob = expit(-1 + 3*A1) ) )
+                           prob = expit(0.5 + A1) ) )
     
     du = du %>% rowwise() %>%
       mutate( A = ifelse(RA == 1, A1, NA),
@@ -1244,7 +1244,7 @@ sim_data = function(.p) {
               
               RB = rbinom( n = 1,
                            size = 1,
-                           prob = expit(-1 + 3*B1) ),
+                           prob = expit(0.5 + A1) ) ),
               
               RD = rbinom( n = 1,
                            size = 1,
@@ -1282,7 +1282,7 @@ sim_data = function(.p) {
   
   # same as 5D, but roles of A and B are reversed
   # now A is continuous & complete and B is binary
-  # Y <- A -> RY. 
+  # B <- A -> RB. 
   
   if ( .p$dag_name == "6D-bin" ) {
     
@@ -1307,7 +1307,7 @@ sim_data = function(.p) {
               
               RB = rbinom( n = 1,
                            size = 1,
-                           prob = expit(-1 + 3*B1) ) )
+                           prob = expit(0.5 + A1) ) )
     
     du = du %>% rowwise() %>%
       mutate( A = ifelse(RA == 1, A1, NA),
