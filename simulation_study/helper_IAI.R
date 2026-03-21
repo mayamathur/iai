@@ -721,96 +721,14 @@ sim_data = function(.p) {
   
   # ~~~~ 2026-03 explorations -----------------------------
   
-  
 
-  # # ~ DAG 5C -----------------------------
-  # 
-  # # MAR sanity check for 5A: remove the W -> RW edge
-  # # A -> Y -> RA and separately W and RW
-  # # Y is complete
-  # 
-  # if ( .p$dag_name == "5C" ) {
-  #   
-  #   # "fake" variable Z1 is always observed but is independent of everything; used only to prevent all-NA rows
-  #   du = data.frame( Z1 = rbinom( n = .p$N,
-  #                                 size = 1, 
-  #                                 prob = 0.5 ),
-  #                    
-  #                    # auxiliary W
-  #                    D1 = rbinom( n = .p$N,
-  #                                 size = 1, 
-  #                                 prob = 0.5 ) ) 
-  #   
-  #   
-  #   coefAB = 2
-  #   coefBD = 3
-  #   
-  #   du = du %>% rowwise() %>%
-  #     mutate( A1 = rbinom( n = 1,
-  #                          size = 1,
-  #                          prob = 0.5 ),
-  #             
-  #             B1 = rnorm( n = 1,
-  #                         mean = coefAB*A1 ),
-  #             
-  #             RA = rbinom( n = 1,
-  #                          size = 1,
-  #                          prob = expit(-1 + 3*B1) ),
-  #             
-  #             RD = rbinom( n = 1,
-  #                          size = 1,
-  #                          prob = 0.5 ),
-  #             
-  #             RB = 1 )
-  #   
-  #   du = du %>% rowwise() %>%
-  #     mutate( A = ifelse(RA == 1, A1, NA),
-  #             B = ifelse(RB == 1, B1, NA),
-  #             D = ifelse(RD == 1, D1, NA),
-  #             Z = Z1)
-  #   
-  #   
-  #   colMeans(du)
-  #   suppressWarnings( cor(du %>% select(A1, B1, D1, RA, RB, RD) ) )
-  #   
-  #   
-  #   # make dataset for imputation
-  #   di = du %>% select(A, B, D, Z)
-  #   
-  #   
-  #   ### For just the intercept of A
-  #   if ( .p$coef_of_interest == "(Intercept)" ){ 
-  #     stop("Intercept not implemented for this DAG")
-  #   }
-  #   
-  #   
-  #   ### Coefficient of interest
-  #   if ( .p$coef_of_interest %in% c("A" ) ){ 
-  #     
-  #     # regression strings
-  #     form_string = "B ~ A"
-  #     
-  #     # gold-standard model uses underlying variables
-  #     gold_form_string = "B1 ~ A1"
-  #     
-  #     beta = NA
-  #     
-  #     # custom predictor matrix for MICE-ours-pred
-  #     exclude_from_imp_model = NULL
-  #   }
-  #   
-  # }  # end of .p$dag_name == "5C"
-  # 
-  # 
-  # 
   
-  
-  # ~ DAG 5A -----------------------------
+  # ~ DAG 5-MNAR-cont -----------------------------
   
   # A -> Y -> RA and separately W -> RW
   # Y is complete
   
-  if ( .p$dag_name == "5A" ) {
+  if ( .p$dag_name == "5-MNAR-cont" ) {
     
     # "fake" variable Z1 is always observed but is independent of everything; used only to prevent all-NA rows
     du = data.frame( Z1 = rbinom( n = .p$N,
@@ -881,17 +799,17 @@ sim_data = function(.p) {
       exclude_from_imp_model = NULL
     }
     
-  }  # end of .p$dag_name == "5A"
+  }  # end of .p$dag_name == "5-MNAR-cont"
   
   
   
-  # ~ DAG 5D -----------------------------
+  # ~ DAG 5-MAR-cont -----------------------------
   
   # same as 5C, but remove D completely: still MAR
   # A -> Y -> RA. that's it. so it's MAR.
   # Y is complete
   
-  if ( .p$dag_name == "5D" ) {
+  if ( .p$dag_name == "5-MAR-cont" ) {
     
     # "fake" variable Z1 is always observed but is independent of everything; used only to prevent all-NA rows
     du = data.frame( Z1 = rbinom( n = .p$N,
@@ -952,13 +870,13 @@ sim_data = function(.p) {
       exclude_from_imp_model = NULL
     }
     
-  }  # end of .p$dag_name == "5D"
+  }  # end of .p$dag_name == "5-MAR-cont"
   
   
   
   
   
-  # ~ DAG 5A-bin -----------------------------
+  # ~ DAG 5-MNAR-bin -----------------------------
   
   # Same as 5D-bin (without auxiliary) but adds auxiliary D (W) with D -> RD
   # A -> B -> RA, D -> RD. MAR. Y=B binary and complete.
@@ -1017,10 +935,10 @@ sim_data = function(.p) {
       exclude_from_imp_model = NULL
     }
     
-  }  # end of .p$dag_name == "5A-bin"
+  }  # end of .p$dag_name == "5-MNAR-bin"
   
   
-  # ~ DAG 5D-bin -----------------------------
+  # ~ DAG 5-MAR-bin -----------------------------
   
   # same as 5C, but remove D completely: still MAR
   # A -> Y -> RA. that's it. so it's MAr.
@@ -1087,10 +1005,10 @@ sim_data = function(.p) {
       exclude_from_imp_model = NULL
     }
     
-  }  # end of .p$dag_name == "5D-bin"
+  }  # end of .p$dag_name == "5-MAR-bin"
   
   
-  # ~ DAG 6A -----------------------------
+  # ~ DAG 6-MNAR-cont -----------------------------
   
   # Same as 6D (without auxiliary) but adds auxiliary D (W) with D -> RD
   # A -> B, A -> RB, D -> RD. MAR. A is complete.
@@ -1150,7 +1068,7 @@ sim_data = function(.p) {
     
   }  # end of .p$dag_name == "6A"
   
-  # ~ DAG 6D -----------------------------
+  # ~ DAG 6-MAR-cont -----------------------------
   
   if ( .p$dag_name == "6D" ) {
     
@@ -1211,16 +1129,16 @@ sim_data = function(.p) {
       exclude_from_imp_model = NULL
     }
     
-  }  # end of .p$dag_name == "6D"
+  }  # end of .p$dag_name == "6-MAR-cont"
   
   
   
-  # ~ DAG 6A-bin -----------------------------
+  # ~ DAG 6-MNAR-bin -----------------------------
   
   # Same as 6D-bin (without auxiliary) but adds auxiliary D (W) with D -> RD
   # A cont -> B binary, B -> RB, D -> RD. MAR. A is complete.
   
-  if ( .p$dag_name == "6A-bin" ) {
+  if ( .p$dag_name == "6-MNAR-bin" ) {
     
     du = data.frame( Z1 = rbinom( n = .p$N,
                                   size = 1, 
@@ -1244,7 +1162,7 @@ sim_data = function(.p) {
               
               RB = rbinom( n = 1,
                            size = 1,
-                           prob = expit(0.5 + A1) ) ),
+                           prob = expit(0.5 + A1) ),
               
               RD = rbinom( n = 1,
                            size = 1,
@@ -1273,18 +1191,18 @@ sim_data = function(.p) {
       exclude_from_imp_model = NULL
     }
     
-  }  # end of .p$dag_name == "6A-bin"
+  }  # end of .p$dag_name == "6-MNAR-bin"
   
   
   
   
-  # ~ DAG 6D-bin -----------------------------
+  # ~ DAG 6-MAR-bin -----------------------------
   
   # same as 5D, but roles of A and B are reversed
   # now A is continuous & complete and B is binary
   # B <- A -> RB. 
   
-  if ( .p$dag_name == "6D-bin" ) {
+  if ( .p$dag_name == "6-MAR-bin" ) {
     
     # "fake" variable Z1 is always observed but is independent of everything; used only to prevent all-NA rows
     du = data.frame( Z1 = rbinom( n = .p$N,
@@ -1344,7 +1262,7 @@ sim_data = function(.p) {
       exclude_from_imp_model = NULL
     }
     
-  }  # end of .p$dag_name == "6D-bin"
+  }  # end of .p$dag_name == "6-MAR-bin"
   
 
   # ~ Finish generating data ----------------
