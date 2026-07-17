@@ -335,15 +335,12 @@ for ( scen in scens_to_run ) {
             m <- p$imp_m  
             imps_genloc <- vector("list", m)
             
-            # NB: this loop used to be indexed by `i`, which is ALSO the foreach
-            # sim-rep index. It silently overwrote the rep counter, so every
-            # rep.name downstream was recorded as imp_m rather than the rep.
-            for (.imp in 1:m) {
+            for (i in 1:m) {
               newtheta <- da.mix(di3, thetahat, steps = 100)
               newimp   <- as.data.frame( imp.mix(s = di3, theta = newtheta, x = di2) )
               newimp   <- reverse_recode_binaries(newimp)
               newimp$z_fake <- NULL          # <-- dropped from each imputed dataset before storing
-              imps_genloc[[.imp]] <- newimp  # <-- stored without z_fake
+              imps_genloc[[i]] <- newimp    # <-- stored without z_fake
             }
             
             # sanity check
@@ -357,9 +354,7 @@ for ( scen in scens_to_run ) {
             
           }, error = function(e) {
             message("error making genloc imputations: ", e$message)
-            # superassignment: the previous `imps_genloc = NULL` was local to the
-            # handler and never reached the caller
-            imps_genloc <<- NULL
+            imps_genloc = NULL
             
             # save the problem dataset
             if (run.local == FALSE) {
@@ -436,9 +431,7 @@ for ( scen in scens_to_run ) {
         
       
         
-        # was imps_mice$method, but imps_mice is a plain list of completed
-        # datasets -- the mids object is imps_mice_raw
-        mice_std_methods = summarize_mice_methods(imps_mice_raw$method)
+        mice_std_methods = summarize_mice_methods(imps_mice$method)
         
         # sanity check
         imp1 = imps_mice[[1]]
@@ -937,13 +930,6 @@ for ( scen in scens_to_run ) {
       
       # MICE method for each imputation model
       if ( exists("mice_std_methods") ) rep.res = rep.res %>% add_column( sancheck.mice_std_methods = mice_std_methods )
-      
-      # W-block sanchecks: realized per-component missingness, realized
-      # correlations, and the all-W-observed proportion (the number that decides
-      # whether the complete-case-based estimators have anything to work with)
-      if ( !is.null(sim_obj$W) ) {
-        rep.res = rep.res %>% bind_cols( w_sanchecks(W = sim_obj$W, .p = p) )
-      }
       
       
       

@@ -4,12 +4,7 @@
 
 
 expit = function(p) exp(p) / (1 + exp(p))
-# NOTE: this used to read `p / (1-p)`, which is the ODDS, not the logit. It was
-# silently shadowed by the correct definition further down this file; fixed here.
-logit = function(p) log( p / (1-p) )
-
-# high-dimensional auxiliary block W (correlated, mixed-type, per-component R)
-source("helper_IAI_Wblock.R")
+logit = function(p) p / (1-p)
 
 
 
@@ -732,43 +727,76 @@ sim_data = function(.p) {
   # Y is complete
   
   if ( .p$dag_name == "5-MNAR-cont" ) {
-
-    # "fake" variable Z1 is always observed but is independent of everything;
-    # used only to prevent all-NA rows
-    du = data.frame( Z1 = rbinom( n = .p$N, size = 1, prob = 0.5 ) )
-
+    
+    # "fake" variable Z1 is always observed but is independent of everything; used only to prevent all-NA rows
+    du = data.frame( Z1 = rbinom( n = .p$N,
+                                  size = 1, 
+                                  prob = 0.5 ),
+                     
+                     # W (auxiliary)
+                     D1 = rbinom( n = .p$N,
+                                  size = 1, 
+                                  prob = 0.5 ) ) 
+    #bm
+    
+    
     coefAB = 2
-
-    # vectorized (was rowwise(); identical DGM, ~100x faster at N = 10,000)
-    du$A1 = rbinom( n = .p$N, size = 1, prob = 0.5 )
-    du$B1 = rnorm(  n = .p$N, mean = coefAB * du$A1 )
-    du$RA = rbinom( n = .p$N, size = 1, prob = expit(0.5 + 1 * du$B1) )
-    du$RB = 1
-
-    # ~~ auxiliary block W ----
-    # Replaces the single binary D. Every component W_j has exactly the edges D
-    # had: W_j -> R_Wj and nothing else. W remains disconnected from (A, B), so
-    # there are no interactions to specify. .p$W_dim == 1 reproduces the legacy
-    # single-D DGM and also aliases D1 / D / RD.
-    W = gen_W_block(.p)
-    if ( !is.null(W) ) du = bind_cols(du, W)
-
-    du = du %>% mutate( A = ifelse(RA == 1, A1, NA),
-                        B = ifelse(RB == 1, B1, NA),
-                        Z = Z1 )
-
-    # make dataset for imputation: analysis variables + OBSERVED auxiliaries
-    di = du %>% select( all_of( c("A", "B", w_names(.p)$obs, "Z") ) )
-
-    if ( .p$coef_of_interest == "(Intercept)" ) stop("Intercept not implemented for this DAG")
-
-    if ( .p$coef_of_interest %in% c("A") ) {
-      form_string      = "B ~ A"
+    coefBD = 3
+    
+    du = du %>% rowwise() %>%
+      mutate( A1 = rbinom( n = 1,
+                           size = 1,
+                           prob = 0.5 ),
+              
+              B1 = rnorm( n = 1,
+                          mean = coefAB*A1 ),
+              
+              RA = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(0.5 + 1*B1) ),
+              
+              RB = 1,
+              
+              RD = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(-1 + 3*D1) ) )
+    
+    du = du %>% rowwise() %>%
+      mutate( A = ifelse(RA == 1, A1, NA),
+              B = ifelse(RB == 1, B1, NA),
+              D = ifelse(RD == 1, D1, NA),
+              Z = Z1)
+    
+    
+    colMeans(du)
+    suppressWarnings( cor(du %>% select(A1, B1, D1, RA, RB, RD) ) )
+    
+    
+    # make dataset for imputation
+    di = du %>% select(A, B, D, Z)
+    
+    
+    ### For just the intercept of A
+    if ( .p$coef_of_interest == "(Intercept)" ){ 
+      stop("Intercept not implemented for this DAG")
+    }
+    
+    
+    ### Coefficient of interest
+    if ( .p$coef_of_interest %in% c("A" ) ){ 
+      
+      # regression strings
+      form_string = "B ~ A"
+      
+      # gold-standard model uses underlying variables
       gold_form_string = "B1 ~ A1"
+      
       beta = NA
+      
+      # custom predictor matrix for MICE-ours-pred
       exclude_from_imp_model = NULL
     }
-
+    
   }  # end of .p$dag_name == "5-MNAR-cont"
   
   
@@ -852,43 +880,59 @@ sim_data = function(.p) {
   # A -> B -> RA, D -> RD. MAR. Y=B binary and complete.
   
   if ( .p$dag_name == "5-MNAR-bin" ) {
-
-    # "fake" variable Z1 is always observed but is independent of everything;
-    # used only to prevent all-NA rows
-    du = data.frame( Z1 = rbinom( n = .p$N, size = 1, prob = 0.5 ) )
-
+    
+    du = data.frame( Z1 = rbinom( n = .p$N,
+                                  size = 1, 
+                                  prob = 0.5 ),
+                     
+                     D1 = rbinom( n = .p$N,
+                                  size = 1, 
+                                  prob = 0.5 ) ) 
+    
     coefAB = 2
-
-    # vectorized (was rowwise(); identical DGM, ~100x faster at N = 10,000)
-    du$A1 = rbinom( n = .p$N, size = 1, prob = 0.5 )
-    du$B1 = rbinom( n = .p$N, size = 1, prob = plogis( -2 + coefAB * du$A1 ) )
-    du$RA = rbinom( n = .p$N, size = 1, prob = expit(-1 + 3 * du$B1) )
-    du$RB = 1
-
-    # ~~ auxiliary block W ----
-    # Replaces the single binary D. Every component W_j has exactly the edges D
-    # had: W_j -> R_Wj and nothing else. W remains disconnected from (A, B), so
-    # there are no interactions to specify. .p$W_dim == 1 reproduces the legacy
-    # single-D DGM and also aliases D1 / D / RD.
-    W = gen_W_block(.p)
-    if ( !is.null(W) ) du = bind_cols(du, W)
-
-    du = du %>% mutate( A = ifelse(RA == 1, A1, NA),
-                        B = ifelse(RB == 1, B1, NA),
-                        Z = Z1 )
-
-    # make dataset for imputation: analysis variables + OBSERVED auxiliaries
-    di = du %>% select( all_of( c("A", "B", w_names(.p)$obs, "Z") ) )
-
-    if ( .p$coef_of_interest == "(Intercept)" ) stop("Intercept not implemented for this DAG")
-
-    if ( .p$coef_of_interest %in% c("A") ) {
+    
+    du = du %>% rowwise() %>%
+      mutate( A1 = rbinom( n = 1,
+                           size = 1,
+                           prob = 0.5 ),
+              
+              B1 = rbinom( n = 1,
+                           size = 1,
+                           prob = plogis( -2 + coefAB*A1 ) ),
+              
+              RA = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(-1 + 3*B1) ),
+              
+              RB = 1,
+              
+              RD = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(-1 + 3*D1) ) )
+    
+    du = du %>% rowwise() %>%
+      mutate( A = ifelse(RA == 1, A1, NA),
+              B = ifelse(RB == 1, B1, NA),
+              D = ifelse(RD == 1, D1, NA),
+              Z = Z1)
+    
+    colMeans(du)
+    suppressWarnings( cor(du %>% select(A1, B1, D1, RA, RB, RD) ) )
+    
+    # make dataset for imputation
+    di = du %>% select(A, B, D, Z)
+    
+    if ( .p$coef_of_interest == "(Intercept)" ){ 
+      stop("Intercept not implemented for this DAG")
+    }
+    
+    if ( .p$coef_of_interest %in% c("A" ) ){ 
       form_string      = "B ~ A"
       gold_form_string = "B1 ~ A1"
       beta = NA
       exclude_from_imp_model = NULL
     }
-
+    
   }  # end of .p$dag_name == "5-MNAR-bin"
   
   
@@ -968,43 +1012,58 @@ sim_data = function(.p) {
   # A -> B, A -> RB, D -> RD. MAR. A is complete.
   
   if ( .p$dag_name == "6-MNAR-cont" ) {
-
-    # "fake" variable Z1 is always observed but is independent of everything;
-    # used only to prevent all-NA rows
-    du = data.frame( Z1 = rbinom( n = .p$N, size = 1, prob = 0.5 ) )
-
+    
+    du = data.frame( Z1 = rbinom( n = .p$N,
+                                  size = 1, 
+                                  prob = 0.5 ),
+                     
+                     D1 = rbinom( n = .p$N,
+                                  size = 1, 
+                                  prob = 0.5 ) ) 
+    
     coefAB = 2
-
-    # vectorized (was rowwise(); identical DGM, ~100x faster at N = 10,000)
-    du$A1 = rbinom( n = .p$N, size = 1, prob = 0.5 )
-    du$B1 = rnorm(  n = .p$N, mean = coefAB * du$A1 )
-    du$RA = 1
-    du$RB = rbinom( n = .p$N, size = 1, prob = expit(-1 + 3 * du$A1) )
-
-    # ~~ auxiliary block W ----
-    # Replaces the single binary D. Every component W_j has exactly the edges D
-    # had: W_j -> R_Wj and nothing else. W remains disconnected from (A, B), so
-    # there are no interactions to specify. .p$W_dim == 1 reproduces the legacy
-    # single-D DGM and also aliases D1 / D / RD.
-    W = gen_W_block(.p)
-    if ( !is.null(W) ) du = bind_cols(du, W)
-
-    du = du %>% mutate( A = ifelse(RA == 1, A1, NA),
-                        B = ifelse(RB == 1, B1, NA),
-                        Z = Z1 )
-
-    # make dataset for imputation: analysis variables + OBSERVED auxiliaries
-    di = du %>% select( all_of( c("A", "B", w_names(.p)$obs, "Z") ) )
-
-    if ( .p$coef_of_interest == "(Intercept)" ) stop("Intercept not implemented for this DAG")
-
-    if ( .p$coef_of_interest %in% c("A") ) {
+    
+    du = du %>% rowwise() %>%
+      mutate( A1 = rbinom( n = 1,
+                           size = 1,
+                           prob = 0.5 ),
+              
+              B1 = rnorm( n = 1,
+                          mean = coefAB*A1 ),
+              
+              RA = 1,
+              
+              RB = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(-1 + 3*A1) ),
+              
+              RD = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(-1 + 3*D1) ) )
+    
+    du = du %>% rowwise() %>%
+      mutate( A = ifelse(RA == 1, A1, NA),
+              B = ifelse(RB == 1, B1, NA),
+              D = ifelse(RD == 1, D1, NA),
+              Z = Z1)
+    
+    colMeans(du)
+    suppressWarnings( cor(du %>% select(A1, B1, D1, RA, RB, RD) ) )
+    
+    # make dataset for imputation
+    di = du %>% select(A, B, D, Z)
+    
+    if ( .p$coef_of_interest == "(Intercept)" ){ 
+      stop("Intercept not implemented for this DAG")
+    }
+    
+    if ( .p$coef_of_interest %in% c("A" ) ){ 
       form_string      = "B ~ A"
       gold_form_string = "B1 ~ A1"
       beta = NA
       exclude_from_imp_model = NULL
     }
-
+    
   }  # end of .p$dag_name == "6-MNAR-cont"
   
   
@@ -1080,43 +1139,58 @@ sim_data = function(.p) {
   # A cont -> B binary, B -> RB, D -> RD. MAR. A is complete.
   
   if ( .p$dag_name == "6-MNAR-bin" ) {
-
-    # "fake" variable Z1 is always observed but is independent of everything;
-    # used only to prevent all-NA rows
-    du = data.frame( Z1 = rbinom( n = .p$N, size = 1, prob = 0.5 ) )
-
+    
+    du = data.frame( Z1 = rbinom( n = .p$N,
+                                  size = 1, 
+                                  prob = 0.5 ),
+                     
+                     D1 = rbinom( n = .p$N,
+                                  size = 1, 
+                                  prob = 0.5 ) ) 
+    
     coefAB = 2
-
-    # vectorized (was rowwise(); identical DGM, ~100x faster at N = 10,000)
-    du$A1 = rnorm(  n = .p$N, mean = 0 )
-    du$B1 = rbinom( n = .p$N, size = 1, prob = plogis( -2 + coefAB * du$A1 ) )
-    du$RA = 1
-    du$RB = rbinom( n = .p$N, size = 1, prob = expit(0.5 + du$A1) )
-
-    # ~~ auxiliary block W ----
-    # Replaces the single binary D. Every component W_j has exactly the edges D
-    # had: W_j -> R_Wj and nothing else. W remains disconnected from (A, B), so
-    # there are no interactions to specify. .p$W_dim == 1 reproduces the legacy
-    # single-D DGM and also aliases D1 / D / RD.
-    W = gen_W_block(.p)
-    if ( !is.null(W) ) du = bind_cols(du, W)
-
-    du = du %>% mutate( A = ifelse(RA == 1, A1, NA),
-                        B = ifelse(RB == 1, B1, NA),
-                        Z = Z1 )
-
-    # make dataset for imputation: analysis variables + OBSERVED auxiliaries
-    di = du %>% select( all_of( c("A", "B", w_names(.p)$obs, "Z") ) )
-
-    if ( .p$coef_of_interest == "(Intercept)" ) stop("Intercept not implemented for this DAG")
-
-    if ( .p$coef_of_interest %in% c("A") ) {
+    
+    du = du %>% rowwise() %>%
+      mutate( A1 = rnorm( n = 1,
+                          mean = 0 ),
+              
+              B1 = rbinom( n = 1,
+                           size = 1,
+                           prob = plogis( -2 + coefAB*A1 ) ),
+              
+              RA = 1,
+              
+              RB = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(0.5 + A1) ),
+              
+              RD = rbinom( n = 1,
+                           size = 1,
+                           prob = expit(-1 + 3*D1) ) )
+    
+    du = du %>% rowwise() %>%
+      mutate( A = ifelse(RA == 1, A1, NA),
+              B = ifelse(RB == 1, B1, NA),
+              D = ifelse(RD == 1, D1, NA),
+              Z = Z1)
+    
+    colMeans(du)
+    suppressWarnings( cor(du %>% select(A1, B1, D1, RA, RB, RD) ) )
+    
+    # make dataset for imputation
+    di = du %>% select(A, B, D, Z)
+    
+    if ( .p$coef_of_interest == "(Intercept)" ){ 
+      stop("Intercept not implemented for this DAG")
+    }
+    
+    if ( .p$coef_of_interest %in% c("A" ) ){ 
       form_string      = "B ~ A"
       gold_form_string = "B1 ~ A1"
       beta = NA
       exclude_from_imp_model = NULL
     }
-
+    
   }  # end of .p$dag_name == "6-MNAR-bin"
   
   
@@ -1197,9 +1271,6 @@ sim_data = function(.p) {
   
   return( list(du = du,
                di = di,
-               # the W block itself, so doParallel can compute its sanchecks;
-               # NULL for W_dim == 0 (the 5-MAR-* / 6-MAR-* arms)
-               W = if ( exists("W") ) W else NULL,
                exclude_from_imp_model = exclude_from_imp_model,
                form_string = form_string,
                gold_form_string = gold_form_string,
@@ -1343,14 +1414,7 @@ fit_regression = function(form_string,
     # Identify variables to be used in the analysis
     # misnomer because we'd also include auxiliaries here! 
     #analysis_vars <- all.vars( as.formula(form_string) )
-    # was: intersect(c("A", "B", "C", "D"), colnames(dat)) -- hard-coded, and
-    # silently dropped every W component once W became high-dimensional.
-    analysis_vars = intersect( c("A", "B", "C", "D", w_names(p)$obs), colnames(dat) )
-    # guard: the JAGS pattern model builds one parameter block per observed
-    # missingness pattern, so it is not viable for a high-dimensional W.
-    if ( length(analysis_vars) > 4 ) {
-      stop("IPW-nm is not supported when W is high-dimensional (pattern count explodes); use MICE instead.")
-    }
+    analysis_vars = intersect(c("A", "B", "C", "D"), colnames(dat))
     
     # Add pattern indicators
     data_with_patterns <- create_pattern_indicators(dat, analysis_vars)
