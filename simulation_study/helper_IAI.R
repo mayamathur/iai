@@ -719,9 +719,7 @@ sim_data = function(.p) {
   }  # end of .p$dag_name == "4A"
   
   
-  # ~~~~ 2026-03 explorations -----------------------------
-  
-
+  # ~~~~ 2026-03 explorations: -----------------------------
   
   # ~ DAG 5-MNAR-cont -----------------------------
   
@@ -881,7 +879,7 @@ sim_data = function(.p) {
   # Same as 5D-bin (without auxiliary) but adds auxiliary D (W) with D -> RD
   # A -> B -> RA, D -> RD. MAR. Y=B binary and complete.
   
-  if ( .p$dag_name == "5A-bin" ) {
+  if ( .p$dag_name == "5-MNAR-bin" ) {
     
     du = data.frame( Z1 = rbinom( n = .p$N,
                                   size = 1, 
@@ -944,7 +942,7 @@ sim_data = function(.p) {
   # A -> Y -> RA. that's it. so it's MAr.
   # Y is complete
   
-  if ( .p$dag_name == "5D-bin" ) {
+  if ( .p$dag_name == "5-MAR-bin" ) {
     
     # "fake" variable Z1 is always observed but is independent of everything; used only to prevent all-NA rows
     du = data.frame( Z1 = rbinom( n = .p$N,
@@ -1013,7 +1011,7 @@ sim_data = function(.p) {
   # Same as 6D (without auxiliary) but adds auxiliary D (W) with D -> RD
   # A -> B, A -> RB, D -> RD. MAR. A is complete.
   
-  if ( .p$dag_name == "6A" ) {
+  if ( .p$dag_name == "6-MNAR-cont" ) {
     
     du = data.frame( Z1 = rbinom( n = .p$N,
                                   size = 1, 
@@ -1066,11 +1064,13 @@ sim_data = function(.p) {
       exclude_from_imp_model = NULL
     }
     
-  }  # end of .p$dag_name == "6A"
+  }  # end of .p$dag_name == "6-MNAR-cont"
+  
+  
   
   # ~ DAG 6-MAR-cont -----------------------------
   
-  if ( .p$dag_name == "6D" ) {
+  if ( .p$dag_name == "6-MAR-cont" ) {
     
     # "fake" variable Z1 is always observed but is independent of everything; used only to prevent all-NA rows
     du = data.frame( Z1 = rbinom( n = .p$N,

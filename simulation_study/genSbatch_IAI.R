@@ -34,7 +34,7 @@ lapply( allPackages,
 
 scen.params = tidyr::expand_grid(
 
-  rep.methods = "gold ; MICE-std ; genloc ; IPW-nm",
+  rep.methods = "gold ; CC ; MICE-std ; genloc ; IPW-nm",
   
   model = c("OLS", "logistic"),   
   coef_of_interest = "A",
@@ -42,7 +42,6 @@ scen.params = tidyr::expand_grid(
   
   # MICE parameters
   # as on cluster
-  #imp_m = 5,  # CURRENTLY SET LOW
   imp_m = 50,
   imp_maxit = 100,
   mice_method = NA,  # let MICE use its defaults
@@ -50,27 +49,16 @@ scen.params = tidyr::expand_grid(
   # AF4 parameters
   boot_reps_af4 = 0,  # only needed for CIs; if set to 0, won't give CIs
   
-  # dag_name = "6D-bin" )
-  
-  dag_name = c( "5A",
-                "5A-bin",
-                "6A", "6A-bin",
-                "7A", "7A-bin")  ) # make sure to pick appropriate outcome model for the DAG
+  dag_name = c("5-MNAR-cont", "5-MAR-cont",
+               "5-MNAR-bin", "5-MAR-bin",
+               "6-MNAR-cont", "6-MAR-cont",
+               "6-MNAR-bin", "6-MAR-bin") )
 
-  
-  # # D series
-  # dag_name = c( "5D",
-  #               "5D-bin",
-  #              "6D", "6D-bin",
-  #              "7D", "7D-bin")  ) # make sure to pick appropriate outcome model for the DAG
   
 
 # remove nonsensical combinations of parameters:
 # i.e., logistic regression when outcome is continuous
-scen.params = scen.params %>% filter(   filter( !(model == "logistic" & !grepl("-bin", dag_name) ) ) )
-
-# for these DAGs, the outcome is A rather than B
-scen.params$coef_of_interest[ scen.params$dag_name %in% c("7A", "7D", "7A-bin", "7D-bin") & scen.params$coef_of_interest == "A"] = "B"
+scen.params = scen.params %>% filter( !(model == "logistic" & !grepl("-bin", dag_name) ) )
 
 
 # # FULL SET
