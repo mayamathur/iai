@@ -133,7 +133,7 @@ if ( run.local == TRUE ) {
   scen.params = tidyr::expand_grid(
     
     #rep.methods = "gold ; CC ; MICE-std ; Am-std ; IPW-custom ; af4", 
-    rep.methods = "gold ; CC ; MICE-std", 
+    rep.methods = "gold ; CC ; mia-pkg-sp", 
     #rep.methods = "CC ; MICE-std ; genloc ; IPW-nm", 
     #rep.methods = "gold ; af4-np ; af4-sp ; IPW-nm",
     #rep.methods = "IPW-nm",
@@ -159,6 +159,8 @@ if ( run.local == TRUE ) {
     W_parent_coef     = 1,       # strength of X2 (A1) -> W
     W_inter_coef      = 1,       # coefficient on the single W1*W2 interaction
     
+
+    
     # MICE parameters
     # as on cluster
     #imp_m = 5,  # CURRENTLY SET LOW
@@ -168,6 +170,7 @@ if ( run.local == TRUE ) {
     
     # AF4 parameters
     boot_reps_af4 = 0,  # only needed for CIs; if set to 0, won't give CIs
+    mia_n_mc = 10000, 
     
     dag_name = "1A"
     
@@ -202,7 +205,7 @@ if ( run.local == TRUE ) {
 if (run.local == TRUE) ( scens_to_run = scen.params$scen )
 if (run.local == FALSE) ( scens_to_run = scen )  # from sbatch
 
-if (run.local == TRUE) sim.reps = 1
+if (run.local == TRUE) sim.reps = 500
 #  p = scen.params[ scen.params$scen == scen, names(scen.params) != "scen"]
 
 
@@ -907,57 +910,55 @@ for ( scen in scens_to_run ) {
       if (run.local == TRUE) srr(rep.res)
       
       
-      
-      # ~~ MIA (miapack) ----------------------------------------------------
-      # Estimates the MIA functional via miapack::mia (CRAN 0.1.0):
-      #   mu_MIA(x) = int_w E[Y | X=x, W=w, M=1] p(w | X=x, R_W=R_X=1) dw
-      # See ?miapack::mia. The estimand here is a CONTRAST in the exposure A,
-      #   mu_MIA(A=1, C=c0) - mu_MIA(A=0, C=c0),
-      # which is the MIA analog of the coef of A in the gold model B ~ A (+ C).
-      #
-      # miapack API notes (differs from fit_regression-based methods):
-      #   - X_names holds ALL predictors that appear in Y_model / W_model on the
-      #     X side; X_values_* give the counterfactual level of each, in order.
-      #   - W_model is a LIST of formulas, one per W component, simulated in the
-      #     order listed (sequential factorization p(w_j | X, w_1..w_{j-1})).
-      #   - Y_type / W_type are inferred from the columns if omitted; we pass
-      #     them explicitly so a rep that happens to be all-0/1 doesn't get
-      #     mistyped.
-      #   - CIs come from get_CI() (bootstrap; miapack Imports boot), not from
-      #     the mia() object itself.
-      if ( "mia" %in% all.methods ) {
-        rep.res = run_method_safe(method.label = c("mia"),
+      # ~~ MIA - package; semiparametric ----
+      if ( "mia-pkg-sp" %in% all.methods ) {
+        rep.res = run_method_safe(method.label = c("mia-pkg-sp"),
                                   
                                   method.fn = function(x) {
                                     
-                                    Wobs = w_names(p)$obs                    # e.g. c("W01","W02")
+                                    # ---- parse the gold model into outcome + predictors ----
+                                    fo        = as.formula(form_string)   # e.g. B ~ A * C
+                                    outcome   = all.vars(fo)[1]           # LHS, e.g. "B"
+                                    exposure  = coef_of_interest          # e.g. "A"
+                                    rhs_vars  = all.vars(fo)[-1]          # main-effect vars on RHS
+                                    covars    = setdiff(rhs_vars, exposure)  # analysis covars X \ exposure
                                     
-                                    # hold C fixed at its reference level for the contrast
-                                    c0 = 0
+                                    Wobs   = w_names(p)$obs               # W component columns
+                                    X_names = c(exposure, covars)         # predictor set for mia()
                                     
-                                    # Y and W types, aligned to how sim_data builds them:
-                                    #  - B (outcome) is continuous when model = OLS, else binary
-                                    #  - continuous W components are "normal", the rest "binary"
+                                    # miapack::mia REQUIRES the outcome column to be named "Y"
+                                    # (see ?mia / dat.sim). Rename on a local copy only; predictors
+                                    # keep their real names and are referenced via X_names.
+                                    di_mia = di
+                                    names(di_mia)[names(di_mia) == outcome] = "Y"
+                                    
+                                    # rebuild the outcome-model formula with LHS "Y", same RHS
+                                    # terms as the gold model (keeps interactions) plus W
+                                    rhs_terms = labels(terms(fo))         # e.g. "A","C","A:C"
+                                    Y_form = as.formula(
+                                      paste("Y ~", paste(c(rhs_terms, Wobs), collapse = " + ")) )
+                                    
+                                    # contrast: exposure 1 vs 0, all covars held at reference level 0
+                                    ref = rep(0, length(covars))
+                                    Xv1 = c(1, ref)
+                                    Xv0 = c(0, ref)
+                                    
+                                    # ---- types, aligned to how sim_data builds the columns ----
                                     Y_type = if ( p$model == "logistic" ) "binary" else "continuous"
                                     W_type = ifelse( seq_along(Wobs) <= p$W_n_cont, "normal", "binary" )
                                     
-                                    # outcome model: E[Y | A, C, W], main effects
-                                    Y_form = as.formula(
-                                      paste("B ~ A + C +", paste(Wobs, collapse = " + ")) )
-                                    
-                                    # one W-model per component; each conditions on A, C, and the
-                                    # earlier components (sequential factorization). Types are
-                                    # handled by mia() via W_type (binomial vs gaussian fit).
+                                    # ---- one W-model per component (sequential factorization):
+                                    #      w_j ~ exposure + covars + earlier components ----
                                     W_forms = lapply( seq_along(Wobs), function(j) {
-                                      preds = c("A", "C", Wobs[seq_len(j - 1)])
+                                      preds = c(X_names, Wobs[seq_len(j - 1)])
                                       as.formula( paste(Wobs[j], "~", paste(preds, collapse = " + ")) )
                                     })
                                     
-                                    fit = miapack::mia(
-                                      data          = di,
-                                      X_names       = c("A", "C"),
-                                      X_values_1    = c(1, c0),
-                                      X_values_2    = c(0, c0),
+                                    mia_args = list(
+                                      data          = di_mia,
+                                      X_names       = X_names,
+                                      X_values_1    = Xv1,
+                                      X_values_2    = Xv0,
                                       contrast_type = "difference",
                                       Y_model       = Y_form,
                                       Y_type        = Y_type,
@@ -966,35 +967,40 @@ for ( scen in scens_to_run ) {
                                       n_mc          = p$mia_n_mc
                                     )
                                     
-                                    # point estimate = the A=1 vs A=0 contrast
+                                    fit = do.call(miapack::mia, mia_args)
+                                    
+                                    # point estimate = the exposure 1 vs 0 contrast
                                     if ( p$boot_reps_af4 == 0 ) {
                                       return( list( stats = data.frame(
                                         bhat   = fit$contrast_est,
-                                        mia_e1 = fit$mean_est_1,   # mu_MIA(A=1, C=c0)
-                                        mia_e0 = fit$mean_est_2    # mu_MIA(A=0, C=c0)
+                                        mia_e1 = fit$mean_est_1,
+                                        mia_e0 = fit$mean_est_2
                                       ) ) )
                                     }
                                     
-                                    # bootstrap CI for the contrast via miapack::get_CI
-                                    ci = miapack::get_CI(
-                                      data          = di,
-                                      X_names       = c("A", "C"),
-                                      X_values_1    = c(1, c0),
-                                      X_values_2    = c(0, c0),
-                                      contrast_type = "difference",
-                                      Y_model       = Y_form,
-                                      Y_type        = Y_type,
-                                      W_model       = W_forms,
-                                      W_type        = W_type,
-                                      n_mc          = p$mia_n_mc,
-                                      R             = p$boot_reps_af4
+                                    # ---- bootstrap CI via miapack::get_CI ----
+                                    # get_CI takes the FITTED mia object (not the modeling args)
+                                    # and wraps boot / boot.ci. type = "bca" is the mia default.
+                                    ci_obj = miapack::get_CI(
+                                      mia_res = fit,
+                                      n_boot  = p$boot_reps_af4,
+                                      type    = "bca",   
+                                      conf    = 0.95
                                     )
+                                    
+                                    # ci_contrast is a "boot.ci" object. Its type-specific
+                                    # component ([[4]]) holds the interval; the LAST TWO columns
+                                    # are lo, hi for every type (norm's row is 1x3, the rest 1x5),
+                                    # so pull them positionally rather than hard-coding 4:5.
+                                    ci_row = ci_obj$ci_contrast[[4]]
+                                    ci_lo  = ci_row[ length(ci_row) - 1 ]
+                                    ci_hi  = ci_row[ length(ci_row) ]
                                     
                                     return( list( stats = data.frame(
                                       bhat       = fit$contrast_est,
-                                      bhat_lo    = ci$contrast_ci[1],
-                                      bhat_hi    = ci$contrast_ci[2],
-                                      bhat_width = ci$contrast_ci[2] - ci$contrast_ci[1],
+                                      bhat_lo    = ci_lo,
+                                      bhat_hi    = ci_hi,
+                                      bhat_width = ci_hi - ci_lo,
                                       mia_e1     = fit$mean_est_1,
                                       mia_e0     = fit$mean_est_2
                                     ) ) )
@@ -1003,6 +1009,7 @@ for ( scen in scens_to_run ) {
       }
       
       if (run.local == TRUE) srr(rep.res)
+      
   
       # ~ Add Scen Params and Sanity Checks --------------------------------------
       
