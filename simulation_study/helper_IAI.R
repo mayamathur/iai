@@ -33,57 +33,84 @@ sim_data = function(.p) {
     
     # "fake" variable Z1 is always observed but is independent of everything; used only to 
     #  prevent all-NA rows
-    du = data.frame( Z1 = rbinom( n = .p$N,
-                                  size = 1, 
-                                  prob = 0.5 ),
-                     
-                     C1 = rbinom( n = .p$N,
-                                  size = 1, 
-                                  prob = 0.5 ) ) 
-    
+    du = data.frame( Z1 = rbinom( n = .p$N, size = 1, prob = 0.5 ),
+                     C1 = rbinom( n = .p$N, size = 1, prob = 0.5 ) ) 
     
     coefDB = 2
     coefAD = 3
     coefAB = 2
     
-    du = du %>% rowwise() %>%
-      mutate( A1 = rbinom( n = 1,
-                           size = 1,
-                           prob = expit(-1 + 3*C1) ),
-              
-              D1 = rbinom( n = 1,
-                           size = 1,
-                           prob = expit(-1 + coefAD*A1) ),
-              
-              B1 = rnorm( n = 1,
-                          mean = coefDB*D1 + 2.6*C1 + D1*C1 + coefAB*A1 + A1*C1),
-              
-              RC = 1,
-              
-              RA = 1,
-              
-              RD = rbinom( n = 1,
-                           size = 1,
-                           prob = 0.5 ),
-              
-              RB = rbinom( n = 1,
-                           size = 1,
-                           prob = expit(-1 + 3*D1) ) )
+    # vectorized (was rowwise(); identical DGM)
+    du$A1 = rbinom( n = .p$N, size = 1, prob = expit(-1 + 3*du$C1) )
+    du$RC = 1
+    du$RA = 1
     
-    du = du %>% rowwise() %>%
-      mutate( A = ifelse(RA == 1, A1, NA),
-              B = ifelse(RB == 1, B1, NA),
-              C = ifelse(RC == 1, C1, NA),
-              D = ifelse(RD == 1, D1, NA),
-              Z = Z1)
+    #bm1
     
     
-    colMeans(du)
-    suppressWarnings( cor(du %>% select(A1, B1, C1, D1, RA, RB, RC, RD) ) )
+    if ( is.null(.p$W_dim) || is.na(.p$W_dim) || .p$W_dim <= 1 ) {
+      
+      # ~~ LEGACY single scalar auxiliary D ------------------------------------
+      # Left exactly as it was. W_dim <= 1 is the reference arm.
+      
+      du$D1 = rbinom( n = .p$N, size = 1, prob = expit(-1 + coefAD*du$A1) )
+      du$B1 = rnorm(  n = .p$N, mean = coefDB*du$D1 + 2.6*du$C1 + du$D1*du$C1 +
+                                       coefAB*du$A1 + du$A1*du$C1 )
+      du$RD = rbinom( n = .p$N, size = 1, prob = 0.5 )
+      du$RB = rbinom( n = .p$N, size = 1, prob = expit(-1 + 3*du$D1) )
+      
+      W = NULL
+      W_cal = NULL
+      W_obs_names = "D"
+      
+      
+    } else {
+      
+      # ~~ HIGH-DIMENSIONAL auxiliary block W ----------------------------------
+      # Same edges as the scalar D in the figure: X_2 -> W, W -> Y, W -> R_Y,
+      # and R_W parentless (MCAR). W enters each child through a scalar index:
+      #
+      #   S_Y : plain sum of components            -> replaces D1 in Y's mean
+      #   S_R : sum + W_n_inter pairwise W_j*W_k   -> replaces D1 in R_Y's model
+      #
+      # Both are affinely rescaled by constants from a fixed-seed calibration
+      # pilot (w_calibrate_1A) so that:
+      #   - the TOTAL W-contribution to Y, i.e. S_Y*(coefDB + C1), has the same
+      #     mean and variance as the legacy D1*(coefDB + C1); and
+      #   - marginal P(R_Y = 1) matches the legacy value.
+      # So W_dim = 1 vs W_dim = 10 varies the dimension of W and nothing else.
+      
+      #bm1: want to test just this one with local run
+      # thinking about whether this will behave correctly in the miapack call; maybe first focus on just MICE
+      
+      W_cal = w_calibrate_1A(.p, coefDB = coefDB)
+      
+      W  = gen_W_block(.p, parent = du$A1, thresh = W_cal$W_thresh)
+      du = bind_cols(du, W)
+      
+      S_Y = W_cal$aY + W_cal$bY * w_index_raw(W, .p, with_inter = FALSE)
+      S_R = W_cal$aR + W_cal$bR * w_index_raw(W, .p, with_inter = TRUE)
+      
+      du$B1 = rnorm( n = .p$N, mean = coefDB*S_Y + 2.6*du$C1 + S_Y*du$C1 +
+                                      coefAB*du$A1 + du$A1*du$C1 )
+      du$RB = rbinom( n = .p$N, size = 1, prob = plogis(W_cal$RY_int + 3*S_R) )
+      
+      W_obs_names = w_names(.p)$obs
+      
+    }
+    
+    
+    du = du %>% mutate( A = ifelse(RA == 1, A1, NA),
+                        B = ifelse(RB == 1, B1, NA),
+                        C = ifelse(RC == 1, C1, NA),
+                        Z = Z1 )
+    
+    # for W_dim <= 1, gen_W_block was not called, so punch out D here as before
+    if ( is.null(W) ) du$D = ifelse(du$RD == 1, du$D1, NA)
     
     
     # make dataset for imputation
-    di = du %>% select(A, B, C, D, Z)
+    di = du %>% select( all_of( c("A", "B", "C", W_obs_names, "Z") ) )
     
     
     ### For just the intercept of A
@@ -1200,6 +1227,7 @@ sim_data = function(.p) {
                # the W block itself, so doParallel can compute its sanchecks;
                # NULL for W_dim == 0 (the 5-MAR-* / 6-MAR-* arms)
                W = if ( exists("W") ) W else NULL,
+               W_cal = if ( exists("W_cal") ) W_cal else NULL,
                exclude_from_imp_model = exclude_from_imp_model,
                form_string = form_string,
                gold_form_string = gold_form_string,

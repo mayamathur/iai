@@ -133,16 +133,31 @@ if ( run.local == TRUE ) {
   scen.params = tidyr::expand_grid(
     
     #rep.methods = "gold ; CC ; MICE-std ; Am-std ; IPW-custom ; af4", 
-    rep.methods = "gold ; CC ; MICE-std ; IPW-nm ; genloc", 
+    rep.methods = "gold ; CC ; MICE-std", 
     #rep.methods = "CC ; MICE-std ; genloc ; IPW-nm", 
     #rep.methods = "gold ; af4-np ; af4-sp ; IPW-nm",
     #rep.methods = "IPW-nm",
     
     model = "OLS", 
     #model = c( "OLS", "logistic"), 
-    #coef_of_interest = "A",
-    coef_of_interest = "B",  # ***** for 7D and 7D-bin
+    coef_of_interest = "A",
+    #coef_of_interest = "B",  # ***** for 7D and 7D-bin
     N = c(1000),
+    
+    W_dim             = 2,
+    W_n_cont          = 1,   # 1 continuous, 1 binary
+    W_n_cont_complete = 0,   # both incomplete
+    W_n_bin_complete  = 0,
+    W_n_inter         = 1,   # only 1 possible pair now (needs 2*W_n_inter <= W_dim)
+    W_rho             = 0.4,   # latent correlation between the 2 components
+    W_cor_type        = "exch",
+    W_bin_prob        = 0.5,   # marginal P(W_binary = 1)
+    W_R_type          = "mcar",  # 1A: R_W is parentless (legacy RD ~ Bern(0.5)), not W -> R_W
+    W_miss_rate       = 0.5,     # matches legacy RD ~ Bern(0.5) exactly
+    W_R_slope_cont    = 1,       # unused when W_R_type = "mcar", but must be present
+    W_R_slope_bin     = 3,       # unused when W_R_type = "mcar", but must be present
+    W_parent_coef     = 1,       # strength of X2 (A1) -> W
+    W_inter_coef      = 1,       # coefficient on the single W1*W2 interaction
     
     # MICE parameters
     # as on cluster
@@ -154,7 +169,7 @@ if ( run.local == TRUE ) {
     # AF4 parameters
     boot_reps_af4 = 0,  # only needed for CIs; if set to 0, won't give CIs
     
-    dag_name = "7D-bin"
+    dag_name = "1A"
     
     # dag_name = c("5D", "5D-bin",
     #              "6D", "6D-bin",
@@ -162,11 +177,7 @@ if ( run.local == TRUE ) {
     #              )  # make sure to pick appropriate outcome model for the DAG
     
   )
-  
-  
-  # remove combos that aren't implemented
-  scen.params = scen.params %>% filter( !(dag_name %in% c("5D", "6D", "7D") &
-                                            model == "logistic" ) )
+
   
   start.at = 1  # scen name to start at
   scen.params$scen = start.at:( nrow(scen.params) + start.at - 1 )
@@ -820,7 +831,7 @@ for ( scen in scens_to_run ) {
                                         #@TEMP: using percentile method because BCA always throws error: "estimated adjustment 'a' is NA"
                                         # if you change boot type, need to change ci$percent[...] below too
                                         cis = get_boot_CIs(boot.res = bres, type = "perc", n.ests = 2)
-                                        #bm
+                                    
                                         
                                         return( list( stats = data.frame( bhat = ests[1],
                                                                           bhat_lo = cis[[1]][1],
@@ -875,7 +886,6 @@ for ( scen in scens_to_run ) {
                                       #@TEMP: using percentile method because BCA always throws error: "estimated adjustment 'a' is NA"
                                       # if you change boot type, need to change ci$percent[...] below too
                                       cis = get_boot_CIs(boot.res = bres, type = "perc", n.ests = 2)
-                                      #bm
                                       
                                       return( list( stats = data.frame( bhat = ests[1],
                                                                         bhat_lo = cis[[1]][1],
@@ -942,7 +952,7 @@ for ( scen in scens_to_run ) {
       # correlations, and the all-W-observed proportion (the number that decides
       # whether the complete-case-based estimators have anything to work with)
       if ( !is.null(sim_obj$W) ) {
-        rep.res = rep.res %>% bind_cols( w_sanchecks(W = sim_obj$W, .p = p) )
+        rep.res = rep.res %>% bind_cols( w_sanchecks(W = sim_obj$W, .p = p, cal = sim_obj$W_cal) )
       }
       
       
