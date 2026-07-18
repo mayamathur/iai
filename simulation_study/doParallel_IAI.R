@@ -603,7 +603,7 @@ for ( scen in scens_to_run ) {
       if (run.local == TRUE) srr(rep.res)
       
       
-      
+      #bm1: See notes app :)
       
       # ~~ Custom imputation ----
       if ( "custom" %in% all.methods ) {
