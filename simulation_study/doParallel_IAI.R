@@ -908,6 +908,101 @@ for ( scen in scens_to_run ) {
       
       
       
+      # ~~ MIA (miapack) ----------------------------------------------------
+      # Estimates the MIA functional via miapack::mia (CRAN 0.1.0):
+      #   mu_MIA(x) = int_w E[Y | X=x, W=w, M=1] p(w | X=x, R_W=R_X=1) dw
+      # See ?miapack::mia. The estimand here is a CONTRAST in the exposure A,
+      #   mu_MIA(A=1, C=c0) - mu_MIA(A=0, C=c0),
+      # which is the MIA analog of the coef of A in the gold model B ~ A (+ C).
+      #
+      # miapack API notes (differs from fit_regression-based methods):
+      #   - X_names holds ALL predictors that appear in Y_model / W_model on the
+      #     X side; X_values_* give the counterfactual level of each, in order.
+      #   - W_model is a LIST of formulas, one per W component, simulated in the
+      #     order listed (sequential factorization p(w_j | X, w_1..w_{j-1})).
+      #   - Y_type / W_type are inferred from the columns if omitted; we pass
+      #     them explicitly so a rep that happens to be all-0/1 doesn't get
+      #     mistyped.
+      #   - CIs come from get_CI() (bootstrap; miapack Imports boot), not from
+      #     the mia() object itself.
+      if ( "mia" %in% all.methods ) {
+        rep.res = run_method_safe(method.label = c("mia"),
+                                  
+                                  method.fn = function(x) {
+                                    
+                                    Wobs = w_names(p)$obs                    # e.g. c("W01","W02")
+                                    
+                                    # hold C fixed at its reference level for the contrast
+                                    c0 = 0
+                                    
+                                    # Y and W types, aligned to how sim_data builds them:
+                                    #  - B (outcome) is continuous when model = OLS, else binary
+                                    #  - continuous W components are "normal", the rest "binary"
+                                    Y_type = if ( p$model == "logistic" ) "binary" else "continuous"
+                                    W_type = ifelse( seq_along(Wobs) <= p$W_n_cont, "normal", "binary" )
+                                    
+                                    # outcome model: E[Y | A, C, W], main effects
+                                    Y_form = as.formula(
+                                      paste("B ~ A + C +", paste(Wobs, collapse = " + ")) )
+                                    
+                                    # one W-model per component; each conditions on A, C, and the
+                                    # earlier components (sequential factorization). Types are
+                                    # handled by mia() via W_type (binomial vs gaussian fit).
+                                    W_forms = lapply( seq_along(Wobs), function(j) {
+                                      preds = c("A", "C", Wobs[seq_len(j - 1)])
+                                      as.formula( paste(Wobs[j], "~", paste(preds, collapse = " + ")) )
+                                    })
+                                    
+                                    fit = miapack::mia(
+                                      data          = di,
+                                      X_names       = c("A", "C"),
+                                      X_values_1    = c(1, c0),
+                                      X_values_2    = c(0, c0),
+                                      contrast_type = "difference",
+                                      Y_model       = Y_form,
+                                      Y_type        = Y_type,
+                                      W_model       = W_forms,
+                                      W_type        = W_type,
+                                      n_mc          = p$mia_n_mc
+                                    )
+                                    
+                                    # point estimate = the A=1 vs A=0 contrast
+                                    if ( p$boot_reps_af4 == 0 ) {
+                                      return( list( stats = data.frame(
+                                        bhat   = fit$contrast_est,
+                                        mia_e1 = fit$mean_est_1,   # mu_MIA(A=1, C=c0)
+                                        mia_e0 = fit$mean_est_2    # mu_MIA(A=0, C=c0)
+                                      ) ) )
+                                    }
+                                    
+                                    # bootstrap CI for the contrast via miapack::get_CI
+                                    ci = miapack::get_CI(
+                                      data          = di,
+                                      X_names       = c("A", "C"),
+                                      X_values_1    = c(1, c0),
+                                      X_values_2    = c(0, c0),
+                                      contrast_type = "difference",
+                                      Y_model       = Y_form,
+                                      Y_type        = Y_type,
+                                      W_model       = W_forms,
+                                      W_type        = W_type,
+                                      n_mc          = p$mia_n_mc,
+                                      R             = p$boot_reps_af4
+                                    )
+                                    
+                                    return( list( stats = data.frame(
+                                      bhat       = fit$contrast_est,
+                                      bhat_lo    = ci$contrast_ci[1],
+                                      bhat_hi    = ci$contrast_ci[2],
+                                      bhat_width = ci$contrast_ci[2] - ci$contrast_ci[1],
+                                      mia_e1     = fit$mean_est_1,
+                                      mia_e0     = fit$mean_est_2
+                                    ) ) )
+                                  },
+                                  .rep.res = rep.res )
+      }
+      
+      if (run.local == TRUE) srr(rep.res)
   
       # ~ Add Scen Params and Sanity Checks --------------------------------------
       
