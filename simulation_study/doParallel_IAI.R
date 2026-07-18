@@ -44,6 +44,11 @@ toLoad = c("crayon",
 
 if ( run.local == TRUE | interactive.cluster.run == TRUE ) toLoad = c(toLoad, "here")
 
+# dev version of miapack
+library(devtools)
+#devtools::install_github("stmcg/miapack", ref = "ice-implementation")
+library(miapack)
+
 
 # SET UP FOR CLUSTER OR LOCAL RUN ------------------------------
 
@@ -133,7 +138,7 @@ if ( run.local == TRUE ) {
   scen.params = tidyr::expand_grid(
     
     #rep.methods = "gold ; CC ; MICE-std ; Am-std ; IPW-custom ; af4", 
-    rep.methods = "gold ; CC ; mia-pkg-sp", 
+    rep.methods = "gold ; CC ; mia-pkg-sp ; mia-pkg-ice", 
     #rep.methods = "CC ; MICE-std ; genloc ; IPW-nm", 
     #rep.methods = "gold ; af4-np ; af4-sp ; IPW-nm",
     #rep.methods = "IPW-nm",
@@ -909,14 +914,15 @@ for ( scen in scens_to_run ) {
       
       if (run.local == TRUE) srr(rep.res)
       
+      # rep.res = data.frame()
       
-      # ~~ MIA - package; semiparametric ----
+      # ~~ MIA package; semiparametric ----
       if ( "mia-pkg-sp" %in% all.methods ) {
         rep.res = run_method_safe(method.label = c("mia-pkg-sp"),
                                   
                                   method.fn = function(x) {
                                     
-                                    # ---- parse the gold model into outcome + predictors ----
+                                    # parse the gold model into outcome + predictors ----
                                     fo        = as.formula(form_string)   # e.g. B ~ A * C
                                     outcome   = all.vars(fo)[1]           # LHS, e.g. "B"
                                     exposure  = coef_of_interest          # e.g. "A"
@@ -984,7 +990,7 @@ for ( scen in scens_to_run ) {
                                     ci_obj = miapack::get_CI(
                                       mia_res = fit,
                                       n_boot  = p$boot_reps_af4,
-                                      type    = "bca",   
+                                      type    = "perc",   
                                       conf    = 0.95
                                     )
                                     
@@ -992,6 +998,110 @@ for ( scen in scens_to_run ) {
                                     # component ([[4]]) holds the interval; the LAST TWO columns
                                     # are lo, hi for every type (norm's row is 1x3, the rest 1x5),
                                     # so pull them positionally rather than hard-coding 4:5.
+                                    ci_row = ci_obj$ci_contrast[[4]]
+                                    ci_lo  = ci_row[ length(ci_row) - 1 ]
+                                    ci_hi  = ci_row[ length(ci_row) ]
+                                    
+                                    return( list( stats = data.frame(
+                                      bhat       = fit$contrast_est,
+                                      bhat_lo    = ci_lo,
+                                      bhat_hi    = ci_hi,
+                                      bhat_width = ci_hi - ci_lo,
+                                      mia_e1     = fit$mean_est_1,
+                                      mia_e0     = fit$mean_est_2
+                                    ) ) )
+                                  },
+                                  .rep.res = rep.res )
+      }
+      
+      if (run.local == TRUE) srr(rep.res)
+      
+      
+      # ~~ MIA-ICE (miapack, iterative conditional expectation) --------------
+      # miapack::mia_ice (ice-implementation branch): plug-in estimator of
+      #   mu_MIA(x) = E[ E[Y | X=x, W, M=1] | X=x, R_W=R_X=1 ].
+      # Differs from the Monte Carlo mia(): no W-density model and no n_mc.
+      # Instead it fits the outcome model, predicts g_hat = Ehat[Y|x,W,M=1] at
+      # the target x, then regresses g_hat on X via `outer_model` (LHS must be
+      # g_hat; RHS may reference ONLY the X predictors). Saturating outer_model
+      # in X reduces mu_MIA(x) to the sample mean of g_hat within each X cell.
+      #
+      # As with the mia() block, everything DAG-specific is parsed from
+      # sim_obj$form_string + coef_of_interest + w_names(p); nothing is hard-coded.
+      if ( "mia-pkg-ice" %in% all.methods ) {
+        rep.res = run_method_safe(method.label = c("mia-pkg-ice"),
+                                  
+                                  method.fn = function(x) {
+                                    
+                                    # ---- parse the gold model into outcome + predictors ----
+                                    fo        = as.formula(form_string)   # e.g. B ~ A * C
+                                    outcome   = all.vars(fo)[1]           # LHS, e.g. "B"
+                                    exposure  = coef_of_interest          # e.g. "A"
+                                    rhs_vars  = all.vars(fo)[-1]          # main-effect vars on RHS
+                                    covars    = setdiff(rhs_vars, exposure)  # analysis covars X \ exposure
+                                    
+                                    Wobs   = w_names(p)$obs               # W component columns
+                                    X_names = c(exposure, covars)         # predictor set for mia_ice()
+                                    
+                                    # mia_ice REQUIRES the outcome column to be named "Y" and the
+                                    # Y_model LHS to be "Y". Rename on a local copy only.
+                                    di_mia = di
+                                    names(di_mia)[names(di_mia) == outcome] = "Y"
+                                    
+                                    # outcome model: LHS "Y", same RHS terms as the gold model
+                                    # (keeps interactions) plus the W components.
+                                    rhs_terms = labels(terms(fo))         # e.g. "A","C","A:C"
+                                    Y_form = as.formula(
+                                      paste("Y ~", paste(c(rhs_terms, Wobs), collapse = " + ")) )
+                                    
+                                    # outer model: g_hat ~ (X predictors only), saturated.
+                                    # RHS may reference ONLY X_names -- so it is built from the X's,
+                                    # NOT from rhs_terms (which include W) and NOT with W.
+                                    #   1 covar  -> g_hat ~ A * C   (saturated in binary A, C)
+                                    #   0 covars -> g_hat ~ A
+                                    outer_rhs = paste(X_names, collapse = " * ")
+                                    outer_form = as.formula( paste("g_hat ~", outer_rhs) )
+                                    
+                                    # contrast: exposure 1 vs 0, covars held at reference level 0
+                                    ref = rep(0, length(covars))
+                                    Xv1 = c(1, ref)
+                                    Xv0 = c(0, ref)
+                                    
+                                    Y_type = if ( p$model == "logistic" ) "binary" else "continuous"
+                                    
+                                    fit = miapack::mia_ice(
+                                      data          = di_mia,
+                                      X_names       = X_names,
+                                      X_values_1    = Xv1,
+                                      X_values_2    = Xv0,
+                                      contrast_type = "difference",
+                                      Y_model       = Y_form,
+                                      Y_type        = Y_type,
+                                      outer_model   = outer_form
+                                    )
+                                    
+                                    # point estimate = the exposure 1 vs 0 contrast
+                                    if ( p$boot_reps_af4 == 0 ) {
+                                      return( list( stats = data.frame(
+                                        bhat   = fit$contrast_est,
+                                        mia_e1 = fit$mean_est_1,
+                                        mia_e0 = fit$mean_est_2
+                                      ) ) )
+                                    }
+                                    
+                                    # bootstrap CI via get_CI, which dispatches on mia_res$method
+                                    # == 'ice' and re-fits with mia_ice in the boot loop. type =
+                                    # "bca"; get_CI falls back to percentile internally if BCa's
+                                    # acceleration constant is unstable (few complete cases).
+                                    ci_obj = miapack::get_CI(
+                                      mia_res = fit,
+                                      n_boot  = p$boot_reps_af4,
+                                      type    = "perc", #@temp: bca was failing a lot
+                                      conf    = 0.95
+                                    )
+                                    
+                                    # ci_contrast is a "boot.ci" object; its type component ([[4]])
+                                    # holds the interval, last two columns = lo, hi for every type.
                                     ci_row = ci_obj$ci_contrast[[4]]
                                     ci_lo  = ci_row[ length(ci_row) - 1 ]
                                     ci_hi  = ci_row[ length(ci_row) ]
