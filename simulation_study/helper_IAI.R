@@ -659,60 +659,67 @@ sim_data = function(.p) {
   if ( .p$dag_name == "4A" ) {
     
     # "fake" variable Z1 is always observed but is independent of everything; used only to prevent all-NA rows
-    du = data.frame( Z1 = rbinom( n = .p$N,
-                                  size = 1, 
-                                  prob = 0.5 ),
-                     
-                     D1 = rbinom( n = .p$N,
-                                  size = 1, 
-                                  prob = 0.5 ) ) 
+    du = data.frame( Z1 = rbinom( n = .p$N, size = 1, prob = 0.5 ),
+                     C1 = rbinom( n = .p$N, size = 1, prob = 0.5 ) ) 
     
-    
+    coefDB = 2
+    coefAD = 3
     coefAB = 2
-    coefBD = 3
     
-    du = du %>% rowwise() %>%
-      mutate( C1 = rbinom( n = 1,
-                           size = 1,
-                           prob = expit(-1 + 3*D1) ),
-              
-              A1 = rbinom( n = 1,
-                           size = 1,
-                           prob = expit(-1 + 3*C1) ),
-              
-              B1 = rnorm( n = 1,
-                          mean = coefAB*A1 + 2.6*C1 + A1*C1),
-              
-              
-              
-              RA = rbinom( n = 1,
-                           size = 1,
-                           prob = expit(-1 + 3*D1) ),
-              
-              RD = rbinom( n = 1,
-                           size = 1,
-                           prob = expit(-1 + 3*D1) ),
-              
-              RC = rbinom( n = 1,
-                           size = 1,
-                           prob = expit(-1 + 3*D1) ),
-              
-              RB = 1 )
-    
-    du = du %>% rowwise() %>%
-      mutate( A = ifelse(RA == 1, A1, NA),
-              B = ifelse(RB == 1, B1, NA),
-              C = ifelse(RC == 1, C1, NA),
-              D = ifelse(RD == 1, D1, NA),
-              Z = Z1)
+    du$A1 = rbinom( n = .p$N, size = 1, prob = expit(-1 + 3*du$C1) )
+    du$RD = rbinom( n = .p$N, size = 1, prob = 0.5 )
     
     
-    colMeans(du)
-    suppressWarnings( cor(du %>% select(A1, B1, C1, D1, RA, RB, RC, RD) ) )
+    if ( is.null(.p$W_dim) || is.na(.p$W_dim) || .p$W_dim <= 1 ) {
+      
+      # ~~ LEGACY single scalar auxiliary D ------------------------------------
+      du$D1 = rbinom( n = .p$N, size = 1, prob = 0.5 )   # W is a source node
+      du$B1 = rnorm(  n = .p$N, mean = coefDB*du$D1 + 2.6*du$C1 + du$D1*du$C1 +
+                        coefAB*du$A1 + du$A1*du$C1 )
+      du$RA = rbinom( n = .p$N, size = 1, prob = expit(-1 + 3*du$D1) )
+      du$RC = rbinom( n = .p$N, size = 1, prob = expit(-1 + 3*du$D1) )
+      du$RB = rbinom( n = .p$N, size = 1, prob = expit(-1 + 3*du$D1) )
+      
+      W = NULL; W_cal = NULL; W_obs_names = "D"
+      
+    } else {
+      
+      # ~~ HIGH-DIMENSIONAL auxiliary block W ----------------------------------
+      # W is a SOURCE node (no parent); W -> Y, R_Y, R_X1, R_X2 (shared S_R).
+      cfg = list(
+        y_child = TRUE,
+        coefDB  = coefDB,
+        gen_pilot = function(n) {
+          C1 = rbinom(n, 1, 0.5)
+          data.frame( C1 = C1, parent = rep(0, n),
+                      W1_scalar = rbinom(n, 1, 0.5) )
+        } )
+      
+      wa    = w_apply(.p, parent = NULL, cfg = cfg)
+      W     = wa$W
+      W_cal = wa$cal
+      du    = bind_cols(du, W)
+      S_Y   = wa$S_Y
+      
+      du$B1 = rnorm( n = .p$N, mean = coefDB*S_Y + 2.6*du$C1 + S_Y*du$C1 +
+                       coefAB*du$A1 + du$A1*du$C1 )
+      du$RA = rbinom( n = .p$N, size = 1, prob = wa$pR )
+      du$RC = rbinom( n = .p$N, size = 1, prob = wa$pR )
+      du$RB = rbinom( n = .p$N, size = 1, prob = wa$pR )
+      
+      W_obs_names = w_names(.p)$obs
+      
+    }
     
+    du = du %>% mutate( A = ifelse(RA == 1, A1, NA),
+                        B = ifelse(RB == 1, B1, NA),
+                        C = ifelse(RC == 1, C1, NA),
+                        Z = Z1 )
+    
+    if ( is.null(W) ) du$D = ifelse(du$RD == 1, du$D1, NA)
     
     # make dataset for imputation
-    di = du %>% select(A, B, C, D, Z)
+    di = du %>% select( all_of( c("A", "B", "C", W_obs_names, "Z") ) )
     
     
     ### For just the intercept of A
@@ -737,8 +744,7 @@ sim_data = function(.p) {
     }
     
     
-  }  # end of .p$dag_name == "4A"
-  
+  }  # end of .p$dag_name == "4A"  
   
   # ~~~~ 2026-03 explorations: -----------------------------
   

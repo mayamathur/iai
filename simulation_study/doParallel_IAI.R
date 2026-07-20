@@ -39,14 +39,15 @@ toLoad = c("crayon",
            "geepack", # also only for IPW-nm
            "mix", # only for genloc imputation
            "boot", # for parametric AF4
-           "MASS")
+           "MASS",
+           "miapack")
 
 if ( run.local == TRUE | interactive.cluster.run == TRUE ) toLoad = c(toLoad, "here")
 
 # dev version of miapack
-library(devtools)
-#devtools::install_github("stmcg/miapack", ref = "ice-implementation")
-library(miapack)
+#library(remotes)
+#remotes::install_github("stmcg/miapack", ref = "ice-implementation")
+#library(miapack)
 
 
 # SET UP FOR CLUSTER OR LOCAL RUN ------------------------------
@@ -103,7 +104,7 @@ if (run.local == FALSE ) {
   # simulation reps to run within this job
   # **this need to match n.reps.in.doParallel in the genSbatch script
   #sim.reps = 10
-  sim.reps = 5
+  sim.reps = 1
   
   # set the number of cores
   registerDoParallel(cores=16)
@@ -991,11 +992,12 @@ for ( scen in scens_to_run ) {
                                     fit = do.call(miapack::mia, mia_args)
                                     
                                     # point estimate = the exposure 1 vs 0 contrast
+                                    # inthat = reference-level mean E0 (exposure 0, covars 0),
+                                    # i.e. fit$mean_est_2 -- the "(Intercept)"-analogue level.
                                     if ( p$boot_reps_af4 == 0 ) {
                                       return( list( stats = data.frame(
                                         bhat   = fit$contrast_est,
-                                        mia_e1 = fit$mean_est_1,
-                                        mia_e0 = fit$mean_est_2
+                                        inthat = fit$mean_est_2
                                       ) ) )
                                     }
                                     
@@ -1009,21 +1011,24 @@ for ( scen in scens_to_run ) {
                                       conf    = 0.95
                                     )
                                     
-                                    # ci_contrast is a "boot.ci" object. Its type-specific
-                                    # component ([[4]]) holds the interval; the LAST TWO columns
-                                    # are lo, hi for every type (norm's row is 1x3, the rest 1x5),
-                                    # so pull them positionally rather than hard-coding 4:5.
-                                    ci_row = ci_obj$ci_contrast[[4]]
-                                    ci_lo  = ci_row[ length(ci_row) - 1 ]
-                                    ci_hi  = ci_row[ length(ci_row) ]
+                                    bhat_ci_row = ci_obj$ci_contrast[[4]]
+                                    bhat_ci_lo  = bhat_ci_row[ length(bhat_ci_row) - 1 ]
+                                    bhat_ci_hi  = bhat_ci_row[ length(bhat_ci_row) ]
+                                    
+                                    inthat_ci_row = ci_obj$ci_2[[4]]  # ci_2 because inthat = mean_est_2 (all predictors 0)
+                                    inthat_ci_lo  = inthat_ci_row[ length(inthat_ci_row) - 1 ]
+                                    inthat_ci_hi  = inthat_ci_row[ length(inthat_ci_row) ]
                                     
                                     return( list( stats = data.frame(
                                       bhat       = fit$contrast_est,
-                                      bhat_lo    = ci_lo,
-                                      bhat_hi    = ci_hi,
-                                      bhat_width = ci_hi - ci_lo,
-                                      mia_e1     = fit$mean_est_1,
-                                      mia_e0     = fit$mean_est_2
+                                      bhat_lo    = bhat_ci_lo,
+                                      bhat_hi    = bhat_ci_hi,
+                                      bhat_width = bhat_ci_hi - bhat_ci_lo,
+                                      
+                                      inthat    = fit$mean_est_2,
+                                      int_lo    = inthat_ci_lo,
+                                      int_hi    = inthat_ci_hi,
+                                      int_width = inthat_ci_hi - inthat_ci_lo
                                     ) ) )
                                   },
                                   .rep.res = rep.res )
@@ -1097,11 +1102,12 @@ for ( scen in scens_to_run ) {
                                     )
                                     
                                     # point estimate = the exposure 1 vs 0 contrast
+                                    # inthat = reference-level mean E0 (exposure 0, covars 0),
+                                    # i.e. fit$mean_est_2 -- the "(Intercept)"-analogue level.
                                     if ( p$boot_reps_af4 == 0 ) {
                                       return( list( stats = data.frame(
                                         bhat   = fit$contrast_est,
-                                        mia_e1 = fit$mean_est_1,
-                                        mia_e0 = fit$mean_est_2
+                                        inthat = fit$mean_est_2
                                       ) ) )
                                     }
                                     
@@ -1115,21 +1121,24 @@ for ( scen in scens_to_run ) {
                                       conf    = 0.95
                                     )
                                     
-                                    # ci_contrast is a "boot.ci" object. Its type-specific
-                                    # component ([[4]]) holds the interval; the LAST TWO columns
-                                    # are lo, hi for every type (norm's row is 1x3, the rest 1x5),
-                                    # so pull them positionally rather than hard-coding 4:5.
-                                    ci_row = ci_obj$ci_contrast[[4]]
-                                    ci_lo  = ci_row[ length(ci_row) - 1 ]
-                                    ci_hi  = ci_row[ length(ci_row) ]
+                                    bhat_ci_row = ci_obj$ci_contrast[[4]]
+                                    bhat_ci_lo  = bhat_ci_row[ length(bhat_ci_row) - 1 ]
+                                    bhat_ci_hi  = bhat_ci_row[ length(bhat_ci_row) ]
+                                    
+                                    inthat_ci_row = ci_obj$ci_2[[4]]  # ci_2 because inthat = mean_est_2 (all predictors 0)
+                                    inthat_ci_lo  = inthat_ci_row[ length(inthat_ci_row) - 1 ]
+                                    inthat_ci_hi  = inthat_ci_row[ length(inthat_ci_row) ]
                                     
                                     return( list( stats = data.frame(
                                       bhat       = fit$contrast_est,
-                                      bhat_lo    = ci_lo,
-                                      bhat_hi    = ci_hi,
-                                      bhat_width = ci_hi - ci_lo,
-                                      mia_e1     = fit$mean_est_1,
-                                      mia_e0     = fit$mean_est_2
+                                      bhat_lo    = bhat_ci_lo,
+                                      bhat_hi    = bhat_ci_hi,
+                                      bhat_width = bhat_ci_hi - bhat_ci_lo,
+                                      
+                                      inthat    = fit$mean_est_2,
+                                      int_lo    = inthat_ci_lo,
+                                      int_hi    = inthat_ci_hi,
+                                      int_width = inthat_ci_hi - inthat_ci_lo
                                     ) ) )
                                     
                                     
