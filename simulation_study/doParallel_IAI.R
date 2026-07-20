@@ -40,14 +40,15 @@ toLoad = c("crayon",
            "geepack", # also only for IPW-nm
            "mix", # only for genloc imputation
            "boot", # for parametric AF4
-           "MASS")
+           "MASS"
+           "miapack")
 
 if ( run.local == TRUE | interactive.cluster.run == TRUE ) toLoad = c(toLoad, "here")
 
 # dev version of miapack
-library(devtools)
+#library(devtools)
 #devtools::install_github("stmcg/miapack", ref = "ice-implementation")
-library(miapack)
+#library(miapack)
 
 
 # SET UP FOR CLUSTER OR LOCAL RUN ------------------------------
@@ -138,7 +139,7 @@ if ( run.local == TRUE ) {
   scen.params = tidyr::expand_grid(
     
     #rep.methods = "gold ; CC ; MICE-std ; Am-std ; IPW-custom ; af4", 
-    rep.methods = "gold ; CC ; mia-pkg-ice", 
+    rep.methods = "gold ; CC ; mia-pkg-sp", 
     #rep.methods = "CC ; MICE-std ; genloc ; IPW-nm", 
     #rep.methods = "gold ; af4-np ; af4-sp ; IPW-nm",
     #rep.methods = "IPW-nm",
@@ -210,7 +211,7 @@ if ( run.local == TRUE ) {
 if (run.local == TRUE) ( scens_to_run = scen.params$scen )
 if (run.local == FALSE) ( scens_to_run = scen )  # from sbatch
 
-if (run.local == TRUE) sim.reps = 1
+if (run.local == TRUE) sim.reps = 10
 #  p = scen.params[ scen.params$scen == scen, names(scen.params) != "scen"]
 
 
@@ -941,7 +942,7 @@ for ( scen in scens_to_run ) {
                                   
                                   method.fn = function(x) {
                                     
-                                    # parse the gold model into outcome + predictors ----
+                                    # parse the gold model into outcome + predictors
                                     fo        = as.formula(form_string)   # e.g. B ~ A * C
                                     outcome   = all.vars(fo)[1]           # LHS, e.g. "B"
                                     exposure  = coef_of_interest          # e.g. "A"
@@ -968,12 +969,12 @@ for ( scen in scens_to_run ) {
                                     Xv1 = c(1, ref)
                                     Xv0 = c(0, ref)
                                     
-                                    # ---- types, aligned to how sim_data builds the columns ----
+                                    # types, aligned to how sim_data builds the columns 
                                     Y_type = if ( p$model == "logistic" ) "binary" else "continuous"
                                     W_type = ifelse( seq_along(Wobs) <= p$W_n_cont, "normal", "binary" )
                                     
-                                    # ---- one W-model per component (sequential factorization):
-                                    #      w_j ~ exposure + covars + earlier components ----
+                                    # one W-model per component (sequential factorization):
+                                    #      w_j ~ exposure + covars + earlier components
                                     W_forms = lapply( seq_along(Wobs), function(j) {
                                       preds = c(X_names, Wobs[seq_len(j - 1)])
                                       as.formula( paste(Wobs[j], "~", paste(preds, collapse = " + ")) )
@@ -998,12 +999,11 @@ for ( scen in scens_to_run ) {
                                     if ( p$boot_reps_af4 == 0 ) {
                                       return( list( stats = data.frame(
                                         bhat   = fit$contrast_est,
-                                        mia_e1 = fit$mean_est_1,
-                                        mia_e0 = fit$mean_est_2
+                                        inthat = fit$mean_est_1
                                       ) ) )
                                     }
                                     
-                                    # ---- bootstrap CI via miapack::get_CI ----
+                                    # bootstrap CI via miapack::get_CI 
                                     # get_CI takes the FITTED mia object (not the modeling args)
                                     # and wraps boot / boot.ci. type = "bca" is the mia default.
                                     ci_obj = miapack::get_CI(
@@ -1013,21 +1013,25 @@ for ( scen in scens_to_run ) {
                                       conf    = 0.95
                                     )
                                     
-                                    # ci_contrast is a "boot.ci" object. Its type-specific
-                                    # component ([[4]]) holds the interval; the LAST TWO columns
-                                    # are lo, hi for every type (norm's row is 1x3, the rest 1x5),
-                                    # so pull them positionally rather than hard-coding 4:5.
-                                    ci_row = ci_obj$ci_contrast[[4]]
-                                    ci_lo  = ci_row[ length(ci_row) - 1 ]
-                                    ci_hi  = ci_row[ length(ci_row) ]
+                                    bhat_ci_row = ci_obj$ci_contrast[[4]]
+                                    bhat_ci_lo  = bhat_ci_row[ length(bhat_ci_row) - 1 ]
+                                    bhat_ci_hi  = bhat_ci_row[ length(bhat_ci_row) ]
+                                    
+                                    inthat_ci_row = ci_obj$ci_1[[4]]
+                                    inthat_ci_lo  = inthat_ci_row[ length(inthat_ci_row) - 1 ]
+                                    inthat_ci_hi  = inthat_ci_row[ length(inthat_ci_row) ]
                                     
                                     return( list( stats = data.frame(
                                       bhat       = fit$contrast_est,
-                                      bhat_lo    = ci_lo,
-                                      bhat_hi    = ci_hi,
-                                      bhat_width = ci_hi - ci_lo,
-                                      mia_e1     = fit$mean_est_1,
-                                      mia_e0     = fit$mean_est_2
+                                      bhat_lo    = bhat_ci_lo,
+                                      bhat_hi    = bhat_ci_hi,
+                                      bhat_width = bhat_ci_hi - bhat_ci_lo,
+                                      
+                                      inthat    = fit$mean_est_1,
+                                      int_lo    = inthat_ci_lo,
+                                      int_hi    = inthat_ci_hi,
+                                      int_width = inthat_ci_hi - inthat_ci_lo
+           
                                     ) ) )
                                   },
                                   .rep.res = rep.res )
@@ -1104,21 +1108,40 @@ for ( scen in scens_to_run ) {
                                     if ( p$boot_reps_af4 == 0 ) {
                                       return( list( stats = data.frame(
                                         bhat   = fit$contrast_est,
-                                        mia_e1 = fit$mean_est_1,
-                                        mia_e0 = fit$mean_est_2
+                                        inthat = fit$mean_est_1
                                       ) ) )
                                     }
                                     
-
-                                    return( list( stats = data.frame(
-                                      bhat        = fit$contrast_est,
-                                      bhat_lo     = ci_lo,
-                                      bhat_hi     = ci_hi,
-                                      bhat_width  = ci_hi - ci_lo,
-                                      mia_e1      = fit$mean_est_1,
-                                      mia_e0      = fit$mean_est_2
-                                    ) ) )
+                                    # bootstrap CI via miapack::get_CI 
+                                    # get_CI takes the FITTED mia object (not the modeling args)
+                                    # and wraps boot / boot.ci. type = "bca" is the mia default.
+                                    ci_obj = miapack::get_CI(
+                                      mia_res = fit,
+                                      n_boot  = p$boot_reps_af4,
+                                      type    = "bca",   
+                                      conf    = 0.95
+                                    )
                                     
+                                    bhat_ci_row = ci_obj$ci_contrast[[4]]
+                                    bhat_ci_lo  = bhat_ci_row[ length(bhat_ci_row) - 1 ]
+                                    bhat_ci_hi  = bhat_ci_row[ length(bhat_ci_row) ]
+                                    
+                                    inthat_ci_row = ci_obj$ci_1[[4]]
+                                    inthat_ci_lo  = inthat_ci_row[ length(inthat_ci_row) - 1 ]
+                                    inthat_ci_hi  = inthat_ci_row[ length(inthat_ci_row) ]
+                                    
+                                    return( list( stats = data.frame(
+                                      bhat       = fit$contrast_est,
+                                      bhat_lo    = bhat_ci_lo,
+                                      bhat_hi    = bhat_ci_hi,
+                                      bhat_width = bhat_ci_hi - bhat_ci_lo,
+                                      
+                                      inthat    = fit$mean_est_1,
+                                      int_lo    = inthat_ci_lo,
+                                      int_hi    = inthat_ci_hi,
+                                      int_width = inthat_ci_hi - inthat_ci_lo
+                                      
+                                    ) ) )
 
                                   },
                                   .rep.res = rep.res )
