@@ -1,8 +1,3 @@
-
-
-
-
-
 expit = function(p) exp(p) / (1 + exp(p))
 # NOTE: this used to read `p / (1-p)`, which is the ODDS, not the logit. It was
 # silently shadowed by the correct definition further down this file; fixed here.
@@ -55,7 +50,7 @@ sim_data = function(.p) {
       
       du$D1 = rbinom( n = .p$N, size = 1, prob = expit(-1 + coefAD*du$A1) )
       du$B1 = rnorm(  n = .p$N, mean = coefDB*du$D1 + 2.6*du$C1 + du$D1*du$C1 +
-                                       coefAB*du$A1 + du$A1*du$C1 )
+                        coefAB*du$A1 + du$A1*du$C1 )
       du$RD = rbinom( n = .p$N, size = 1, prob = 0.5 )
       du$RB = rbinom( n = .p$N, size = 1, prob = expit(-1 + 3*du$D1) )
       
@@ -67,33 +62,29 @@ sim_data = function(.p) {
     } else {
       
       # ~~ HIGH-DIMENSIONAL auxiliary block W ----------------------------------
-      # Same edges as the scalar D in the figure: X_2 -> W, W -> Y, W -> R_Y,
-      # and R_W parentless (MCAR). W enters each child through a scalar index:
-      #
-      #   S_Y : plain sum of components            -> replaces D1 in Y's mean
-      #   S_R : sum + W_n_inter pairwise W_j*W_k   -> replaces D1 in R_Y's model
-      #
-      # Both are affinely rescaled by constants from a fixed-seed calibration
-      # pilot (w_calibrate_1A) so that:
-      #   - the TOTAL W-contribution to Y, i.e. S_Y*(coefDB + C1), has the same
-      #     mean and variance as the legacy D1*(coefDB + C1); and
-      #   - marginal P(R_Y = 1) matches the legacy value.
-      # So W_dim = 1 vs W_dim = 10 varies the dimension of W and nothing else.
+      # Replaces the scalar D with a high-dim W that has the SAME edges: here
+      # X_2 (A1) -> W, W -> Y, W -> R_Y, R_W parentless (MCAR). Calibrated so
+      # W_dim = 1 vs 10 varies only the dimension of W (see w_calibrate).
       
-      #bm1: want to test just this one with local run
-      # thinking about whether this will behave correctly in the miapack call; maybe first focus on just MICE
+      cfg = list(
+        y_child = TRUE,
+        coefDB  = coefDB,
+        gen_pilot = function(n) {
+          C1 = rbinom(n, 1, 0.5)
+          A1 = rbinom(n, 1, plogis(-1 + 3*C1))
+          data.frame( C1 = C1, parent = A1,
+                      W1_scalar = rbinom(n, 1, plogis(-1 + coefAD*A1)) )
+        } )
       
-      W_cal = w_calibrate_1A(.p, coefDB = coefDB)
-      
-      W  = gen_W_block(.p, parent = du$A1, thresh = W_cal$W_thresh)
-      du = bind_cols(du, W)
-      
-      S_Y = W_cal$aY + W_cal$bY * w_index_raw(W, .p, with_inter = FALSE)
-      S_R = W_cal$aR + W_cal$bR * w_index_raw(W, .p, with_inter = TRUE)
+      wa    = w_apply(.p, parent = du$A1, cfg = cfg)
+      W     = wa$W
+      W_cal = wa$cal
+      du    = bind_cols(du, W)
+      S_Y   = wa$S_Y
       
       du$B1 = rnorm( n = .p$N, mean = coefDB*S_Y + 2.6*du$C1 + S_Y*du$C1 +
-                                      coefAB*du$A1 + du$A1*du$C1 )
-      du$RB = rbinom( n = .p$N, size = 1, prob = plogis(W_cal$RY_int + 3*S_R) )
+                       coefAB*du$A1 + du$A1*du$C1 )
+      du$RB = rbinom( n = .p$N, size = 1, prob = wa$pR )
       
       W_obs_names = w_names(.p)$obs
       
@@ -144,85 +135,82 @@ sim_data = function(.p) {
     
     # "fake" variable Z1 is always observed but is independent of everything; used only to 
     #  prevent all-NA rows
-    du = data.frame( Z1 = rbinom( n = .p$N,
-                                  size = 1, 
-                                  prob = 0.5 ),
-                     
-                     C1 = rbinom( n = .p$N,
-                                  size = 1, 
-                                  prob = 0.5 ) ) 
-    
+    du = data.frame( Z1 = rbinom( n = .p$N, size = 1, prob = 0.5 ),
+                     C1 = rbinom( n = .p$N, size = 1, prob = 0.5 ) ) 
     
     coefDB = 2
     coefAD = 3
     coefAB = 2
     
-    du = du %>% rowwise() %>%
-      mutate( A1 = rbinom( n = 1,
-                           size = 1,
-                           prob = expit(-1 + 3*C1) ),
-              
-              D1 = rbinom( n = 1,
-                           size = 1,
-                           prob = expit(-1 + coefAD*A1) ),
-              
-              B1 = rnorm( n = 1,
-                          mean = coefDB*D1 + 2.6*C1 + D1*C1 + coefAB*A1 + A1*C1),
-              
-              RA = rbinom( n = 1,
-                           size = 1,
-                           prob = expit(-1 + 3*D1) ),
-              
-              RD = rbinom( n = 1,
-                           size = 1,
-                           prob = 0.5 ),
-              
-              RC = rbinom( n = 1,
-                           size = 1,
-                           prob = expit(-1 + 3*D1) ),
-              
-              RB = rbinom( n = 1,
-                           size = 1,
-                           prob = expit(-1 + 3*D1) ) )
+    du$A1 = rbinom( n = .p$N, size = 1, prob = expit(-1 + 3*du$C1) )
+    du$RD = rbinom( n = .p$N, size = 1, prob = 0.5 )
     
     
-    du = du %>% rowwise() %>%
-      mutate( A = ifelse(RA == 1, A1, NA),
-              B = ifelse(RB == 1, B1, NA),
-              C = ifelse(RC == 1, C1, NA),
-              D = ifelse(RD == 1, D1, NA),
-              Z = Z1)
+    if ( is.null(.p$W_dim) || is.na(.p$W_dim) || .p$W_dim <= 1 ) {
+      
+      # ~~ LEGACY single scalar auxiliary D ------------------------------------
+      du$D1 = rbinom( n = .p$N, size = 1, prob = expit(-1 + coefAD*du$A1) )
+      du$B1 = rnorm(  n = .p$N, mean = coefDB*du$D1 + 2.6*du$C1 + du$D1*du$C1 +
+                        coefAB*du$A1 + du$A1*du$C1 )
+      # W drives R_Y, R_X1 (RC), and R_X2 (RA), all via expit(-1 + 3*D1)
+      du$RA = rbinom( n = .p$N, size = 1, prob = expit(-1 + 3*du$D1) )
+      du$RC = rbinom( n = .p$N, size = 1, prob = expit(-1 + 3*du$D1) )
+      du$RB = rbinom( n = .p$N, size = 1, prob = expit(-1 + 3*du$D1) )
+      
+      W = NULL; W_cal = NULL; W_obs_names = "D"
+      
+    } else {
+      
+      # ~~ HIGH-DIMENSIONAL auxiliary block W ----------------------------------
+      # X_2 (A1) -> W; W -> Y, R_Y, R_X1, R_X2. All three R-nodes share S_R.
+      cfg = list(
+        y_child = TRUE,
+        coefDB  = coefDB,
+        gen_pilot = function(n) {
+          C1 = rbinom(n, 1, 0.5)
+          A1 = rbinom(n, 1, plogis(-1 + 3*C1))
+          data.frame( C1 = C1, parent = A1,
+                      W1_scalar = rbinom(n, 1, plogis(-1 + coefAD*A1)) )
+        } )
+      
+      wa    = w_apply(.p, parent = du$A1, cfg = cfg)
+      W     = wa$W
+      W_cal = wa$cal
+      du    = bind_cols(du, W)
+      S_Y   = wa$S_Y
+      
+      du$B1 = rnorm( n = .p$N, mean = coefDB*S_Y + 2.6*du$C1 + S_Y*du$C1 +
+                       coefAB*du$A1 + du$A1*du$C1 )
+      du$RA = rbinom( n = .p$N, size = 1, prob = wa$pR )
+      du$RC = rbinom( n = .p$N, size = 1, prob = wa$pR )
+      du$RB = rbinom( n = .p$N, size = 1, prob = wa$pR )
+      
+      W_obs_names = w_names(.p)$obs
+      
+    }
     
+    du = du %>% mutate( A = ifelse(RA == 1, A1, NA),
+                        B = ifelse(RB == 1, B1, NA),
+                        C = ifelse(RC == 1, C1, NA),
+                        Z = Z1 )
     
-    colMeans(du)
-    suppressWarnings( cor(du %>% select(A1, B1, C1, D1, RA, RB, RC, RD) ) )
-    
+    if ( is.null(W) ) du$D = ifelse(du$RD == 1, du$D1, NA)
     
     # make dataset for imputation
-    di = du %>% select(A, B, C, D, Z)
-    
+    di = du %>% select( all_of( c("A", "B", "C", W_obs_names, "Z") ) )
     
     ### For just the intercept of A
     if ( .p$coef_of_interest == "(Intercept)" ){ 
       stop("Intercept not implemented for this DAG")
     }
     
-    
     ### Coefficient of interest
     if ( .p$coef_of_interest %in% c("A", "C" ) ){ 
-      
-      # regression strings
       form_string = "B ~ A * C"
-      
-      # gold-standard model uses underlying variables
       gold_form_string = "B1 ~ A1 * C1"
-      
       beta = NA
-      
-      # custom predictor matrix for MICE-ours-pred
       exclude_from_imp_model = NULL
     }
-    
     
   }  # end of .p$dag_name == "1B"
   
@@ -236,84 +224,78 @@ sim_data = function(.p) {
     
     # "fake" variable Z1 is always observed but is independent of everything; used only to 
     #  prevent all-NA rows
-    du = data.frame( Z1 = rbinom( n = .p$N,
-                                  size = 1, 
-                                  prob = 0.5 ),
-                     
-                     C1 = rbinom( n = .p$N,
-                                  size = 1, 
-                                  prob = 0.5 ) ) 
-    
+    du = data.frame( Z1 = rbinom( n = .p$N, size = 1, prob = 0.5 ),
+                     C1 = rbinom( n = .p$N, size = 1, prob = 0.5 ) ) 
     
     coefAD = 3
     coefAB = 2
     
-    du = du %>% rowwise() %>%
-      mutate( A1 = rbinom( n = 1,
-                           size = 1,
-                           prob = expit(-1 + 3*C1) ),
-              
-              D1 = rbinom( n = 1,
-                           size = 1,
-                           prob = expit(-1 + coefAD*A1) ),
-              
-              B1 = rnorm( n = 1,
-                          mean = 2.6*C1 + coefAB*A1 + A1*C1),
-              
-              RA = rbinom( n = 1,
-                           size = 1,
-                           prob = expit(-1 + 3*D1) ),
-              
-              RD = rbinom( n = 1,
-                           size = 1,
-                           prob = 0.5 ),
-              
-              RC = rbinom( n = 1,
-                           size = 1,
-                           prob = expit(-1 + 3*D1) ),
-              
-              RB = rbinom( n = 1,
-                           size = 1,
-                           prob = expit(-1 + 3*D1) ) )
+    du$A1 = rbinom( n = .p$N, size = 1, prob = expit(-1 + 3*du$C1) )
+    du$RD = rbinom( n = .p$N, size = 1, prob = 0.5 )
+    
+    # Y has NO W term in 1C (no W -> Y edge); Y is the same regardless of W.
+    du$B1 = rnorm( n = .p$N, mean = 2.6*du$C1 + coefAB*du$A1 + du$A1*du$C1 )
     
     
-    du = du %>% rowwise() %>%
-      mutate( A = ifelse(RA == 1, A1, NA),
-              B = ifelse(RB == 1, B1, NA),
-              C = ifelse(RC == 1, C1, NA),
-              D = ifelse(RD == 1, D1, NA),
-              Z = Z1)
+    if ( is.null(.p$W_dim) || is.na(.p$W_dim) || .p$W_dim <= 1 ) {
+      
+      # ~~ LEGACY single scalar auxiliary D ------------------------------------
+      du$D1 = rbinom( n = .p$N, size = 1, prob = expit(-1 + coefAD*du$A1) )
+      du$RA = rbinom( n = .p$N, size = 1, prob = expit(-1 + 3*du$D1) )
+      du$RC = rbinom( n = .p$N, size = 1, prob = expit(-1 + 3*du$D1) )
+      du$RB = rbinom( n = .p$N, size = 1, prob = expit(-1 + 3*du$D1) )
+      
+      W = NULL; W_cal = NULL; W_obs_names = "D"
+      
+    } else {
+      
+      # ~~ HIGH-DIMENSIONAL auxiliary block W ----------------------------------
+      # X_2 (A1) -> W; W does NOT enter Y (y_child = FALSE); W -> R_Y, R_X1, R_X2.
+      cfg = list(
+        y_child = FALSE,
+        coefDB  = NA,
+        gen_pilot = function(n) {
+          C1 = rbinom(n, 1, 0.5)
+          A1 = rbinom(n, 1, plogis(-1 + 3*C1))
+          data.frame( C1 = C1, parent = A1,
+                      W1_scalar = rbinom(n, 1, plogis(-1 + coefAD*A1)) )
+        } )
+      
+      wa    = w_apply(.p, parent = du$A1, cfg = cfg)
+      W     = wa$W
+      W_cal = wa$cal
+      du    = bind_cols(du, W)
+      
+      du$RA = rbinom( n = .p$N, size = 1, prob = wa$pR )
+      du$RC = rbinom( n = .p$N, size = 1, prob = wa$pR )
+      du$RB = rbinom( n = .p$N, size = 1, prob = wa$pR )
+      
+      W_obs_names = w_names(.p)$obs
+      
+    }
     
+    du = du %>% mutate( A = ifelse(RA == 1, A1, NA),
+                        B = ifelse(RB == 1, B1, NA),
+                        C = ifelse(RC == 1, C1, NA),
+                        Z = Z1 )
     
-    colMeans(du)
-    suppressWarnings( cor(du %>% select(A1, B1, C1, D1, RA, RB, RC, RD) ) )
-    
+    if ( is.null(W) ) du$D = ifelse(du$RD == 1, du$D1, NA)
     
     # make dataset for imputation
-    di = du %>% select(A, B, C, D, Z)
-    
+    di = du %>% select( all_of( c("A", "B", "C", W_obs_names, "Z") ) )
     
     ### For just the intercept of A
     if ( .p$coef_of_interest == "(Intercept)" ){ 
       stop("Intercept not implemented for this DAG")
     }
     
-    
     ### Coefficient of interest
     if ( .p$coef_of_interest %in% c("A", "C" ) ){ 
-      
-      # regression strings
       form_string = "B ~ A * C"
-      
-      # gold-standard model uses underlying variables
       gold_form_string = "B1 ~ A1 * C1"
-      
       beta = NA
-      
-      # custom predictor matrix for MICE-ours-pred
       exclude_from_imp_model = NULL
     }
-    
     
   }  # end of .p$dag_name == "1C"
   
@@ -324,79 +306,77 @@ sim_data = function(.p) {
   if ( .p$dag_name == "2A" ) {
     
     # "fake" variable Z1 is always observed but is independent of everything; used only to prevent all-NA rows
-    du = data.frame( Z1 = rbinom( n = .p$N,
-                                  size = 1, 
-                                  prob = 0.5 ),
-                     
-                     C1 = rbinom( n = .p$N,
-                                  size = 1, 
-                                  prob = 0.5 ) ) 
-    
+    du = data.frame( Z1 = rbinom( n = .p$N, size = 1, prob = 0.5 ),
+                     C1 = rbinom( n = .p$N, size = 1, prob = 0.5 ) ) 
     
     coefAB = 2
     coefBD = 3
     
-    du = du %>% rowwise() %>%
-      mutate( A1 = rbinom( n = 1,
-                           size = 1,
-                           prob = expit(-1 + 3*C1) ),
-              
-              B1 = rnorm( n = 1,
-                          mean = coefAB*A1 + 2.6*C1 + A1*C1),
-              
-              D1 = rbinom( n = 1,
-                           size = 1,
-                           prob = expit(-1 + coefBD*B1) ),
-              
-              RA = 1,
-              
-              RD = rbinom( n = 1,
-                           size = 1,
-                           prob = 0.5 ),
-              
-              RC = 1,
-              
-              RB = rbinom( n = 1,
-                           size = 1,
-                           prob = expit(-1 + 3*D1) ) )
-    
-    du = du %>% rowwise() %>%
-      mutate( A = ifelse(RA == 1, A1, NA),
-              B = ifelse(RB == 1, B1, NA),
-              C = ifelse(RC == 1, C1, NA),
-              D = ifelse(RD == 1, D1, NA),
-              Z = Z1)
+    # Y (B1) is drawn BEFORE W here, because W <- Y in this DAG (edge reversal).
+    du$A1 = rbinom( n = .p$N, size = 1, prob = expit(-1 + 3*du$C1) )
+    du$B1 = rnorm(  n = .p$N, mean = coefAB*du$A1 + 2.6*du$C1 + du$A1*du$C1 )
+    du$RA = 1
+    du$RC = 1
+    du$RD = rbinom( n = .p$N, size = 1, prob = 0.5 )
     
     
-    colMeans(du)
-    suppressWarnings( cor(du %>% select(A1, B1, C1, D1, RA, RB, RC, RD) ) )
+    if ( is.null(.p$W_dim) || is.na(.p$W_dim) || .p$W_dim <= 1 ) {
+      
+      # ~~ LEGACY single scalar auxiliary D ------------------------------------
+      du$D1 = rbinom( n = .p$N, size = 1, prob = expit(-1 + coefBD*du$B1) )
+      du$RB = rbinom( n = .p$N, size = 1, prob = expit(-1 + 3*du$D1) )
+      
+      W = NULL; W_cal = NULL; W_obs_names = "D"
+      
+    } else {
+      
+      # ~~ HIGH-DIMENSIONAL auxiliary block W ----------------------------------
+      # W <- Y (B1) is W's parent; W -> R_Y only. W does not enter Y's mean
+      # (Y is upstream of W), so y_child = FALSE and there is no S_Y term.
+      cfg = list(
+        y_child = FALSE,
+        coefDB  = NA,
+        gen_pilot = function(n) {
+          C1 = rbinom(n, 1, 0.5)
+          A1 = rbinom(n, 1, plogis(-1 + 3*C1))
+          B1 = rnorm(n, mean = coefAB*A1 + 2.6*C1 + A1*C1)
+          data.frame( C1 = C1, parent = B1,
+                      W1_scalar = rbinom(n, 1, plogis(-1 + coefBD*B1)) )
+        } )
+      
+      wa    = w_apply(.p, parent = du$B1, cfg = cfg)
+      W     = wa$W
+      W_cal = wa$cal
+      du    = bind_cols(du, W)
+      
+      du$RB = rbinom( n = .p$N, size = 1, prob = wa$pR )
+      
+      W_obs_names = w_names(.p)$obs
+      
+    }
     
+    du = du %>% mutate( A = ifelse(RA == 1, A1, NA),
+                        B = ifelse(RB == 1, B1, NA),
+                        C = ifelse(RC == 1, C1, NA),
+                        Z = Z1 )
+    
+    if ( is.null(W) ) du$D = ifelse(du$RD == 1, du$D1, NA)
     
     # make dataset for imputation
-    di = du %>% select(A, B, C, D, Z)
-    
+    di = du %>% select( all_of( c("A", "B", "C", W_obs_names, "Z") ) )
     
     ### For just the intercept of A
     if ( .p$coef_of_interest == "(Intercept)" ){ 
       stop("Intercept not implemented for this DAG")
     }
     
-    
     ### Coefficient of interest
     if ( .p$coef_of_interest %in% c("A", "C" ) ){ 
-      
-      # regression strings
       form_string = "B ~ A * C"
-      
-      # gold-standard model uses underlying variables
       gold_form_string = "B1 ~ A1 * C1"
-      
       beta = NA
-      
-      # custom predictor matrix for MICE-ours-pred
       exclude_from_imp_model = NULL
     }
-    
     
   }  # end of .p$dag_name == "2A"
   
@@ -407,83 +387,78 @@ sim_data = function(.p) {
   if ( .p$dag_name == "2B" ) {
     
     # "fake" variable Z1 is always observed but is independent of everything; used only to prevent all-NA rows
-    du = data.frame( Z1 = rbinom( n = .p$N,
-                                  size = 1, 
-                                  prob = 0.5 ),
-                     
-                     C1 = rbinom( n = .p$N,
-                                  size = 1, 
-                                  prob = 0.5 ) ) 
-    
+    du = data.frame( Z1 = rbinom( n = .p$N, size = 1, prob = 0.5 ),
+                     C1 = rbinom( n = .p$N, size = 1, prob = 0.5 ) ) 
     
     coefAB = 2
     coefBD = 3
     
-    du = du %>% rowwise() %>%
-      mutate( A1 = rbinom( n = 1,
-                           size = 1,
-                           prob = expit(-1 + 3*C1) ),
-              
-              B1 = rnorm( n = 1,
-                          mean = coefAB*A1 + 2.6*C1 + A1*C1),
-              
-              D1 = rbinom( n = 1,
-                           size = 1,
-                           prob = expit(-1 + coefBD*B1) ),
-              
-              RA = rbinom( n = 1,
-                           size = 1,
-                           prob = expit(-1 + 3*D1) ),
-              
-              RD = rbinom( n = 1,
-                           size = 1,
-                           prob = 0.5 ),
-              
-              RC = rbinom( n = 1,
-                           size = 1,
-                           prob = expit(-1 + 3*D1) ),
-              
-              RB = rbinom( n = 1,
-                           size = 1,
-                           prob = expit(-1 + 3*D1) ) )
-    
-    du = du %>% rowwise() %>%
-      mutate( A = ifelse(RA == 1, A1, NA),
-              B = ifelse(RB == 1, B1, NA),
-              C = ifelse(RC == 1, C1, NA),
-              D = ifelse(RD == 1, D1, NA),
-              Z = Z1)
+    # Y (B1) drawn BEFORE W: W <- Y in this DAG.
+    du$A1 = rbinom( n = .p$N, size = 1, prob = expit(-1 + 3*du$C1) )
+    du$B1 = rnorm(  n = .p$N, mean = coefAB*du$A1 + 2.6*du$C1 + du$A1*du$C1 )
+    du$RD = rbinom( n = .p$N, size = 1, prob = 0.5 )
     
     
-    colMeans(du)
-    suppressWarnings( cor(du %>% select(A1, B1, C1, D1, RA, RB, RC, RD) ) )
+    if ( is.null(.p$W_dim) || is.na(.p$W_dim) || .p$W_dim <= 1 ) {
+      
+      # ~~ LEGACY single scalar auxiliary D ------------------------------------
+      du$D1 = rbinom( n = .p$N, size = 1, prob = expit(-1 + coefBD*du$B1) )
+      du$RA = rbinom( n = .p$N, size = 1, prob = expit(-1 + 3*du$D1) )
+      du$RC = rbinom( n = .p$N, size = 1, prob = expit(-1 + 3*du$D1) )
+      du$RB = rbinom( n = .p$N, size = 1, prob = expit(-1 + 3*du$D1) )
+      
+      W = NULL; W_cal = NULL; W_obs_names = "D"
+      
+    } else {
+      
+      # ~~ HIGH-DIMENSIONAL auxiliary block W ----------------------------------
+      # W <- Y (B1); W -> R_Y, R_X1, R_X2 (shared S_R). W not in Y's mean.
+      cfg = list(
+        y_child = FALSE,
+        coefDB  = NA,
+        gen_pilot = function(n) {
+          C1 = rbinom(n, 1, 0.5)
+          A1 = rbinom(n, 1, plogis(-1 + 3*C1))
+          B1 = rnorm(n, mean = coefAB*A1 + 2.6*C1 + A1*C1)
+          data.frame( C1 = C1, parent = B1,
+                      W1_scalar = rbinom(n, 1, plogis(-1 + coefBD*B1)) )
+        } )
+      
+      wa    = w_apply(.p, parent = du$B1, cfg = cfg)
+      W     = wa$W
+      W_cal = wa$cal
+      du    = bind_cols(du, W)
+      
+      du$RA = rbinom( n = .p$N, size = 1, prob = wa$pR )
+      du$RC = rbinom( n = .p$N, size = 1, prob = wa$pR )
+      du$RB = rbinom( n = .p$N, size = 1, prob = wa$pR )
+      
+      W_obs_names = w_names(.p)$obs
+      
+    }
     
+    du = du %>% mutate( A = ifelse(RA == 1, A1, NA),
+                        B = ifelse(RB == 1, B1, NA),
+                        C = ifelse(RC == 1, C1, NA),
+                        Z = Z1 )
+    
+    if ( is.null(W) ) du$D = ifelse(du$RD == 1, du$D1, NA)
     
     # make dataset for imputation
-    di = du %>% select(A, B, C, D, Z)
-    
+    di = du %>% select( all_of( c("A", "B", "C", W_obs_names, "Z") ) )
     
     ### For just the intercept of A
     if ( .p$coef_of_interest == "(Intercept)" ){ 
       stop("Intercept not implemented for this DAG")
     }
     
-    
     ### Coefficient of interest
     if ( .p$coef_of_interest %in% c("A", "C" ) ){ 
-      
-      # regression strings
       form_string = "B ~ A * C"
-      
-      # gold-standard model uses underlying variables
       gold_form_string = "B1 ~ A1 * C1"
-      
       beta = NA
-      
-      # custom predictor matrix for MICE-ours-pred
       exclude_from_imp_model = NULL
     }
-    
     
   }  # end of .p$dag_name == "2B"
   
@@ -506,68 +481,71 @@ sim_data = function(.p) {
     coefAD = 3
     coefAB = 2
     
-    du = du %>% rowwise() %>%
-      mutate( A1 = rbinom( n = 1,
-                           size = 1,
-                           prob = expit(-1 + 3*C1) ),
-              
-              D1 = rbinom( n = 1,
-                           size = 1,
-                           prob = 0.5 ),
-              
-              B1 = rnorm( n = 1,
-                          mean = coefDB*D1 + 2.6*C1 + D1*C1 + coefAB*A1 + A1*C1),
-              
-              RA = 1,
-              
-              RD = rbinom( n = 1,
-                           size = 1,
-                           prob = 0.5 ),
-              
-              RC = 1,
-              
-              RB = rbinom( n = 1,
-                           size = 1,
-                           prob = expit(-1 + 3*D1) ) )
-    
-
-    du = du %>% rowwise() %>%
-      mutate( A = ifelse(RA == 1, A1, NA),
-              B = ifelse(RB == 1, B1, NA),
-              C = ifelse(RC == 1, C1, NA),
-              D = ifelse(RD == 1, D1, NA),
-              Z = Z1)
+    du$A1 = rbinom( n = .p$N, size = 1, prob = expit(-1 + 3*du$C1) )
+    du$RA = 1
+    du$RC = 1
+    du$RD = rbinom( n = .p$N, size = 1, prob = 0.5 )
     
     
-    colMeans(du)
-    suppressWarnings( cor(du %>% select(A1, B1, C1, D1, RA, RB, RC, RD) ) )
+    if ( is.null(.p$W_dim) || is.na(.p$W_dim) || .p$W_dim <= 1 ) {
+      
+      # ~~ LEGACY single scalar auxiliary D ------------------------------------
+      du$D1 = rbinom( n = .p$N, size = 1, prob = 0.5 )   # W is a source node
+      du$B1 = rnorm(  n = .p$N, mean = coefDB*du$D1 + 2.6*du$C1 + du$D1*du$C1 +
+                        coefAB*du$A1 + du$A1*du$C1 )
+      du$RB = rbinom( n = .p$N, size = 1, prob = expit(-1 + 3*du$D1) )
+      
+      W = NULL; W_cal = NULL; W_obs_names = "D"
+      
+    } else {
+      
+      # ~~ HIGH-DIMENSIONAL auxiliary block W ----------------------------------
+      # W is a SOURCE node (no parent); W -> Y, R_Y.
+      cfg = list(
+        y_child = TRUE,
+        coefDB  = coefDB,
+        gen_pilot = function(n) {
+          C1 = rbinom(n, 1, 0.5)
+          data.frame( C1 = C1, parent = rep(0, n),
+                      W1_scalar = rbinom(n, 1, 0.5) )
+        } )
+      
+      wa    = w_apply(.p, parent = NULL, cfg = cfg)
+      W     = wa$W
+      W_cal = wa$cal
+      du    = bind_cols(du, W)
+      S_Y   = wa$S_Y
+      
+      du$B1 = rnorm( n = .p$N, mean = coefDB*S_Y + 2.6*du$C1 + S_Y*du$C1 +
+                       coefAB*du$A1 + du$A1*du$C1 )
+      du$RB = rbinom( n = .p$N, size = 1, prob = wa$pR )
+      
+      W_obs_names = w_names(.p)$obs
+      
+    }
     
+    du = du %>% mutate( A = ifelse(RA == 1, A1, NA),
+                        B = ifelse(RB == 1, B1, NA),
+                        C = ifelse(RC == 1, C1, NA),
+                        Z = Z1 )
+    
+    if ( is.null(W) ) du$D = ifelse(du$RD == 1, du$D1, NA)
     
     # make dataset for imputation
-    di = du %>% select(A, B, C, D, Z)
-    
+    di = du %>% select( all_of( c("A", "B", "C", W_obs_names, "Z") ) )
     
     ### For just the intercept of A
     if ( .p$coef_of_interest == "(Intercept)" ){ 
       stop("Intercept not implemented for this DAG")
     }
     
-    
     ### Coefficient of interest
     if ( .p$coef_of_interest %in% c("A", "C" ) ){ 
-      
-      # regression strings
       form_string = "B ~ A * C"
-      
-      # gold-standard model uses underlying variables
       gold_form_string = "B1 ~ A1 * C1"
-      
       beta = NA
-      
-      # custom predictor matrix for MICE-ours-pred
       exclude_from_imp_model = NULL
     }
-    
     
   }  # end of .p$dag_name == "3A"
   
@@ -593,49 +571,60 @@ sim_data = function(.p) {
     coefAD = 3
     coefAB = 2
     
-    du = du %>% rowwise() %>%
-      mutate( A1 = rbinom( n = 1,
-                           size = 1,
-                           prob = expit(-1 + 3*C1) ),
-              
-              D1 = rbinom( n = 1,
-                           size = 1,
-                           prob = 0.5 ),
-              
-              B1 = rnorm( n = 1,
-                          mean = coefDB*D1 + 2.6*C1 + D1*C1 + coefAB*A1 + A1*C1),
-              
-              RA = rbinom( n = 1,
-                           size = 1,
-                           prob = expit(-1 + 3*D1) ),
-              
-              RD = rbinom( n = 1,
-                           size = 1,
-                           prob = 0.5 ),
-              
-              RC = rbinom( n = 1,
-                           size = 1,
-                           prob = expit(-1 + 3*D1) ),
-              
-              RB = rbinom( n = 1,
-                           size = 1,
-                           prob = expit(-1 + 3*D1) ) )
+    du$A1 = rbinom( n = .p$N, size = 1, prob = expit(-1 + 3*du$C1) )
+    du$RD = rbinom( n = .p$N, size = 1, prob = 0.5 )
     
     
-    du = du %>% rowwise() %>%
-      mutate( A = ifelse(RA == 1, A1, NA),
-              B = ifelse(RB == 1, B1, NA),
-              C = ifelse(RC == 1, C1, NA),
-              D = ifelse(RD == 1, D1, NA),
-              Z = Z1)
+    if ( is.null(.p$W_dim) || is.na(.p$W_dim) || .p$W_dim <= 1 ) {
+      
+      # ~~ LEGACY single scalar auxiliary D ------------------------------------
+      du$D1 = rbinom( n = .p$N, size = 1, prob = 0.5 )   # W is a source node
+      du$B1 = rnorm(  n = .p$N, mean = coefDB*du$D1 + 2.6*du$C1 + du$D1*du$C1 +
+                        coefAB*du$A1 + du$A1*du$C1 )
+      du$RA = rbinom( n = .p$N, size = 1, prob = expit(-1 + 3*du$D1) )
+      du$RC = rbinom( n = .p$N, size = 1, prob = expit(-1 + 3*du$D1) )
+      du$RB = rbinom( n = .p$N, size = 1, prob = expit(-1 + 3*du$D1) )
+      
+      W = NULL; W_cal = NULL; W_obs_names = "D"
+      
+    } else {
+      
+      # ~~ HIGH-DIMENSIONAL auxiliary block W ----------------------------------
+      # W is a SOURCE node (no parent); W -> Y, R_Y, R_X1, R_X2 (shared S_R).
+      cfg = list(
+        y_child = TRUE,
+        coefDB  = coefDB,
+        gen_pilot = function(n) {
+          C1 = rbinom(n, 1, 0.5)
+          data.frame( C1 = C1, parent = rep(0, n),
+                      W1_scalar = rbinom(n, 1, 0.5) )
+        } )
+      
+      wa    = w_apply(.p, parent = NULL, cfg = cfg)
+      W     = wa$W
+      W_cal = wa$cal
+      du    = bind_cols(du, W)
+      S_Y   = wa$S_Y
+      
+      du$B1 = rnorm( n = .p$N, mean = coefDB*S_Y + 2.6*du$C1 + S_Y*du$C1 +
+                       coefAB*du$A1 + du$A1*du$C1 )
+      du$RA = rbinom( n = .p$N, size = 1, prob = wa$pR )
+      du$RC = rbinom( n = .p$N, size = 1, prob = wa$pR )
+      du$RB = rbinom( n = .p$N, size = 1, prob = wa$pR )
+      
+      W_obs_names = w_names(.p)$obs
+      
+    }
     
+    du = du %>% mutate( A = ifelse(RA == 1, A1, NA),
+                        B = ifelse(RB == 1, B1, NA),
+                        C = ifelse(RC == 1, C1, NA),
+                        Z = Z1 )
     
-    colMeans(du)
-    suppressWarnings( cor(du %>% select(A1, B1, C1, D1, RA, RB, RC, RD) ) )
-    
+    if ( is.null(W) ) du$D = ifelse(du$RD == 1, du$D1, NA)
     
     # make dataset for imputation
-    di = du %>% select(A, B, C, D, Z)
+    di = du %>% select( all_of( c("A", "B", "C", W_obs_names, "Z") ) )
     
     
     ### For just the intercept of A
@@ -759,19 +748,19 @@ sim_data = function(.p) {
   # Y is complete
   
   if ( .p$dag_name == "5-MNAR-cont" ) {
-
+    
     # "fake" variable Z1 is always observed but is independent of everything;
     # used only to prevent all-NA rows
     du = data.frame( Z1 = rbinom( n = .p$N, size = 1, prob = 0.5 ) )
-
+    
     coefAB = 2
-
+    
     # vectorized (was rowwise(); identical DGM, ~100x faster at N = 10,000)
     du$A1 = rbinom( n = .p$N, size = 1, prob = 0.5 )
     du$B1 = rnorm(  n = .p$N, mean = coefAB * du$A1 )
     du$RA = rbinom( n = .p$N, size = 1, prob = expit(0.5 + 1 * du$B1) )
     du$RB = 1
-
+    
     # ~~ auxiliary block W ----
     # Replaces the single binary D. Every component W_j has exactly the edges D
     # had: W_j -> R_Wj and nothing else. W remains disconnected from (A, B), so
@@ -779,23 +768,23 @@ sim_data = function(.p) {
     # single-D DGM and also aliases D1 / D / RD.
     W = gen_W_block(.p)
     if ( !is.null(W) ) du = bind_cols(du, W)
-
+    
     du = du %>% mutate( A = ifelse(RA == 1, A1, NA),
                         B = ifelse(RB == 1, B1, NA),
                         Z = Z1 )
-
+    
     # make dataset for imputation: analysis variables + OBSERVED auxiliaries
     di = du %>% select( all_of( c("A", "B", w_names(.p)$obs, "Z") ) )
-
+    
     if ( .p$coef_of_interest == "(Intercept)" ) stop("Intercept not implemented for this DAG")
-
+    
     if ( .p$coef_of_interest %in% c("A") ) {
       form_string      = "B ~ A"
       gold_form_string = "B1 ~ A1"
       beta = NA
       exclude_from_imp_model = NULL
     }
-
+    
   }  # end of .p$dag_name == "5-MNAR-cont"
   
   
@@ -839,7 +828,7 @@ sim_data = function(.p) {
     
     colMeans(du)
     suppressWarnings( cor(du %>% select(A1, B1, RA, RB) ) )
-   
+    
     
     
     # make dataset for imputation
@@ -879,19 +868,19 @@ sim_data = function(.p) {
   # A -> B -> RA, D -> RD. MAR. Y=B binary and complete.
   
   if ( .p$dag_name == "5-MNAR-bin" ) {
-
+    
     # "fake" variable Z1 is always observed but is independent of everything;
     # used only to prevent all-NA rows
     du = data.frame( Z1 = rbinom( n = .p$N, size = 1, prob = 0.5 ) )
-
+    
     coefAB = 2
-
+    
     # vectorized (was rowwise(); identical DGM, ~100x faster at N = 10,000)
     du$A1 = rbinom( n = .p$N, size = 1, prob = 0.5 )
     du$B1 = rbinom( n = .p$N, size = 1, prob = plogis( -2 + coefAB * du$A1 ) )
     du$RA = rbinom( n = .p$N, size = 1, prob = expit(-1 + 3 * du$B1) )
     du$RB = 1
-
+    
     # ~~ auxiliary block W ----
     # Replaces the single binary D. Every component W_j has exactly the edges D
     # had: W_j -> R_Wj and nothing else. W remains disconnected from (A, B), so
@@ -899,23 +888,23 @@ sim_data = function(.p) {
     # single-D DGM and also aliases D1 / D / RD.
     W = gen_W_block(.p)
     if ( !is.null(W) ) du = bind_cols(du, W)
-
+    
     du = du %>% mutate( A = ifelse(RA == 1, A1, NA),
                         B = ifelse(RB == 1, B1, NA),
                         Z = Z1 )
-
+    
     # make dataset for imputation: analysis variables + OBSERVED auxiliaries
     di = du %>% select( all_of( c("A", "B", w_names(.p)$obs, "Z") ) )
-
+    
     if ( .p$coef_of_interest == "(Intercept)" ) stop("Intercept not implemented for this DAG")
-
+    
     if ( .p$coef_of_interest %in% c("A") ) {
       form_string      = "B ~ A"
       gold_form_string = "B1 ~ A1"
       beta = NA
       exclude_from_imp_model = NULL
     }
-
+    
   }  # end of .p$dag_name == "5-MNAR-bin"
   
   
@@ -995,19 +984,19 @@ sim_data = function(.p) {
   # A -> B, A -> RB, D -> RD. MAR. A is complete.
   
   if ( .p$dag_name == "6-MNAR-cont" ) {
-
+    
     # "fake" variable Z1 is always observed but is independent of everything;
     # used only to prevent all-NA rows
     du = data.frame( Z1 = rbinom( n = .p$N, size = 1, prob = 0.5 ) )
-
+    
     coefAB = 2
-
+    
     # vectorized (was rowwise(); identical DGM, ~100x faster at N = 10,000)
     du$A1 = rbinom( n = .p$N, size = 1, prob = 0.5 )
     du$B1 = rnorm(  n = .p$N, mean = coefAB * du$A1 )
     du$RA = 1
     du$RB = rbinom( n = .p$N, size = 1, prob = expit(-1 + 3 * du$A1) )
-
+    
     # ~~ auxiliary block W ----
     # Replaces the single binary D. Every component W_j has exactly the edges D
     # had: W_j -> R_Wj and nothing else. W remains disconnected from (A, B), so
@@ -1015,23 +1004,23 @@ sim_data = function(.p) {
     # single-D DGM and also aliases D1 / D / RD.
     W = gen_W_block(.p)
     if ( !is.null(W) ) du = bind_cols(du, W)
-
+    
     du = du %>% mutate( A = ifelse(RA == 1, A1, NA),
                         B = ifelse(RB == 1, B1, NA),
                         Z = Z1 )
-
+    
     # make dataset for imputation: analysis variables + OBSERVED auxiliaries
     di = du %>% select( all_of( c("A", "B", w_names(.p)$obs, "Z") ) )
-
+    
     if ( .p$coef_of_interest == "(Intercept)" ) stop("Intercept not implemented for this DAG")
-
+    
     if ( .p$coef_of_interest %in% c("A") ) {
       form_string      = "B ~ A"
       gold_form_string = "B1 ~ A1"
       beta = NA
       exclude_from_imp_model = NULL
     }
-
+    
   }  # end of .p$dag_name == "6-MNAR-cont"
   
   
@@ -1107,19 +1096,19 @@ sim_data = function(.p) {
   # A cont -> B binary, B -> RB, D -> RD. MAR. A is complete.
   
   if ( .p$dag_name == "6-MNAR-bin" ) {
-
+    
     # "fake" variable Z1 is always observed but is independent of everything;
     # used only to prevent all-NA rows
     du = data.frame( Z1 = rbinom( n = .p$N, size = 1, prob = 0.5 ) )
-
+    
     coefAB = 2
-
+    
     # vectorized (was rowwise(); identical DGM, ~100x faster at N = 10,000)
     du$A1 = rnorm(  n = .p$N, mean = 0 )
     du$B1 = rbinom( n = .p$N, size = 1, prob = plogis( -2 + coefAB * du$A1 ) )
     du$RA = 1
     du$RB = rbinom( n = .p$N, size = 1, prob = expit(0.5 + du$A1) )
-
+    
     # ~~ auxiliary block W ----
     # Replaces the single binary D. Every component W_j has exactly the edges D
     # had: W_j -> R_Wj and nothing else. W remains disconnected from (A, B), so
@@ -1127,23 +1116,23 @@ sim_data = function(.p) {
     # single-D DGM and also aliases D1 / D / RD.
     W = gen_W_block(.p)
     if ( !is.null(W) ) du = bind_cols(du, W)
-
+    
     du = du %>% mutate( A = ifelse(RA == 1, A1, NA),
                         B = ifelse(RB == 1, B1, NA),
                         Z = Z1 )
-
+    
     # make dataset for imputation: analysis variables + OBSERVED auxiliaries
     di = du %>% select( all_of( c("A", "B", w_names(.p)$obs, "Z") ) )
-
+    
     if ( .p$coef_of_interest == "(Intercept)" ) stop("Intercept not implemented for this DAG")
-
+    
     if ( .p$coef_of_interest %in% c("A") ) {
       form_string      = "B ~ A"
       gold_form_string = "B1 ~ A1"
       beta = NA
       exclude_from_imp_model = NULL
     }
-
+    
   }  # end of .p$dag_name == "6-MNAR-bin"
   
   
@@ -1217,9 +1206,9 @@ sim_data = function(.p) {
     
   }  # end of .p$dag_name == "6-MAR-bin"
   
-
+  
   # ~ Finish generating data ----------------
- 
+  
   
   
   return( list(du = du,
@@ -1343,8 +1332,8 @@ fit_regression = function(form_string,
     cat("\n bhat lo:", mod_hc0$lo )
     
     mod_hc0_int <- my_ols_hc0(coefName = "(Intercept)",
-                          ols = mod)
-
+                              ols = mod)
+    
     
     return( list( stats = data.frame( bhat = as.numeric( bhats[coef_of_interest] ),
                                       
@@ -1431,7 +1420,7 @@ fit_regression = function(form_string,
     
     # also extract intercept!
     mod_hc0_int = my_ols_hc0(coefName = "(Intercept)",
-                         ols = mod_wls)
+                             ols = mod_wls)
     
     # if looking at both bhat and intercept
     # if only looking at bhat
@@ -2435,7 +2424,7 @@ create_jags_model <- function(num_patterns, vars_per_pattern) {
 #' @param vars Variables for model
 #' @return JAGS fit object
 run_missingness_model <- function(data, vars) {
-
+  
   vars = sort(vars)
   
   if (!"M" %in% names(data)) {
@@ -2624,7 +2613,7 @@ run_missingness_model <- function(data, vars) {
   
   
   cat("/n/n ********** run_missingness_model flag 3: about to return")
-
+  
   return(list(
     fit = jags_fit,
     scaled_data = scaled_data,
@@ -2787,7 +2776,7 @@ calculate_ipmw_weights2 <- function(jags_results, data, use_posterior_draws = TR
 # type: "np" for nonparametric; "sp" for semiparametric
 # c: level of C at which to calculate the CATE
 af4_cate_c = function( du, c, type){
-
+  
   
   # two restricted datasets
   # complete-case dataset
@@ -2811,7 +2800,7 @@ af4_cate_c = function( du, c, type){
         #bm: for DAG 3A, the above IS wrong, as expected
         # could look at coef of C in the regression below?
         # doesn't this mean that at least the D=1 term is wrong, i.e., m_B_ac? - try it.
-
+        
         if (d == 1) p_d = p_d1 else p_d = 1 - p_d1
         
         mu  = mean( dc$B[ dc$A == a & dc$C == c & dc$D == d ] )
@@ -2831,7 +2820,7 @@ af4_cate_c = function( du, c, type){
       # fit the two models with all interactions
       fit_B <- lm( B ~ A * C * D, data = dc )      # E[B|A,C,D]
       fit_D <- glm(D ~ A * C, data = dw, family = binomial)               # P[D|A,C]
-  
+      
       # assumes D (aka W in AF4) is binary with levels 0, 1
       est = sum( sapply(0:1, function(d) {
         
@@ -2851,7 +2840,7 @@ af4_cate_c = function( du, c, type){
       return(est)
       
     } # end type = sp
-
+    
   }  # end m_B_ac fn
   
   
@@ -2874,7 +2863,7 @@ get_boot_CIs = function(boot.res, type, n.ests) {
   # the middle index "4" on the bootCIs accesses the stats vector
   # the final index chooses the CI lower (4) or upper (5) bound
   lapply( 1:n.ests, function(x) c( bootCIs[[x]][[4]][4],
-                                             bootCIs[[x]][[4]][5] ) )
+                                   bootCIs[[x]][[4]][5] ) )
   
   
 }
@@ -3887,8 +3876,3 @@ format_pval = function(p) {
   if (p < 0.01 & p > 10^-5 ) return( formatC( p, format = "e", digits = 0 ) )
   if ( p < 10^-5 ) return("< 1e-05")
 }
-
-
-
-
-

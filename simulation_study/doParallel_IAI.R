@@ -1,4 +1,3 @@
-
 # IMPORTANT NOTES -----------------------------
 
 
@@ -40,15 +39,14 @@ toLoad = c("crayon",
            "geepack", # also only for IPW-nm
            "mix", # only for genloc imputation
            "boot", # for parametric AF4
-           "MASS",
-           "miapack")
+           "MASS")
 
 if ( run.local == TRUE | interactive.cluster.run == TRUE ) toLoad = c(toLoad, "here")
 
 # dev version of miapack
-#library(remotes)
-#remotes::install_github("stmcg/miapack", ref = "ice-implementation")
-#library(miapack)
+library(devtools)
+#devtools::install_github("stmcg/miapack", ref = "ice-implementation")
+library(miapack)
 
 
 # SET UP FOR CLUSTER OR LOCAL RUN ------------------------------
@@ -103,9 +101,9 @@ if (run.local == FALSE ) {
   
   # ~~****** Cluster sim reps ----------------
   # simulation reps to run within this job
-  #**this need to match n.reps.in.doParallel in the genSbatch script
+  # **this need to match n.reps.in.doParallel in the genSbatch script
   #sim.reps = 10
-  sim.reps = 500
+  sim.reps = 5
   
   # set the number of cores
   registerDoParallel(cores=16)
@@ -139,7 +137,7 @@ if ( run.local == TRUE ) {
   scen.params = tidyr::expand_grid(
     
     #rep.methods = "gold ; CC ; MICE-std ; Am-std ; IPW-custom ; af4", 
-    rep.methods = "gold ; CC ; mia-pkg-sp ; mia-pkg-ice", 
+    rep.methods = "gold ; CC ; mia-pkg-sp", 
     #rep.methods = "CC ; MICE-std ; genloc ; IPW-nm", 
     #rep.methods = "gold ; af4-np ; af4-sp ; IPW-nm",
     #rep.methods = "IPW-nm",
@@ -150,7 +148,7 @@ if ( run.local == TRUE ) {
     #coef_of_interest = "B",  # ***** for 7D and 7D-bin
     N = c(1000),
     
-    W_dim             = 10,
+    W_dim             = 2,
     W_n_cont          = 1,   # 1 continuous, 1 binary
     W_n_cont_complete = 0,   # both incomplete
     W_n_bin_complete  = 0,
@@ -158,14 +156,11 @@ if ( run.local == TRUE ) {
     W_rho             = 0.4,   # latent correlation between the 2 components
     W_cor_type        = "exch",
     W_bin_prob        = 0.5,   # marginal P(W_binary = 1)
-    W_R_type          = "mcar",  # 1A: R_W is parentless (legacy RD ~ Bern(0.5)), not W -> R_W
-    W_miss_rate       = 0.2,     # 0.50 would matches legacy RD ~ Bern(0.5) exactly
-    W_R_slope_cont    = 1,       # unused when W_R_type = "mcar", but must be present
-    W_R_slope_bin     = 3,       # unused when W_R_type = "mcar", but must be present
-    W_parent_coef     = 1,       # strength of X2 (A1) -> W
+    W_miss_rate       = 0.2,     # target marginal P(R_Wj = 0) for incomplete comps
+    W_parent_coef     = 1,       # strength of the W parent (X2 or Y, per DAG) -> W
     W_inter_coef      = 1,       # coefficient on the single W1*W2 interaction
     
-
+    
     
     # MICE parameters
     # as on cluster
@@ -186,7 +181,7 @@ if ( run.local == TRUE ) {
     #              )  # make sure to pick appropriate outcome model for the DAG
     
   )
-
+  
   
   start.at = 1  # scen name to start at
   scen.params$scen = start.at:( nrow(scen.params) + start.at - 1 )
@@ -341,58 +336,58 @@ for ( scen in scens_to_run ) {
           
         }
         
+        
+        # this block sometimes throws "improper posterior -- empty cells"
+        tryCatch({
+          # randomize the random seed
+          rngseed( runif(min = 1000000, max = 9999999, n=1) )
           
-          # this block sometimes throws "improper posterior -- empty cells"
-          tryCatch({
-            # randomize the random seed
-            rngseed( runif(min = 1000000, max = 9999999, n=1) )
-            
-            # *** generate the imputations
-            di3 <- prelim.mix(di2, p = n_bin)
-            
-            thetahat <- em.mix(di3)
-            
-            m <- p$imp_m  
-            imps_genloc <- vector("list", m)
-            
-            # NB: this loop used to be indexed by `i`, which is ALSO the foreach
-            # sim-rep index. It silently overwrote the rep counter, so every
-            # rep.name downstream was recorded as imp_m rather than the rep.
-            for (.imp in 1:m) {
-              newtheta <- da.mix(di3, thetahat, steps = 100)
-              newimp   <- as.data.frame( imp.mix(s = di3, theta = newtheta, x = di2) )
-              newimp   <- reverse_recode_binaries(newimp)
-              newimp$z_fake <- NULL          # <-- dropped from each imputed dataset before storing
-              imps_genloc[[.imp]] <- newimp  # <-- stored without z_fake
-            }
-            
-            # sanity check
-            imp1 = imps_genloc[[1]]
-            
-            if ( any(is.na(imp1)) ) {
-              message("MI left NAs in dataset - what a butt")
-              imps_genloc = NULL
-            } 
-            
-            
-          }, error = function(e) {
-            message("error making genloc imputations: ", e$message)
-            # superassignment: the previous `imps_genloc = NULL` was local to the
-            # handler and never reached the caller
-            imps_genloc <<- NULL
-            
-            # save the problem dataset
-            if (run.local == FALSE) {
-              
-              # for debugging
-              setwd("/home/groups/manishad/IAI/rmfiles")
-              fwrite( rs, paste( "rm_data", jobname, ".csv", sep="_" ) )
-              
-            }
+          # *** generate the imputations
+          di3 <- prelim.mix(di2, p = n_bin)
+          
+          thetahat <- em.mix(di3)
+          
+          m <- p$imp_m  
+          imps_genloc <- vector("list", m)
+          
+          # NB: this loop used to be indexed by `i`, which is ALSO the foreach
+          # sim-rep index. It silently overwrote the rep counter, so every
+          # rep.name downstream was recorded as imp_m rather than the rep.
+          for (.imp in 1:m) {
+            newtheta <- da.mix(di3, thetahat, steps = 100)
+            newimp   <- as.data.frame( imp.mix(s = di3, theta = newtheta, x = di2) )
+            newimp   <- reverse_recode_binaries(newimp)
+            newimp$z_fake <- NULL          # <-- dropped from each imputed dataset before storing
+            imps_genloc[[.imp]] <- newimp  # <-- stored without z_fake
           }
-          )
           
-      
+          # sanity check
+          imp1 = imps_genloc[[1]]
+          
+          if ( any(is.na(imp1)) ) {
+            message("MI left NAs in dataset - what a butt")
+            imps_genloc = NULL
+          } 
+          
+          
+        }, error = function(e) {
+          message("error making genloc imputations: ", e$message)
+          # superassignment: the previous `imps_genloc = NULL` was local to the
+          # handler and never reached the caller
+          imps_genloc <<- NULL
+          
+          # save the problem dataset
+          if (run.local == FALSE) {
+            
+            # for debugging
+            setwd("/home/groups/manishad/IAI/rmfiles")
+            fwrite( rs, paste( "rm_data", jobname, ".csv", sep="_" ) )
+            
+          }
+        }
+        )
+        
+        
         
         message("Done imputing using genloc")
         
@@ -420,9 +415,9 @@ for ( scen in scens_to_run ) {
         # only pass method arg if it's not NA or NULL
         if ( is.na(p$mice_method) | is.null(p$mice_method) ) {
           imps_mice_raw = mice( di2,
-                            maxit = p$imp_maxit,
-                            m = p$imp_m,
-                            printFlag = FALSE )
+                                maxit = p$imp_maxit,
+                                m = p$imp_m,
+                                printFlag = FALSE )
           
           
           # reorganize the complicated mids object into list of imputed datasets
@@ -435,15 +430,15 @@ for ( scen in scens_to_run ) {
           
         } else {
           imps_mice_raw = mice( di2,
-                            maxit = p$imp_maxit,
-                            m = p$imp_m,
-                            
-                            # "A vector of length 4 containing the default imputation methods for 1) numeric data, 2) factor data with 2 levels, 3) factor data with > 2 unordered levels, and 4) factor data with > 2 ordered levels. By default, the method uses pmm, predictive mean matching (numeric data) logreg, logistic regression imputation (binary data, factor with 2 levels) polyreg, polytomous regression imputation for unordered categorical data (factor > 2 levels) polr, proportional odds model for (ordered, > 2 levels)."
-                            # default for defaultMethod is: c("pmm", "logreg", "polyreg", "polr")
-                            #defaultMethod = c("norm", "logreg", "polyreg", "polr"),
-                            
-                            method = p$mice_method,
-                            printFlag = FALSE )
+                                maxit = p$imp_maxit,
+                                m = p$imp_m,
+                                
+                                # "A vector of length 4 containing the default imputation methods for 1) numeric data, 2) factor data with 2 levels, 3) factor data with > 2 unordered levels, and 4) factor data with > 2 ordered levels. By default, the method uses pmm, predictive mean matching (numeric data) logreg, logistic regression imputation (binary data, factor with 2 levels) polyreg, polytomous regression imputation for unordered categorical data (factor > 2 levels) polr, proportional odds model for (ordered, > 2 levels)."
+                                # default for defaultMethod is: c("pmm", "logreg", "polyreg", "polr")
+                                #defaultMethod = c("norm", "logreg", "polyreg", "polr"),
+                                
+                                method = p$mice_method,
+                                printFlag = FALSE )
           
           # reorganize the complicated mids object into list of imputed datasets
           # needed for fit_regression to find the imputed datasets
@@ -454,7 +449,7 @@ for ( scen in scens_to_run ) {
             .d %>% mutate(across(where(is.factor), ~ as.numeric(as.character(.)))))
         }
         
-      
+        
         
         # was imps_mice$method, but imps_mice is a plain list of completed
         # datasets -- the mids object is imps_mice_raw
@@ -530,7 +525,7 @@ for ( scen in scens_to_run ) {
         if (run.local == TRUE) srr(rep.res)
       }
       
-
+      
       
       
       # ~~ Complete-case analysis (naive) ----
@@ -558,7 +553,7 @@ for ( scen in scens_to_run ) {
         if (run.local == TRUE) srr(rep.res)
       }
       
-
+      
       
       
       
@@ -580,7 +575,7 @@ for ( scen in scens_to_run ) {
         if (run.local == TRUE) srr(rep.res)
       }
       
-
+      
       
       
       
@@ -601,7 +596,7 @@ for ( scen in scens_to_run ) {
         if (run.local == TRUE) srr(rep.res)
       }
       
-
+      
       
       
       # ~~ Am-std ----
@@ -619,10 +614,10 @@ for ( scen in scens_to_run ) {
         if (run.local == TRUE) srr(rep.res)
       }
       
-
       
       
-
+      
+      
       
       # ~~ Custom imputation ----
       if ( "custom" %in% all.methods ) {
@@ -731,7 +726,7 @@ for ( scen in scens_to_run ) {
         
       }
       
-
+      
       # ~~ IPW-custom ----
       if ( "IPW-custom" %in% all.methods ) {
         rep.res = run_method_safe(method.label = c("IPW-custom"),
@@ -747,7 +742,7 @@ for ( scen in scens_to_run ) {
         if (run.local == TRUE) srr(rep.res)
       }
       
-
+      
       
       
       # ~~ IPW-nm ----
@@ -777,7 +772,7 @@ for ( scen in scens_to_run ) {
         
       }
       
-
+      
       
       
       # ~~ G-formula ----
@@ -831,52 +826,52 @@ for ( scen in scens_to_run ) {
                                   method.fn = function(x) {
                                     
                                     ests = af4_cate_c(du = du, type = "np", c = 0)
-                                      
+                                    
                                     # no CIs
                                     if ( p$boot_reps_af4 == 0) {
                                       
                                       return( list( stats = data.frame( bhat = ests[1],
                                                                         inthat = ests[2] ) ) )
                                     }
-                                      
-                                      # bootstrapped CIs
-                                      if ( p$boot_reps_af4 > 0) {
-                                        boot_stat <- function(data, i) {
-                                          db    <- data[i, ]
-                                          
-                                          # in order: CATE, \hat E[B | a=1, c=0]
-                                          estsb = af4_cate_c(du = db, type = "np", c = 0)
-                                        }
-                                        
-                                        bres <- boot(data = du,
-                                                     statistic = boot_stat,
-                                                     R = p$boot_reps_af4)
-                                        
-                                        #@TEMP: using percentile method because BCA always throws error: "estimated adjustment 'a' is NA"
-                                        # if you change boot type, need to change ci$percent[...] below too
-                                        cis = get_boot_CIs(boot.res = bres, type = "perc", n.ests = 2)
                                     
+                                    # bootstrapped CIs
+                                    if ( p$boot_reps_af4 > 0) {
+                                      boot_stat <- function(data, i) {
+                                        db    <- data[i, ]
                                         
-                                        return( list( stats = data.frame( bhat = ests[1],
-                                                                          bhat_lo = cis[[1]][1],
-                                                                          bhat_hi = cis[[1]][2],
-                                                                          bhat_width = cis[[1]][2] - cis[[1]][1],
-                                                                          
-                                                                          inthat = ests[2],
-                                                                          int_lo = cis[[2]][1],
-                                                                          int_hi = cis[[2]][2],
-                                                                          int_width = cis[[2]][2] - cis[[2]][1]
-
-                                                                          ) ) )
-                                      } 
-                          
+                                        # in order: CATE, \hat E[B | a=1, c=0]
+                                        estsb = af4_cate_c(du = db, type = "np", c = 0)
+                                      }
+                                      
+                                      bres <- boot(data = du,
+                                                   statistic = boot_stat,
+                                                   R = p$boot_reps_af4)
+                                      
+                                      #@TEMP: using percentile method because BCA always throws error: "estimated adjustment 'a' is NA"
+                                      # if you change boot type, need to change ci$percent[...] below too
+                                      cis = get_boot_CIs(boot.res = bres, type = "perc", n.ests = 2)
+                                      
+                                      
+                                      return( list( stats = data.frame( bhat = ests[1],
+                                                                        bhat_lo = cis[[1]][1],
+                                                                        bhat_hi = cis[[1]][2],
+                                                                        bhat_width = cis[[1]][2] - cis[[1]][1],
+                                                                        
+                                                                        inthat = ests[2],
+                                                                        int_lo = cis[[2]][1],
+                                                                        int_hi = cis[[2]][2],
+                                                                        int_width = cis[[2]][2] - cis[[2]][1]
+                                                                        
+                                      ) ) )
+                                    } 
+                                    
                                   },
                                   .rep.res = rep.res )
         
         if (run.local == TRUE) srr(rep.res)
       }
       
-
+      
       
       
       # ~~ AF4 - semiparametric ----
@@ -922,7 +917,7 @@ for ( scen in scens_to_run ) {
                                                                         int_lo = cis[[2]][1],
                                                                         int_hi = cis[[2]][2],
                                                                         int_width = cis[[2]][2] - cis[[2]][1] )
-                                                                        
+                                                    
                                       ) ) 
                                     } 
                                     
@@ -932,7 +927,7 @@ for ( scen in scens_to_run ) {
         if (run.local == TRUE) srr(rep.res)
       }
       
-
+      
       
       # rep.res = data.frame()
       
@@ -999,7 +994,8 @@ for ( scen in scens_to_run ) {
                                     if ( p$boot_reps_af4 == 0 ) {
                                       return( list( stats = data.frame(
                                         bhat   = fit$contrast_est,
-                                        inthat = fit$mean_est_2
+                                        mia_e1 = fit$mean_est_1,
+                                        mia_e0 = fit$mean_est_2
                                       ) ) )
                                     }
                                     
@@ -1013,32 +1009,28 @@ for ( scen in scens_to_run ) {
                                       conf    = 0.95
                                     )
                                     
-                                    bhat_ci_row = ci_obj$ci_contrast[[4]]
-                                    bhat_ci_lo  = bhat_ci_row[ length(bhat_ci_row) - 1 ]
-                                    bhat_ci_hi  = bhat_ci_row[ length(bhat_ci_row) ]
-                                    
-                                    inthat_ci_row = ci_obj$ci_2[[4]]  # important: ci_2 because we want the intercept, i.e., all predictors are 0
-                                    inthat_ci_lo  = inthat_ci_row[ length(inthat_ci_row) - 1 ]
-                                    inthat_ci_hi  = inthat_ci_row[ length(inthat_ci_row) ]
+                                    # ci_contrast is a "boot.ci" object. Its type-specific
+                                    # component ([[4]]) holds the interval; the LAST TWO columns
+                                    # are lo, hi for every type (norm's row is 1x3, the rest 1x5),
+                                    # so pull them positionally rather than hard-coding 4:5.
+                                    ci_row = ci_obj$ci_contrast[[4]]
+                                    ci_lo  = ci_row[ length(ci_row) - 1 ]
+                                    ci_hi  = ci_row[ length(ci_row) ]
                                     
                                     return( list( stats = data.frame(
                                       bhat       = fit$contrast_est,
-                                      bhat_lo    = bhat_ci_lo,
-                                      bhat_hi    = bhat_ci_hi,
-                                      bhat_width = bhat_ci_hi - bhat_ci_lo,
-                                      
-                                      inthat    = fit$mean_est_2,
-                                      int_lo    = inthat_ci_lo,
-                                      int_hi    = inthat_ci_hi,
-                                      int_width = inthat_ci_hi - inthat_ci_lo
-           
+                                      bhat_lo    = ci_lo,
+                                      bhat_hi    = ci_hi,
+                                      bhat_width = ci_hi - ci_lo,
+                                      mia_e1     = fit$mean_est_1,
+                                      mia_e0     = fit$mean_est_2
                                     ) ) )
                                   },
                                   .rep.res = rep.res )
         
         if (run.local == TRUE) srr(rep.res)
       }
-
+      
       
       
       # ~~ MIA-ICE (miapack, iterative conditional expectation) --------------
@@ -1108,7 +1100,8 @@ for ( scen in scens_to_run ) {
                                     if ( p$boot_reps_af4 == 0 ) {
                                       return( list( stats = data.frame(
                                         bhat   = fit$contrast_est,
-                                        inthat = fit$mean_est_2
+                                        mia_e1 = fit$mean_est_1,
+                                        mia_e0 = fit$mean_est_2
                                       ) ) )
                                     }
                                     
@@ -1122,110 +1115,43 @@ for ( scen in scens_to_run ) {
                                       conf    = 0.95
                                     )
                                     
-                                    bhat_ci_row = ci_obj$ci_contrast[[4]]
-                                    bhat_ci_lo  = bhat_ci_row[ length(bhat_ci_row) - 1 ]
-                                    bhat_ci_hi  = bhat_ci_row[ length(bhat_ci_row) ]
-                                    
-                                    inthat_ci_row = ci_obj$ci_2[[4]]  # important: ci_2 because we want the intercept, i.e., all predictors are 0
-                                    inthat_ci_lo  = inthat_ci_row[ length(inthat_ci_row) - 1 ]
-                                    inthat_ci_hi  = inthat_ci_row[ length(inthat_ci_row) ]
+                                    # ci_contrast is a "boot.ci" object. Its type-specific
+                                    # component ([[4]]) holds the interval; the LAST TWO columns
+                                    # are lo, hi for every type (norm's row is 1x3, the rest 1x5),
+                                    # so pull them positionally rather than hard-coding 4:5.
+                                    ci_row = ci_obj$ci_contrast[[4]]
+                                    ci_lo  = ci_row[ length(ci_row) - 1 ]
+                                    ci_hi  = ci_row[ length(ci_row) ]
                                     
                                     return( list( stats = data.frame(
                                       bhat       = fit$contrast_est,
-                                      bhat_lo    = bhat_ci_lo,
-                                      bhat_hi    = bhat_ci_hi,
-                                      bhat_width = bhat_ci_hi - bhat_ci_lo,
-                                      
-                                      inthat    = fit$mean_est_2,
-                                      int_lo    = inthat_ci_lo,
-                                      int_hi    = inthat_ci_hi,
-                                      int_width = inthat_ci_hi - inthat_ci_lo
-                                      
+                                      bhat_lo    = ci_lo,
+                                      bhat_hi    = ci_hi,
+                                      bhat_width = ci_hi - ci_lo,
+                                      mia_e1     = fit$mean_est_1,
+                                      mia_e0     = fit$mean_est_2
                                     ) ) )
-
+                                    
+                                    
                                   },
                                   .rep.res = rep.res )
         
         if (run.local == TRUE) srr(rep.res)
       }
       
-
-      # ~ Add Scen Params and Sanity Checks --------------------------------------
-      
-      # add in scenario parameters
-      # do NOT use rbind here; bind_cols accommodates possibility that some methods' rep.res
-      #  have more columns than others
-      rep.res = p %>% bind_cols( rep.res )
-      
-      # these don't come from p because they are from sim_data instead
-      rep.res$coef_of_interest = coef_of_interest
-      rep.res$beta = beta
-      
-      rep.res$form_string = form_string
-      rep.res$gold_form_string = gold_form_string
-      
-      # add more info
-      rep.res = rep.res %>% add_column( rep.name = i, .before = 1 )
-      rep.res = rep.res %>% add_column( scen.name = scen, .before = 1 )
-      rep.res = rep.res %>% add_column( job.name = jobname, .before = 1 )
       
       
-      
-      cat("\ndoParallel flag: Before adding sanity checks to rep.res")
-      # could add info about simulated datasets here
-      # preface them with "sancheck." to facilitate looking at sanchecks alone
-      
-      
-      # amount of missing data
-      # using di_std to avoid having R indicators, etc., in the dataset
-      if ( !is.null(di) ) {
-        rep.res = rep.res %>% add_column( sancheck.prop_complete = sum( complete.cases(di) ) / nrow(di) )
-      }
-      
-      # missing data in each variable
-      #rep.res = rep.res %>% add_column( sancheck.mean_RB = mean(du$RB) )
-      #rep.res = rep.res %>% add_column( sancheck.mean_RC = mean(du$RC) )
-      
-      # MICE method for each imputation model
-      if ( exists("mice_std_methods") ) rep.res = rep.res %>% add_column( sancheck.mice_std_methods = mice_std_methods )
-      
-      # W-block sanchecks: realized per-component missingness, realized
-      # correlations, and the all-W-observed proportion (the number that decides
-      # whether the complete-case-based estimators have anything to work with)
-      if ( !is.null(sim_obj$W) ) {
-        rep.res = rep.res %>% bind_cols( w_sanchecks(W = sim_obj$W, .p = p) )
-      }
-      
-      
-      
-      # if ( !is.null(di_ours) ) {
-      #   rep.res = rep.res %>% add_column( sancheck.di_ours.vars = paste( names(di_ours), collapse = " " ) )
-      # }
-      # 
-      # if ( exists("mice_ours_pred_vars_included") ){
-      #   if ( !is.null(mice_ours_pred_vars_included) ) {
-      #     rep.res = rep.res %>% add_column( sancheck.mice_ours_pred_vars_included = paste( mice_ours_pred_vars_included, collapse = " " ) )
-      #   }
-      # }
-      
-      
-      cat("\n\n")
-      print(rep.res)
-      
+      # return this rep's results as the last expression of the foreach body
       rep.res
       
     }  # END foreach %dopar% body
-  })[3]  # END system.time({
+  })  # END system.time({
   
-  if ( run.local == TRUE ) {
-    # # save locally and organize after this scen
-    # setwd(data.dir)
-    # fwrite( rs,
-    #         paste( "rs_scen_", scen, ".csv", sep = "" ) )
-    
-    # also bind into new file
-    if ( scen == scens_to_run[1] ) rs_all_scens = rs
-    else rs_all_scens = bind_rows(rs_all_scens, rs)
+  # stitch this scen's foreach results into the running results object
+  if ( exists("rs_all_scens") ) {
+    rs_all_scens = bind_rows(rs_all_scens, rs)
+  } else {
+    rs_all_scens = rs
   }
   
 }  # END FOR-LOOP to run multiple scens locally
@@ -1270,7 +1196,7 @@ if ( run.local == TRUE ) {
       BhatCover = meanNA( covers(truth = beta,
                                  lo = bhat_lo,
                                  hi = bhat_hi) ) ) %>%
-      # EYpred = meanNA(EY_prediction) ) %>%
+    # EYpred = meanNA(EY_prediction) ) %>%
     arrange() %>%
     mutate_if(is.numeric, function(x) round(x,2)) 
   
@@ -1301,13 +1227,13 @@ if ( run.local == TRUE ) {
 }
 
 
-# # ~~ End of ForEach Loop ----------------
-# rs$rep.seconds = doParallel.seconds/sim.reps
-# rs$rep.seconds[ rs$method != unique(rs$method)[1] ] = NA
-# 
-# 
-# expect_equal( as.numeric( sum(rs$rep.seconds, na.rm = TRUE) ),
-#               as.numeric(doParallel.seconds) )
+# ~~ End of ForEach Loop ----------------
+rs$rep.seconds = doParallel.seconds/sim.reps
+rs$rep.seconds[ rs$method != unique(rs$method)[1] ] = NA
+
+
+expect_equal( as.numeric( sum(rs$rep.seconds, na.rm = TRUE) ),
+              as.numeric(doParallel.seconds) )
 
 
 
