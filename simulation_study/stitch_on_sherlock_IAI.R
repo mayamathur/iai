@@ -99,7 +99,7 @@ table(s$dag_name)
 table(s$dag_name, s$coef_of_interest)
 
 correct.order = c("gold", "CC", "MICE-std", "Am-std", "genloc", "IPW-custom", "IPW-nm",
-                  "af4-np", "af4-sp",
+                  "af4-np", "af4-sp", "mia-pkg-sp", "mia-pkg-ice",
                   "g-form", "custom")
 s$method = factor(s$method, levels = correct.order)
 
@@ -155,11 +155,11 @@ t = s2 %>% group_by(dag_name, model, method) %>%
     BhatRMSE = sqrt( meanNA( (bhat - beta)^2 ) ),
     IntCover = meanNA( covers(truth = int,
                                lo = int_lo,
-                               hi = int_hi) ),
+                               hi = int_hi) )
     
-    sancheck.mean_RB = meanNA(sancheck.mean_RB),
-    sancheck.mean_RC = meanNA(sancheck.mean_RC),
-    sancheck.prop_complete = meanNA(sancheck.prop_complete),
+    # sancheck.mean_RB = meanNA(sancheck.mean_RB),
+    # sancheck.mean_RC = meanNA(sancheck.mean_RC),
+    # sancheck.prop_complete = meanNA(sancheck.prop_complete),
     ) %>%
   arrange() %>%
   mutate_if(is.numeric, function(x) round(x,2)) 

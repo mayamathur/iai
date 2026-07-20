@@ -40,14 +40,14 @@ toLoad = c("crayon",
            "geepack", # also only for IPW-nm
            "mix", # only for genloc imputation
            "boot", # for parametric AF4
-           "MASS"
+           "MASS",
            "miapack")
 
 if ( run.local == TRUE | interactive.cluster.run == TRUE ) toLoad = c(toLoad, "here")
 
 # dev version of miapack
-#library(devtools)
-#devtools::install_github("stmcg/miapack", ref = "ice-implementation")
+#library(remotes)
+#remotes::install_github("stmcg/miapack", ref = "ice-implementation")
 #library(miapack)
 
 
@@ -103,9 +103,9 @@ if (run.local == FALSE ) {
   
   # ~~****** Cluster sim reps ----------------
   # simulation reps to run within this job
-  # **this need to match n.reps.in.doParallel in the genSbatch script
+  #**this need to match n.reps.in.doParallel in the genSbatch script
   #sim.reps = 10
-  sim.reps = 5
+  sim.reps = 500
   
   # set the number of cores
   registerDoParallel(cores=16)
@@ -139,7 +139,7 @@ if ( run.local == TRUE ) {
   scen.params = tidyr::expand_grid(
     
     #rep.methods = "gold ; CC ; MICE-std ; Am-std ; IPW-custom ; af4", 
-    rep.methods = "gold ; CC ; mia-pkg-sp", 
+    rep.methods = "gold ; CC ; mia-pkg-sp ; mia-pkg-ice", 
     #rep.methods = "CC ; MICE-std ; genloc ; IPW-nm", 
     #rep.methods = "gold ; af4-np ; af4-sp ; IPW-nm",
     #rep.methods = "IPW-nm",
@@ -150,7 +150,7 @@ if ( run.local == TRUE ) {
     #coef_of_interest = "B",  # ***** for 7D and 7D-bin
     N = c(1000),
     
-    W_dim             = 2,
+    W_dim             = 10,
     W_n_cont          = 1,   # 1 continuous, 1 binary
     W_n_cont_complete = 0,   # both incomplete
     W_n_bin_complete  = 0,
@@ -999,7 +999,7 @@ for ( scen in scens_to_run ) {
                                     if ( p$boot_reps_af4 == 0 ) {
                                       return( list( stats = data.frame(
                                         bhat   = fit$contrast_est,
-                                        inthat = fit$mean_est_1
+                                        inthat = fit$mean_est_2
                                       ) ) )
                                     }
                                     
@@ -1017,7 +1017,7 @@ for ( scen in scens_to_run ) {
                                     bhat_ci_lo  = bhat_ci_row[ length(bhat_ci_row) - 1 ]
                                     bhat_ci_hi  = bhat_ci_row[ length(bhat_ci_row) ]
                                     
-                                    inthat_ci_row = ci_obj$ci_1[[4]]
+                                    inthat_ci_row = ci_obj$ci_2[[4]]  # important: ci_2 because we want the intercept, i.e., all predictors are 0
                                     inthat_ci_lo  = inthat_ci_row[ length(inthat_ci_row) - 1 ]
                                     inthat_ci_hi  = inthat_ci_row[ length(inthat_ci_row) ]
                                     
@@ -1027,7 +1027,7 @@ for ( scen in scens_to_run ) {
                                       bhat_hi    = bhat_ci_hi,
                                       bhat_width = bhat_ci_hi - bhat_ci_lo,
                                       
-                                      inthat    = fit$mean_est_1,
+                                      inthat    = fit$mean_est_2,
                                       int_lo    = inthat_ci_lo,
                                       int_hi    = inthat_ci_hi,
                                       int_width = inthat_ci_hi - inthat_ci_lo
@@ -1108,7 +1108,7 @@ for ( scen in scens_to_run ) {
                                     if ( p$boot_reps_af4 == 0 ) {
                                       return( list( stats = data.frame(
                                         bhat   = fit$contrast_est,
-                                        inthat = fit$mean_est_1
+                                        inthat = fit$mean_est_2
                                       ) ) )
                                     }
                                     
@@ -1126,7 +1126,7 @@ for ( scen in scens_to_run ) {
                                     bhat_ci_lo  = bhat_ci_row[ length(bhat_ci_row) - 1 ]
                                     bhat_ci_hi  = bhat_ci_row[ length(bhat_ci_row) ]
                                     
-                                    inthat_ci_row = ci_obj$ci_1[[4]]
+                                    inthat_ci_row = ci_obj$ci_2[[4]]  # important: ci_2 because we want the intercept, i.e., all predictors are 0
                                     inthat_ci_lo  = inthat_ci_row[ length(inthat_ci_row) - 1 ]
                                     inthat_ci_hi  = inthat_ci_row[ length(inthat_ci_row) ]
                                     
@@ -1136,7 +1136,7 @@ for ( scen in scens_to_run ) {
                                       bhat_hi    = bhat_ci_hi,
                                       bhat_width = bhat_ci_hi - bhat_ci_lo,
                                       
-                                      inthat    = fit$mean_est_1,
+                                      inthat    = fit$mean_est_2,
                                       int_lo    = inthat_ci_lo,
                                       int_hi    = inthat_ci_hi,
                                       int_width = inthat_ci_hi - inthat_ci_lo
@@ -1150,18 +1150,82 @@ for ( scen in scens_to_run ) {
       }
       
 
+      # ~ Add Scen Params and Sanity Checks --------------------------------------
       
-      # return this rep's results as the last expression of the foreach body
+      # add in scenario parameters
+      # do NOT use rbind here; bind_cols accommodates possibility that some methods' rep.res
+      #  have more columns than others
+      rep.res = p %>% bind_cols( rep.res )
+      
+      # these don't come from p because they are from sim_data instead
+      rep.res$coef_of_interest = coef_of_interest
+      rep.res$beta = beta
+      
+      rep.res$form_string = form_string
+      rep.res$gold_form_string = gold_form_string
+      
+      # add more info
+      rep.res = rep.res %>% add_column( rep.name = i, .before = 1 )
+      rep.res = rep.res %>% add_column( scen.name = scen, .before = 1 )
+      rep.res = rep.res %>% add_column( job.name = jobname, .before = 1 )
+      
+      
+      
+      cat("\ndoParallel flag: Before adding sanity checks to rep.res")
+      # could add info about simulated datasets here
+      # preface them with "sancheck." to facilitate looking at sanchecks alone
+      
+      
+      # amount of missing data
+      # using di_std to avoid having R indicators, etc., in the dataset
+      if ( !is.null(di) ) {
+        rep.res = rep.res %>% add_column( sancheck.prop_complete = sum( complete.cases(di) ) / nrow(di) )
+      }
+      
+      # missing data in each variable
+      #rep.res = rep.res %>% add_column( sancheck.mean_RB = mean(du$RB) )
+      #rep.res = rep.res %>% add_column( sancheck.mean_RC = mean(du$RC) )
+      
+      # MICE method for each imputation model
+      if ( exists("mice_std_methods") ) rep.res = rep.res %>% add_column( sancheck.mice_std_methods = mice_std_methods )
+      
+      # W-block sanchecks: realized per-component missingness, realized
+      # correlations, and the all-W-observed proportion (the number that decides
+      # whether the complete-case-based estimators have anything to work with)
+      if ( !is.null(sim_obj$W) ) {
+        rep.res = rep.res %>% bind_cols( w_sanchecks(W = sim_obj$W, .p = p) )
+      }
+      
+      
+      
+      # if ( !is.null(di_ours) ) {
+      #   rep.res = rep.res %>% add_column( sancheck.di_ours.vars = paste( names(di_ours), collapse = " " ) )
+      # }
+      # 
+      # if ( exists("mice_ours_pred_vars_included") ){
+      #   if ( !is.null(mice_ours_pred_vars_included) ) {
+      #     rep.res = rep.res %>% add_column( sancheck.mice_ours_pred_vars_included = paste( mice_ours_pred_vars_included, collapse = " " ) )
+      #   }
+      # }
+      
+      
+      cat("\n\n")
+      print(rep.res)
+      
       rep.res
       
     }  # END foreach %dopar% body
-  })  # END system.time({
+  })[3]  # END system.time({
   
-  # stitch this scen's foreach results into the running results object
-  if ( exists("rs_all_scens") ) {
-    rs_all_scens = bind_rows(rs_all_scens, rs)
-  } else {
-    rs_all_scens = rs
+  if ( run.local == TRUE ) {
+    # # save locally and organize after this scen
+    # setwd(data.dir)
+    # fwrite( rs,
+    #         paste( "rs_scen_", scen, ".csv", sep = "" ) )
+    
+    # also bind into new file
+    if ( scen == scens_to_run[1] ) rs_all_scens = rs
+    else rs_all_scens = bind_rows(rs_all_scens, rs)
   }
   
 }  # END FOR-LOOP to run multiple scens locally
@@ -1237,13 +1301,13 @@ if ( run.local == TRUE ) {
 }
 
 
-# ~~ End of ForEach Loop ----------------
-rs$rep.seconds = doParallel.seconds/sim.reps
-rs$rep.seconds[ rs$method != unique(rs$method)[1] ] = NA
-
-
-expect_equal( as.numeric( sum(rs$rep.seconds, na.rm = TRUE) ),
-              as.numeric(doParallel.seconds) )
+# # ~~ End of ForEach Loop ----------------
+# rs$rep.seconds = doParallel.seconds/sim.reps
+# rs$rep.seconds[ rs$method != unique(rs$method)[1] ] = NA
+# 
+# 
+# expect_equal( as.numeric( sum(rs$rep.seconds, na.rm = TRUE) ),
+#               as.numeric(doParallel.seconds) )
 
 
 
