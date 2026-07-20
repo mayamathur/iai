@@ -138,7 +138,7 @@ if ( run.local == TRUE ) {
   scen.params = tidyr::expand_grid(
     
     #rep.methods = "gold ; CC ; MICE-std ; Am-std ; IPW-custom ; af4", 
-    rep.methods = "gold ; CC ; mia-pkg-sp ; mia-pkg-ice", 
+    rep.methods = "gold ; CC ; mia-pkg-ice", 
     #rep.methods = "CC ; MICE-std ; genloc ; IPW-nm", 
     #rep.methods = "gold ; af4-np ; af4-sp ; IPW-nm",
     #rep.methods = "IPW-nm",
@@ -158,7 +158,7 @@ if ( run.local == TRUE ) {
     W_cor_type        = "exch",
     W_bin_prob        = 0.5,   # marginal P(W_binary = 1)
     W_R_type          = "mcar",  # 1A: R_W is parentless (legacy RD ~ Bern(0.5)), not W -> R_W
-    W_miss_rate       = 0.5,     # matches legacy RD ~ Bern(0.5) exactly
+    W_miss_rate       = 0.2,     # 0.50 would matches legacy RD ~ Bern(0.5) exactly
     W_R_slope_cont    = 1,       # unused when W_R_type = "mcar", but must be present
     W_R_slope_bin     = 3,       # unused when W_R_type = "mcar", but must be present
     W_parent_coef     = 1,       # strength of X2 (A1) -> W
@@ -174,7 +174,7 @@ if ( run.local == TRUE ) {
     mice_method = NA,  # let MICE use its defaults
     
     # AF4 parameters
-    boot_reps_af4 = 0,  # only needed for CIs; if set to 0, won't give CIs
+    boot_reps_af4 = 1000,  # only needed for CIs; if set to 0, won't give CIs
     mia_n_mc = 10000, 
     
     dag_name = "1A"
@@ -210,7 +210,7 @@ if ( run.local == TRUE ) {
 if (run.local == TRUE) ( scens_to_run = scen.params$scen )
 if (run.local == FALSE) ( scens_to_run = scen )  # from sbatch
 
-if (run.local == TRUE) sim.reps = 500
+if (run.local == TRUE) sim.reps = 1
 #  p = scen.params[ scen.params$scen == scen, names(scen.params) != "scen"]
 
 
@@ -228,7 +228,7 @@ for ( scen in scens_to_run ) {
     
     rs = foreach( i = 1:sim.reps, .combine = bind_rows ) %dopar% {
       #for debugging (out file will contain all printed things):
-      # for ( i in 1:20 ) {
+      #for ( i in 1:2 ) {
       
       # only print info for first sim rep for visual clarity
       if ( i == 1 ) cat("\n\n~~~~~~~~~~~~~~~~ BEGIN SIM REP", i, "~~~~~~~~~~~~~~~~")
@@ -525,9 +525,11 @@ for ( scen in scens_to_run ) {
                                                                          du = du,
                                                                          imps = NULL),
                                   .rep.res = rep.res )
+        
+        if (run.local == TRUE) srr(rep.res)
       }
       
-      if (run.local == TRUE) srr(rep.res)
+
       
       
       # ~~ Complete-case analysis (naive) ----
@@ -551,9 +553,11 @@ for ( scen in scens_to_run ) {
                                                                          du = di,
                                                                          imps = NULL),
                                   .rep.res = rep.res )
+        
+        if (run.local == TRUE) srr(rep.res)
       }
       
-      if (run.local == TRUE) srr(rep.res)
+
       
       
       
@@ -571,9 +575,11 @@ for ( scen in scens_to_run ) {
                                                                          du = NULL,
                                                                          imps = imps_genloc),
                                   .rep.res = rep.res )
+        
+        if (run.local == TRUE) srr(rep.res)
       }
       
-      if (run.local == TRUE) srr(rep.res)
+
       
       
       
@@ -590,9 +596,11 @@ for ( scen in scens_to_run ) {
                                                                          du = NULL,
                                                                          imps = imps_mice),
                                   .rep.res = rep.res )
+        
+        if (run.local == TRUE) srr(rep.res)
       }
       
-      if (run.local == TRUE) srr(rep.res)
+
       
       
       # ~~ Am-std ----
@@ -606,12 +614,14 @@ for ( scen in scens_to_run ) {
                                                                          du = NULL,
                                                                          imps = imps_am_std),
                                   .rep.res = rep.res )
+        
+        if (run.local == TRUE) srr(rep.res)
       }
       
-      if (run.local == TRUE) srr(rep.res)
+
       
       
-      #bm1: See notes app :)
+
       
       # ~~ Custom imputation ----
       if ( "custom" %in% all.methods ) {
@@ -715,10 +725,12 @@ for ( scen in scens_to_run ) {
                                     
                                   },
                                   .rep.res = rep.res )
+        
+        if (run.local == TRUE) srr(rep.res)
+        
       }
       
-      if (run.local == TRUE) srr(rep.res)
-      
+
       # ~~ IPW-custom ----
       if ( "IPW-custom" %in% all.methods ) {
         rep.res = run_method_safe(method.label = c("IPW-custom"),
@@ -730,9 +742,11 @@ for ( scen in scens_to_run ) {
                                                                          du = du,
                                                                          imps = NULL),
                                   .rep.res = rep.res )
+        
+        if (run.local == TRUE) srr(rep.res)
       }
       
-      if (run.local == TRUE) srr(rep.res)
+
       
       
       # ~~ IPW-nm ----
@@ -758,10 +772,11 @@ for ( scen in scens_to_run ) {
         
         cat("\n\n  ~~~~~~~~~~~~~~~~~~~ Done running IPW-nm for sim rep", i)
         
+        if (run.local == TRUE) srr(rep.res)
         
       }
       
-      if (run.local == TRUE) srr(rep.res)
+
       
       
       # ~~ G-formula ----
@@ -856,9 +871,11 @@ for ( scen in scens_to_run ) {
                           
                                   },
                                   .rep.res = rep.res )
+        
+        if (run.local == TRUE) srr(rep.res)
       }
       
-      if (run.local == TRUE) srr(rep.res)
+
       
       
       # ~~ AF4 - semiparametric ----
@@ -910,9 +927,11 @@ for ( scen in scens_to_run ) {
                                     
                                   },
                                   .rep.res = rep.res )
+        
+        if (run.local == TRUE) srr(rep.res)
       }
       
-      if (run.local == TRUE) srr(rep.res)
+
       
       # rep.res = data.frame()
       
@@ -990,7 +1009,7 @@ for ( scen in scens_to_run ) {
                                     ci_obj = miapack::get_CI(
                                       mia_res = fit,
                                       n_boot  = p$boot_reps_af4,
-                                      type    = "perc",   
+                                      type    = "bca",   
                                       conf    = 0.95
                                     )
                                     
@@ -1012,9 +1031,10 @@ for ( scen in scens_to_run ) {
                                     ) ) )
                                   },
                                   .rep.res = rep.res )
+        
+        if (run.local == TRUE) srr(rep.res)
       }
-      
-      if (run.local == TRUE) srr(rep.res)
+
       
       
       # ~~ MIA-ICE (miapack, iterative conditional expectation) --------------
@@ -1026,8 +1046,8 @@ for ( scen in scens_to_run ) {
       # g_hat; RHS may reference ONLY the X predictors). Saturating outer_model
       # in X reduces mu_MIA(x) to the sample mean of g_hat within each X cell.
       #
-      # As with the mia() block, everything DAG-specific is parsed from
-      # sim_obj$form_string + coef_of_interest + w_names(p); nothing is hard-coded.
+      # Everything DAG-specific is parsed from sim_obj$form_string +
+      # coef_of_interest + w_names(p); nothing is hard-coded.
       if ( "mia-pkg-ice" %in% all.methods ) {
         rep.res = run_method_safe(method.label = c("mia-pkg-ice"),
                                   
@@ -1055,11 +1075,11 @@ for ( scen in scens_to_run ) {
                                       paste("Y ~", paste(c(rhs_terms, Wobs), collapse = " + ")) )
                                     
                                     # outer model: g_hat ~ (X predictors only), saturated.
-                                    # RHS may reference ONLY X_names -- so it is built from the X's,
-                                    # NOT from rhs_terms (which include W) and NOT with W.
+                                    # RHS may reference ONLY X_names (mia_ice errors otherwise), so
+                                    # it is built from the X's, NOT from rhs_terms and NOT with W.
                                     #   1 covar  -> g_hat ~ A * C   (saturated in binary A, C)
                                     #   0 covars -> g_hat ~ A
-                                    outer_rhs = paste(X_names, collapse = " * ")
+                                    outer_rhs  = paste(X_names, collapse = " * ")
                                     outer_form = as.formula( paste("g_hat ~", outer_rhs) )
                                     
                                     # contrast: exposure 1 vs 0, covars held at reference level 0
@@ -1089,115 +1109,36 @@ for ( scen in scens_to_run ) {
                                       ) ) )
                                     }
                                     
-                                    # bootstrap CI via get_CI, which dispatches on mia_res$method
-                                    # == 'ice' and re-fits with mia_ice in the boot loop. type =
-                                    # "bca"; get_CI falls back to percentile internally if BCa's
-                                    # acceleration constant is unstable (few complete cases).
-                                    ci_obj = miapack::get_CI(
-                                      mia_res = fit,
-                                      n_boot  = p$boot_reps_af4,
-                                      type    = "perc", #@temp: bca was failing a lot
-                                      conf    = 0.95
-                                    )
-                                    
-                                    # ci_contrast is a "boot.ci" object; its type component ([[4]])
-                                    # holds the interval, last two columns = lo, hi for every type.
-                                    ci_row = ci_obj$ci_contrast[[4]]
-                                    ci_lo  = ci_row[ length(ci_row) - 1 ]
-                                    ci_hi  = ci_row[ length(ci_row) ]
-                                    
+
                                     return( list( stats = data.frame(
-                                      bhat       = fit$contrast_est,
-                                      bhat_lo    = ci_lo,
-                                      bhat_hi    = ci_hi,
-                                      bhat_width = ci_hi - ci_lo,
-                                      mia_e1     = fit$mean_est_1,
-                                      mia_e0     = fit$mean_est_2
+                                      bhat        = fit$contrast_est,
+                                      bhat_lo     = ci_lo,
+                                      bhat_hi     = ci_hi,
+                                      bhat_width  = ci_hi - ci_lo,
+                                      mia_e1      = fit$mean_est_1,
+                                      mia_e0      = fit$mean_est_2
                                     ) ) )
+                                    
+
                                   },
                                   .rep.res = rep.res )
+        
+        if (run.local == TRUE) srr(rep.res)
       }
       
-      if (run.local == TRUE) srr(rep.res)
+
       
-  
-      # ~ Add Scen Params and Sanity Checks --------------------------------------
-      
-      # add in scenario parameters
-      # do NOT use rbind here; bind_cols accommodates possibility that some methods' rep.res
-      #  have more columns than others
-      rep.res = p %>% bind_cols( rep.res )
-      
-      # these don't come from p because they are from sim_data instead
-      rep.res$coef_of_interest = coef_of_interest
-      rep.res$beta = beta
-      
-      rep.res$form_string = form_string
-      rep.res$gold_form_string = gold_form_string
-      
-      # add more info
-      rep.res = rep.res %>% add_column( rep.name = i, .before = 1 )
-      rep.res = rep.res %>% add_column( scen.name = scen, .before = 1 )
-      rep.res = rep.res %>% add_column( job.name = jobname, .before = 1 )
-      
-      
-      
-      cat("\ndoParallel flag: Before adding sanity checks to rep.res")
-      # could add info about simulated datasets here
-      # preface them with "sancheck." to facilitate looking at sanchecks alone
-      
-      
-      # amount of missing data
-      # using di_std to avoid having R indicators, etc., in the dataset
-      if ( !is.null(di) ) {
-        rep.res = rep.res %>% add_column( sancheck.prop_complete = sum( complete.cases(di) ) / nrow(di) )
-      }
-      
-      # missing data in each variable
-      #rep.res = rep.res %>% add_column( sancheck.mean_RB = mean(du$RB) )
-      #rep.res = rep.res %>% add_column( sancheck.mean_RC = mean(du$RC) )
-      
-      # MICE method for each imputation model
-      if ( exists("mice_std_methods") ) rep.res = rep.res %>% add_column( sancheck.mice_std_methods = mice_std_methods )
-      
-      # W-block sanchecks: realized per-component missingness, realized
-      # correlations, and the all-W-observed proportion (the number that decides
-      # whether the complete-case-based estimators have anything to work with)
-      if ( !is.null(sim_obj$W) ) {
-        rep.res = rep.res %>% bind_cols( w_sanchecks(W = sim_obj$W, .p = p, cal = sim_obj$W_cal) )
-      }
-      
-      
-      
-      # if ( !is.null(di_ours) ) {
-      #   rep.res = rep.res %>% add_column( sancheck.di_ours.vars = paste( names(di_ours), collapse = " " ) )
-      # }
-      # 
-      # if ( exists("mice_ours_pred_vars_included") ){
-      #   if ( !is.null(mice_ours_pred_vars_included) ) {
-      #     rep.res = rep.res %>% add_column( sancheck.mice_ours_pred_vars_included = paste( mice_ours_pred_vars_included, collapse = " " ) )
-      #   }
-      # }
-      
-      
-      cat("\n\n")
-      print(rep.res)
-      
+      # return this rep's results as the last expression of the foreach body
       rep.res
-    }  ### end foreach loop
-    
-  } )[3]  # end system.time
+      
+    }  # END foreach %dopar% body
+  })  # END system.time({
   
-  
-  if ( run.local == TRUE ) {
-    # # save locally and organize after this scen
-    # setwd(data.dir)
-    # fwrite( rs,
-    #         paste( "rs_scen_", scen, ".csv", sep = "" ) )
-    
-    # also bind into new file
-    if ( scen == scens_to_run[1] ) rs_all_scens = rs
-    else rs_all_scens = bind_rows(rs_all_scens, rs)
+  # stitch this scen's foreach results into the running results object
+  if ( exists("rs_all_scens") ) {
+    rs_all_scens = bind_rows(rs_all_scens, rs)
+  } else {
+    rs_all_scens = rs
   }
   
 }  # END FOR-LOOP to run multiple scens locally
@@ -1211,6 +1152,12 @@ if ( run.local == TRUE ) {
   #View(rs_all_scens)
   
   dim(rs_all_scens)
+  
+  # look for NA CIs
+  rs_all_scens %>% filter(method == "mia-pkg-ice") %>%
+    summarise(mean_NA = meanNA(bhat_lo))
+  
+  mean( is.na(rs_all_scens$bhat_lo[ rs_all_scens$method == "mia-pkg-ice"]) )
   
   
   # fill in true beta
