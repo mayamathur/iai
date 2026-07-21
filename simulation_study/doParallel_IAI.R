@@ -104,7 +104,7 @@ if (run.local == FALSE ) {
   # simulation reps to run within this job
   # **this need to match n.reps.in.doParallel in the genSbatch script
   #sim.reps = 10
-  sim.reps = 1
+  sim.reps = 500
   
   # set the number of cores
   registerDoParallel(cores=16)
@@ -1234,15 +1234,6 @@ if ( run.local == TRUE ) {
   # fwrite( rs_all_scens,
   #         paste( "stitched_local.csv", sep = "" ) )
 }
-
-
-# ~~ End of ForEach Loop ----------------
-rs$rep.seconds = doParallel.seconds/sim.reps
-rs$rep.seconds[ rs$method != unique(rs$method)[1] ] = NA
-
-
-expect_equal( as.numeric( sum(rs$rep.seconds, na.rm = TRUE) ),
-              as.numeric(doParallel.seconds) )
 
 
 

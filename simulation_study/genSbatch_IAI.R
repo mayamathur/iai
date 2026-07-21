@@ -36,7 +36,7 @@ scen.params = tidyr::expand_grid(
   rep.methods = c("gold ; CC ; mia-pkg-sp ; mia-pkg-ice"),
   model = "OLS",  # OLS or logistic
   coef_of_interest = "A",
-  N = c(1000),
+  N = c(200, 500, 1000),
   
   # MICE parameters (as on cluster)
   imp_m = 50,
@@ -103,8 +103,8 @@ write.csv( scen.params, "scen_params.csv", row.names = FALSE )
 source("helper_IAI.R")
 
 # number of sbatches to generate (i.e., iterations within each scenario)
-n.reps.per.scen = 1
-n.reps.in.doParallel = 1
+n.reps.per.scen = 1000
+n.reps.in.doParallel = 500
 #n.reps.per.scen = 100
 #n.reps.in.doParallel = 1
 ( n.files = ( n.reps.per.scen / n.reps.in.doParallel ) * n.scen )
