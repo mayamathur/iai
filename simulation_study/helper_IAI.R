@@ -663,6 +663,7 @@ sim_data = function(.p) {
   # ONLY in the R_W = 1 stratum of the R-model; the R_W = 0 stratum is always
   # expit(-1 + 3*W) (W -> R active):
   #
+  #   5A : no violation
   #   5A  positivity, exact : R_W = 1 forces prob = 1
   #   5B  positivity, near  : R_W = 1 -> prob = expit(-1 + 4) (~0.95, not forced)
   #   5C  CSI, exact        : R_W = 1 -> prob = expit(-1)         (W drops out)
