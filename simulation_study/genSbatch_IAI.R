@@ -36,7 +36,7 @@ scen.params = tidyr::expand_grid(
   rep.methods = c("gold ; CC ; mia-pkg-sp ; mia-pkg-ice"),
   model = "OLS",  # OLS or logistic
   coef_of_interest = "A",
-  N = c(200, 500, 1000),
+  N = c(200, 500, 1000, 10000),
   
   # MICE parameters (as on cluster)
   imp_m = 50,
@@ -55,7 +55,7 @@ scen.params = tidyr::expand_grid(
   # ~~ W BLOCK -----------------------------------------------
   # W_dim = 1  -> legacy single binary auxiliary D (reproduces prior runs)
   # W_dim = 10 -> high-dimensional correlated mixed-type W
-  W_dim = c(10) )
+  W_dim = c(1, 10) )
 
 # ~~ W-block parameters (constant across scens; edit here to vary) ----------
 scen.params = scen.params %>%
@@ -80,6 +80,17 @@ scen.params = scen.params %>%
     W_parent_coef     = 1,     # strength of the W parent (X2 or Y, per DAG) -> W
     W_n_inter         = 3,     # # of W_j*W_k interaction terms in S_R (needs 2*W_n_inter <= W_dim)
     W_inter_coef      = 1 )    # coefficient on each interaction term
+
+
+# remove bad combos
+# 5-series must have W_dim=1
+scen.params = scen.params %>% filter( !(dag_name %in% c("5A", "5B", "5C", "5D") & W_dim > 1 ) )
+
+# check it 
+table(scen.params$dag_name, scen.params$W_dim)
+
+
+
 
 # add scen numbers
 start.at = 1

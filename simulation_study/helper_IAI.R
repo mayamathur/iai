@@ -48,15 +48,15 @@ sim_data = function(.p) {
       # ~~ LEGACY single scalar auxiliary D ------------------------------------
       # Left exactly as it was. W_dim <= 1 is the reference arm.
       
-      du$D1 = rbinom( n = .p$N, size = 1, prob = expit(-1 + coefAD*du$A1) )
-      du$B1 = rnorm(  n = .p$N, mean = coefDB*du$D1 + 2.6*du$C1 + du$D1*du$C1 +
+      du$W01_true = rbinom( n = .p$N, size = 1, prob = expit(-1 + coefAD*du$A1) )
+      du$B1 = rnorm(  n = .p$N, mean = coefDB*du$W01_true + 2.6*du$C1 + du$W01_true*du$C1 +
                         coefAB*du$A1 + du$A1*du$C1 )
-      du$RD = rbinom( n = .p$N, size = 1, prob = 0.5 )
-      du$RB = rbinom( n = .p$N, size = 1, prob = expit(-1 + 3*du$D1) )
+      du$RW01 = rbinom( n = .p$N, size = 1, prob = 0.5 )
+      du$RB = rbinom( n = .p$N, size = 1, prob = expit(-1 + 3*du$W01_true) )
       
       W = NULL
       W_cal = NULL
-      W_obs_names = "D"
+      W_obs_names = "W01"
       
       
     } else {
@@ -97,7 +97,7 @@ sim_data = function(.p) {
                         Z = Z1 )
     
     # for W_dim <= 1, gen_W_block was not called, so punch out D here as before
-    if ( is.null(W) ) du$D = ifelse(du$RD == 1, du$D1, NA)
+    if ( is.null(W) ) du$W01 = ifelse(du$RW01 == 1, du$W01_true, NA)
     
     
     # make dataset for imputation
@@ -143,21 +143,21 @@ sim_data = function(.p) {
     coefAB = 2
     
     du$A1 = rbinom( n = .p$N, size = 1, prob = expit(-1 + 3*du$C1) )
-    du$RD = rbinom( n = .p$N, size = 1, prob = 0.5 )
+    du$RW01 = rbinom( n = .p$N, size = 1, prob = 0.5 )
     
     
     if ( is.null(.p$W_dim) || is.na(.p$W_dim) || .p$W_dim <= 1 ) {
       
       # ~~ LEGACY single scalar auxiliary D ------------------------------------
-      du$D1 = rbinom( n = .p$N, size = 1, prob = expit(-1 + coefAD*du$A1) )
-      du$B1 = rnorm(  n = .p$N, mean = coefDB*du$D1 + 2.6*du$C1 + du$D1*du$C1 +
+      du$W01_true = rbinom( n = .p$N, size = 1, prob = expit(-1 + coefAD*du$A1) )
+      du$B1 = rnorm(  n = .p$N, mean = coefDB*du$W01_true + 2.6*du$C1 + du$W01_true*du$C1 +
                         coefAB*du$A1 + du$A1*du$C1 )
-      # W drives R_Y, R_X1 (RC), and R_X2 (RA), all via expit(-1 + 3*D1)
-      du$RA = rbinom( n = .p$N, size = 1, prob = expit(-1 + 3*du$D1) )
-      du$RC = rbinom( n = .p$N, size = 1, prob = expit(-1 + 3*du$D1) )
-      du$RB = rbinom( n = .p$N, size = 1, prob = expit(-1 + 3*du$D1) )
+      # W drives R_Y, R_X1 (RC), and R_X2 (RA), all via expit(-1 + 3*W01_true)
+      du$RA = rbinom( n = .p$N, size = 1, prob = expit(-1 + 3*du$W01_true) )
+      du$RC = rbinom( n = .p$N, size = 1, prob = expit(-1 + 3*du$W01_true) )
+      du$RB = rbinom( n = .p$N, size = 1, prob = expit(-1 + 3*du$W01_true) )
       
-      W = NULL; W_cal = NULL; W_obs_names = "D"
+      W = NULL; W_cal = NULL; W_obs_names = "W01"
       
     } else {
       
@@ -194,7 +194,7 @@ sim_data = function(.p) {
                         C = ifelse(RC == 1, C1, NA),
                         Z = Z1 )
     
-    if ( is.null(W) ) du$D = ifelse(du$RD == 1, du$D1, NA)
+    if ( is.null(W) ) du$W01 = ifelse(du$RW01 == 1, du$W01_true, NA)
     
     # make dataset for imputation
     di = du %>% select( all_of( c("A", "B", "C", W_obs_names, "Z") ) )
@@ -231,7 +231,7 @@ sim_data = function(.p) {
     coefAB = 2
     
     du$A1 = rbinom( n = .p$N, size = 1, prob = expit(-1 + 3*du$C1) )
-    du$RD = rbinom( n = .p$N, size = 1, prob = 0.5 )
+    du$RW01 = rbinom( n = .p$N, size = 1, prob = 0.5 )
     
     # Y has NO W term in 1C (no W -> Y edge); Y is the same regardless of W.
     du$B1 = rnorm( n = .p$N, mean = 2.6*du$C1 + coefAB*du$A1 + du$A1*du$C1 )
@@ -240,12 +240,12 @@ sim_data = function(.p) {
     if ( is.null(.p$W_dim) || is.na(.p$W_dim) || .p$W_dim <= 1 ) {
       
       # ~~ LEGACY single scalar auxiliary D ------------------------------------
-      du$D1 = rbinom( n = .p$N, size = 1, prob = expit(-1 + coefAD*du$A1) )
-      du$RA = rbinom( n = .p$N, size = 1, prob = expit(-1 + 3*du$D1) )
-      du$RC = rbinom( n = .p$N, size = 1, prob = expit(-1 + 3*du$D1) )
-      du$RB = rbinom( n = .p$N, size = 1, prob = expit(-1 + 3*du$D1) )
+      du$W01_true = rbinom( n = .p$N, size = 1, prob = expit(-1 + coefAD*du$A1) )
+      du$RA = rbinom( n = .p$N, size = 1, prob = expit(-1 + 3*du$W01_true) )
+      du$RC = rbinom( n = .p$N, size = 1, prob = expit(-1 + 3*du$W01_true) )
+      du$RB = rbinom( n = .p$N, size = 1, prob = expit(-1 + 3*du$W01_true) )
       
-      W = NULL; W_cal = NULL; W_obs_names = "D"
+      W = NULL; W_cal = NULL; W_obs_names = "W01"
       
     } else {
       
@@ -279,7 +279,7 @@ sim_data = function(.p) {
                         C = ifelse(RC == 1, C1, NA),
                         Z = Z1 )
     
-    if ( is.null(W) ) du$D = ifelse(du$RD == 1, du$D1, NA)
+    if ( is.null(W) ) du$W01 = ifelse(du$RW01 == 1, du$W01_true, NA)
     
     # make dataset for imputation
     di = du %>% select( all_of( c("A", "B", "C", W_obs_names, "Z") ) )
@@ -317,16 +317,16 @@ sim_data = function(.p) {
     du$B1 = rnorm(  n = .p$N, mean = coefAB*du$A1 + 2.6*du$C1 + du$A1*du$C1 )
     du$RA = 1
     du$RC = 1
-    du$RD = rbinom( n = .p$N, size = 1, prob = 0.5 )
+    du$RW01 = rbinom( n = .p$N, size = 1, prob = 0.5 )
     
     
     if ( is.null(.p$W_dim) || is.na(.p$W_dim) || .p$W_dim <= 1 ) {
       
       # ~~ LEGACY single scalar auxiliary D ------------------------------------
-      du$D1 = rbinom( n = .p$N, size = 1, prob = expit(-1 + coefBD*du$B1) )
-      du$RB = rbinom( n = .p$N, size = 1, prob = expit(-1 + 3*du$D1) )
+      du$W01_true = rbinom( n = .p$N, size = 1, prob = expit(-1 + coefBD*du$B1) )
+      du$RB = rbinom( n = .p$N, size = 1, prob = expit(-1 + 3*du$W01_true) )
       
-      W = NULL; W_cal = NULL; W_obs_names = "D"
+      W = NULL; W_cal = NULL; W_obs_names = "W01"
       
     } else {
       
@@ -360,7 +360,7 @@ sim_data = function(.p) {
                         C = ifelse(RC == 1, C1, NA),
                         Z = Z1 )
     
-    if ( is.null(W) ) du$D = ifelse(du$RD == 1, du$D1, NA)
+    if ( is.null(W) ) du$W01 = ifelse(du$RW01 == 1, du$W01_true, NA)
     
     # make dataset for imputation
     di = du %>% select( all_of( c("A", "B", "C", W_obs_names, "Z") ) )
@@ -396,18 +396,18 @@ sim_data = function(.p) {
     # Y (B1) drawn BEFORE W: W <- Y in this DAG.
     du$A1 = rbinom( n = .p$N, size = 1, prob = expit(-1 + 3*du$C1) )
     du$B1 = rnorm(  n = .p$N, mean = coefAB*du$A1 + 2.6*du$C1 + du$A1*du$C1 )
-    du$RD = rbinom( n = .p$N, size = 1, prob = 0.5 )
+    du$RW01 = rbinom( n = .p$N, size = 1, prob = 0.5 )
     
     
     if ( is.null(.p$W_dim) || is.na(.p$W_dim) || .p$W_dim <= 1 ) {
       
       # ~~ LEGACY single scalar auxiliary D ------------------------------------
-      du$D1 = rbinom( n = .p$N, size = 1, prob = expit(-1 + coefBD*du$B1) )
-      du$RA = rbinom( n = .p$N, size = 1, prob = expit(-1 + 3*du$D1) )
-      du$RC = rbinom( n = .p$N, size = 1, prob = expit(-1 + 3*du$D1) )
-      du$RB = rbinom( n = .p$N, size = 1, prob = expit(-1 + 3*du$D1) )
+      du$W01_true = rbinom( n = .p$N, size = 1, prob = expit(-1 + coefBD*du$B1) )
+      du$RA = rbinom( n = .p$N, size = 1, prob = expit(-1 + 3*du$W01_true) )
+      du$RC = rbinom( n = .p$N, size = 1, prob = expit(-1 + 3*du$W01_true) )
+      du$RB = rbinom( n = .p$N, size = 1, prob = expit(-1 + 3*du$W01_true) )
       
-      W = NULL; W_cal = NULL; W_obs_names = "D"
+      W = NULL; W_cal = NULL; W_obs_names = "W01"
       
     } else {
       
@@ -442,7 +442,7 @@ sim_data = function(.p) {
                         C = ifelse(RC == 1, C1, NA),
                         Z = Z1 )
     
-    if ( is.null(W) ) du$D = ifelse(du$RD == 1, du$D1, NA)
+    if ( is.null(W) ) du$W01 = ifelse(du$RW01 == 1, du$W01_true, NA)
     
     # make dataset for imputation
     di = du %>% select( all_of( c("A", "B", "C", W_obs_names, "Z") ) )
@@ -484,18 +484,18 @@ sim_data = function(.p) {
     du$A1 = rbinom( n = .p$N, size = 1, prob = expit(-1 + 3*du$C1) )
     du$RA = 1
     du$RC = 1
-    du$RD = rbinom( n = .p$N, size = 1, prob = 0.5 )
+    du$RW01 = rbinom( n = .p$N, size = 1, prob = 0.5 )
     
     
     if ( is.null(.p$W_dim) || is.na(.p$W_dim) || .p$W_dim <= 1 ) {
       
       # ~~ LEGACY single scalar auxiliary D ------------------------------------
-      du$D1 = rbinom( n = .p$N, size = 1, prob = 0.5 )   # W is a source node
-      du$B1 = rnorm(  n = .p$N, mean = coefDB*du$D1 + 2.6*du$C1 + du$D1*du$C1 +
+      du$W01_true = rbinom( n = .p$N, size = 1, prob = 0.5 )   # W is a source node
+      du$B1 = rnorm(  n = .p$N, mean = coefDB*du$W01_true + 2.6*du$C1 + du$W01_true*du$C1 +
                         coefAB*du$A1 + du$A1*du$C1 )
-      du$RB = rbinom( n = .p$N, size = 1, prob = expit(-1 + 3*du$D1) )
+      du$RB = rbinom( n = .p$N, size = 1, prob = expit(-1 + 3*du$W01_true) )
       
-      W = NULL; W_cal = NULL; W_obs_names = "D"
+      W = NULL; W_cal = NULL; W_obs_names = "W01"
       
     } else {
       
@@ -529,7 +529,7 @@ sim_data = function(.p) {
                         C = ifelse(RC == 1, C1, NA),
                         Z = Z1 )
     
-    if ( is.null(W) ) du$D = ifelse(du$RD == 1, du$D1, NA)
+    if ( is.null(W) ) du$W01 = ifelse(du$RW01 == 1, du$W01_true, NA)
     
     # make dataset for imputation
     di = du %>% select( all_of( c("A", "B", "C", W_obs_names, "Z") ) )
@@ -572,20 +572,20 @@ sim_data = function(.p) {
     coefAB = 2
     
     du$A1 = rbinom( n = .p$N, size = 1, prob = expit(-1 + 3*du$C1) )
-    du$RD = rbinom( n = .p$N, size = 1, prob = 0.5 )
+    du$RW01 = rbinom( n = .p$N, size = 1, prob = 0.5 )
     
     
     if ( is.null(.p$W_dim) || is.na(.p$W_dim) || .p$W_dim <= 1 ) {
       
       # ~~ LEGACY single scalar auxiliary D ------------------------------------
-      du$D1 = rbinom( n = .p$N, size = 1, prob = 0.5 )   # W is a source node
-      du$B1 = rnorm(  n = .p$N, mean = coefDB*du$D1 + 2.6*du$C1 + du$D1*du$C1 +
+      du$W01_true = rbinom( n = .p$N, size = 1, prob = 0.5 )   # W is a source node
+      du$B1 = rnorm(  n = .p$N, mean = coefDB*du$W01_true + 2.6*du$C1 + du$W01_true*du$C1 +
                         coefAB*du$A1 + du$A1*du$C1 )
-      du$RA = rbinom( n = .p$N, size = 1, prob = expit(-1 + 3*du$D1) )
-      du$RC = rbinom( n = .p$N, size = 1, prob = expit(-1 + 3*du$D1) )
-      du$RB = rbinom( n = .p$N, size = 1, prob = expit(-1 + 3*du$D1) )
+      du$RA = rbinom( n = .p$N, size = 1, prob = expit(-1 + 3*du$W01_true) )
+      du$RC = rbinom( n = .p$N, size = 1, prob = expit(-1 + 3*du$W01_true) )
+      du$RB = rbinom( n = .p$N, size = 1, prob = expit(-1 + 3*du$W01_true) )
       
-      W = NULL; W_cal = NULL; W_obs_names = "D"
+      W = NULL; W_cal = NULL; W_obs_names = "W01"
       
     } else {
       
@@ -621,7 +621,7 @@ sim_data = function(.p) {
                         C = ifelse(RC == 1, C1, NA),
                         Z = Z1 )
     
-    if ( is.null(W) ) du$D = ifelse(du$RD == 1, du$D1, NA)
+    if ( is.null(W) ) du$W01 = ifelse(du$RW01 == 1, du$W01_true, NA)
     
     # make dataset for imputation
     di = du %>% select( all_of( c("A", "B", "C", W_obs_names, "Z") ) )
@@ -687,10 +687,10 @@ sim_data = function(.p) {
     du$B1 = rnorm( n = .p$N, mean = 2.6*du$C1 + coefAB*du$A1 + du$A1*du$C1 + lambda*U )
     
     # W: COLLIDER on X2 (A1) -> W <- U -> Y. Univariate coin flip given parents.
-    du$D1 = rbinom( n = .p$N, size = 1, prob = expit(-0.5 + 1.5*du$A1 + 1.5*U) )
+    du$W01_true = rbinom( n = .p$N, size = 1, prob = expit(-0.5 + 1.5*du$A1 + 1.5*U) )
     
     # single scalar R_W: gates W -> R_* and decides whether W is observed
-    du$RD = rbinom( n = .p$N, size = 1, prob = 0.5 )
+    du$RW01 = rbinom( n = .p$N, size = 1, prob = 0.5 )
     
     # R_A, R_B, R_C share one gated form. R_W = 0 stratum is common to all four
     # DAGs; the R_W = 1 stratum is the 2x2 cell.
@@ -703,18 +703,18 @@ sim_data = function(.p) {
                    "5D" = expit(-1 + 0.15 * 3 * W) )       # CSI near: W very weak
       ifelse( RW == 1, p1, p0 )
     }
-    du$RA = rbinom( n = .p$N, size = 1, prob = r_prob(du$D1, du$RD) )
-    du$RB = rbinom( n = .p$N, size = 1, prob = r_prob(du$D1, du$RD) )
-    du$RC = rbinom( n = .p$N, size = 1, prob = r_prob(du$D1, du$RD) )
+    du$RA = rbinom( n = .p$N, size = 1, prob = r_prob(du$W01_true, du$RW01) )
+    du$RB = rbinom( n = .p$N, size = 1, prob = r_prob(du$W01_true, du$RW01) )
+    du$RC = rbinom( n = .p$N, size = 1, prob = r_prob(du$W01_true, du$RW01) )
     
     du = du %>% mutate( A = ifelse(RA == 1, A1, NA),
                         B = ifelse(RB == 1, B1, NA),
                         C = ifelse(RC == 1, C1, NA),
-                        D = ifelse(RD == 1, D1, NA),
+                        W01 = ifelse(RW01 == 1, W01_true, NA),
                         Z = Z1 )
     
     # make dataset for imputation
-    di = du %>% select(A, B, C, D, Z)
+    di = du %>% select(A, B, C, W01, Z)
     
     
     ### For just the intercept of A
@@ -877,9 +877,9 @@ fit_regression = function(form_string,
     # Identify variables to be used in the analysis
     # misnomer because we'd also include auxiliaries here! 
     #analysis_vars <- all.vars( as.formula(form_string) )
-    # was: intersect(c("A", "B", "C", "D"), colnames(dat)) -- hard-coded, and
+    # was: intersect(c("A", "B", "C", "W01"), colnames(dat)) -- hard-coded, and
     # silently dropped every W component once W became high-dimensional.
-    analysis_vars = intersect( c("A", "B", "C", "D", w_names(p)$obs), colnames(dat) )
+    analysis_vars = intersect( c("A", "B", "C", "W01", w_names(p)$obs), colnames(dat) )
     # guard: the JAGS pattern model builds one parameter block per observed
     # missingness pattern, so it is not viable for a high-dimensional W.
     if ( length(analysis_vars) > 4 ) {
@@ -1363,11 +1363,11 @@ fit_regression = function(form_string,
       
       # make pattern indicator, M
       dat$M = NA
-      dat$M[ du$RC == 0 & du$RA == 0 & du$RB == 0 & du$RD == 0 ] = 5
-      dat$M[ du$RC == 1 & du$RA == 0 & du$RB == 0 & du$RD == 0 ] = 4
-      dat$M[ du$RC == 1 & du$RA == 1 & du$RB == 0 & du$RD == 0 ] = 3
-      dat$M[ du$RC == 1 & du$RA == 1 & du$RB == 1 & du$RD == 0 ] = 2
-      dat$M[ du$RC == 1 & du$RA == 1 & du$RB == 1 & du$RD == 1 ] = 1
+      dat$M[ du$RC == 0 & du$RA == 0 & du$RB == 0 & du$RW01 == 0 ] = 5
+      dat$M[ du$RC == 1 & du$RA == 0 & du$RB == 0 & du$RW01 == 0 ] = 4
+      dat$M[ du$RC == 1 & du$RA == 1 & du$RB == 0 & du$RW01 == 0 ] = 3
+      dat$M[ du$RC == 1 & du$RA == 1 & du$RB == 1 & du$RW01 == 0 ] = 2
+      dat$M[ du$RC == 1 & du$RA == 1 & du$RB == 1 & du$RW01 == 1 ] = 1
       if ( any(is.na(dat$M)) ) stop("Something is wrong with pattern coding")
       
       
@@ -1396,11 +1396,11 @@ fit_regression = function(form_string,
       
       # make pattern indicator, M
       dat$M = NA
-      dat$M[ du$RC == 0 & du$RA == 0 & du$RB == 0 & du$RD == 0 ] = 5
-      dat$M[ du$RC == 1 & du$RA == 0 & du$RB == 0 & du$RD == 0 ] = 4
-      dat$M[ du$RC == 1 & du$RA == 1 & du$RB == 0 & du$RD == 0 ] = 3
-      dat$M[ du$RC == 1 & du$RA == 1 & du$RB == 0 & du$RD == 1 ] = 2
-      dat$M[ du$RC == 1 & du$RA == 1 & du$RB == 1 & du$RD == 1 ] = 1
+      dat$M[ du$RC == 0 & du$RA == 0 & du$RB == 0 & du$RW01 == 0 ] = 5
+      dat$M[ du$RC == 1 & du$RA == 0 & du$RB == 0 & du$RW01 == 0 ] = 4
+      dat$M[ du$RC == 1 & du$RA == 1 & du$RB == 0 & du$RW01 == 0 ] = 3
+      dat$M[ du$RC == 1 & du$RA == 1 & du$RB == 0 & du$RW01 == 1 ] = 2
+      dat$M[ du$RC == 1 & du$RA == 1 & du$RB == 1 & du$RW01 == 1 ] = 1
       if ( any(is.na(dat$M)) ) stop("Something is wrong with pattern coding")
       
       
@@ -1657,10 +1657,10 @@ fit_regression = function(form_string,
       
       # make pattern indicator, M
       dat$M = NA
-      dat$M[ du$RA == 0 & du$RB == 0 & du$RD == 0 & du$RC == 0 ] = 4
-      dat$M[ du$RA == 1 & du$RB == 0 & du$RD == 0 & du$RC == 0 ] = 3
-      dat$M[ du$RA == 1 & du$RB == 1 & du$RD == 1 & du$RC == 0 ] = 2
-      dat$M[ du$RA == 1 & du$RB == 1 & du$RD == 1 & du$RC == 1 ] = 1
+      dat$M[ du$RA == 0 & du$RB == 0 & du$RW01 == 0 & du$RC == 0 ] = 4
+      dat$M[ du$RA == 1 & du$RB == 0 & du$RW01 == 0 & du$RC == 0 ] = 3
+      dat$M[ du$RA == 1 & du$RB == 1 & du$RW01 == 1 & du$RC == 0 ] = 2
+      dat$M[ du$RA == 1 & du$RB == 1 & du$RW01 == 1 & du$RC == 1 ] = 1
       
       if ( any(is.na(dat$M)) ) stop("Something is wrong with pattern coding")
       
@@ -2299,7 +2299,7 @@ af4_cate_c = function( du, c, type){
   # complete-case dataset
   dc = du[ complete.cases(du), ]
   # restricted dataset for modeling W
-  dw = du %>% filter( RA == 1 & RD == 1 & RC == 1 )
+  dw = du %>% filter( RA == 1 & RW01 == 1 & RC == 1 )
   
   # AF4 for D=d (i.e., \hat E [B | a, d] )
   m_B_ac <- function(a, c, type) {
@@ -2312,7 +2312,7 @@ af4_cate_c = function( du, c, type){
         # P(D = 1 | a0, c0)
         p_d1 <- mean( dw$D[ dw$A == a & dw$C == c ] == 1 )
         # c.f. truth
-        # mean( du$D1[ du$A1 == a & du$C1 == c ] == 1 )
+        # mean( du$W01_true[ du$A1 == a & du$C1 == c ] == 1 )
         
         #bm: for DAG 3A, the above IS wrong, as expected
         # could look at coef of C in the regression below?
@@ -2322,7 +2322,7 @@ af4_cate_c = function( du, c, type){
         
         mu  = mean( dc$B[ dc$A == a & dc$C == c & dc$D == d ] )
         # c.f. truth
-        # mean( du$B1[ du$A1 == a & du$C1 == c & du$D1 == d ] )
+        # mean( du$B1[ du$A1 == a & du$C1 == c & du$W01_true == d ] )
         
         p_d * mu
       } ) )
@@ -2597,7 +2597,7 @@ match_coef_names_to_mice <- function(coef_of_interest, pooled_terms) {
   return(out)
 }
 # # tests
-# match_coef_names_to_mice("B", c("A1", "B1", "C1:D1"))
+# match_coef_names_to_mice("B", c("A1", "B1", "C1:W01_true"))
 # match_coef_names_to_mice("B", c("A", "B", "C:D"))
 
 
