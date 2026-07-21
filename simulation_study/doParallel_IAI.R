@@ -138,7 +138,7 @@ if ( run.local == TRUE ) {
   scen.params = tidyr::expand_grid(
     
     #rep.methods = "gold ; CC ; MICE-std ; Am-std ; IPW-custom ; af4", 
-    rep.methods = "gold ; CC ; mia-pkg-sp", 
+    rep.methods = "gold ; CC ; mia-pkg-sp ; mia-pkg-ice", 
     #rep.methods = "CC ; MICE-std ; genloc ; IPW-nm", 
     #rep.methods = "gold ; af4-np ; af4-sp ; IPW-nm",
     #rep.methods = "IPW-nm",
@@ -149,7 +149,7 @@ if ( run.local == TRUE ) {
     #coef_of_interest = "B",  # ***** for 7D and 7D-bin
     N = c(1000),
     
-    W_dim             = 2,
+    W_dim             = 10,
     W_n_cont          = 1,   # 1 continuous, 1 binary
     W_n_cont_complete = 0,   # both incomplete
     W_n_bin_complete  = 0,
@@ -174,7 +174,7 @@ if ( run.local == TRUE ) {
     boot_reps_af4 = 1000,  # only needed for CIs; if set to 0, won't give CIs
     mia_n_mc = 10000, 
     
-    dag_name = "1A"
+    dag_name = "5A"
     
     # dag_name = c("5D", "5D-bin",
     #              "6D", "6D-bin",
@@ -207,7 +207,7 @@ if ( run.local == TRUE ) {
 if (run.local == TRUE) ( scens_to_run = scen.params$scen )
 if (run.local == FALSE) ( scens_to_run = scen )  # from sbatch
 
-if (run.local == TRUE) sim.reps = 10
+if (run.local == TRUE) sim.reps = 1
 #  p = scen.params[ scen.params$scen == scen, names(scen.params) != "scen"]
 
 
@@ -597,8 +597,7 @@ for ( scen in scens_to_run ) {
         if (run.local == TRUE) srr(rep.res)
       }
       
-      
-      
+
       
       # ~~ Am-std ----
       if ( "Am-std" %in% all.methods & !is.null(imps_am_std) ) {
@@ -616,8 +615,6 @@ for ( scen in scens_to_run ) {
       }
       
  
-      
-      
       # ~~ IPW-nm ----
       # Sun & ETT
       if ( "IPW-nm" %in% all.methods ) {
@@ -864,18 +861,32 @@ for ( scen in scens_to_run ) {
       
       
       
+      # ~ Add Scen Params and Sanity Checks --------------------------------------
+      
+      # add in scenario parameters
+      # do NOT use rbind here; bind_cols accommodates possibility that some methods' rep.res
+      #  have more columns than others
+      rep.res = p %>% bind_cols( rep.res )
+      
+      # these don't come from p because they are from sim_data instead
+      rep.res$coef_of_interest = coef_of_interest
+      rep.res$beta = beta
+      
+      rep.res$form_string = form_string
+      rep.res$gold_form_string = gold_form_string
+      
+      # add more info
+      rep.res = rep.res %>% add_column( rep.name = i, .before = 1 )
+      rep.res = rep.res %>% add_column( scen.name = scen, .before = 1 )
+      rep.res = rep.res %>% add_column( job.name = jobname, .before = 1 )
+  
+      
       # return this rep's results as the last expression of the foreach body
       rep.res
       
     }  # END foreach %dopar% body
   })  # END system.time({
-  
-  # stitch this scen's foreach results into the running results object
-  if ( exists("rs_all_scens") ) {
-    rs_all_scens = bind_rows(rs_all_scens, rs)
-  } else {
-    rs_all_scens = rs
-  }
+
   
 }  # END FOR-LOOP to run multiple scens locally
 

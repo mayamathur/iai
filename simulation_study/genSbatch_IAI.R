@@ -47,11 +47,10 @@ scen.params = tidyr::expand_grid(
   boot_reps_af4 = 1000,  # only needed for CIs; if 0, no CIs
   mia_n_mc = 10000,      # Monte Carlo draws for mia-pkg-sp
   
-  # the seven DAGs wired for high-dim W (figure panels a-g).
-  # NB: 4A is NOT wired for high-dim W yet, so it is excluded here.
   dag_name = c("1A", "1B", "1C",
                "2A", "2B",
-               "3A", "3B"),
+               "3A", "3B",
+               "5A", "5B", "5C", "5D"),
   
   # ~~ W BLOCK -----------------------------------------------
   # W_dim = 1  -> legacy single binary auxiliary D (reproduces prior runs)
