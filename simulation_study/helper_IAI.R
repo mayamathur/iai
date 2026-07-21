@@ -670,11 +670,6 @@ sim_data = function(.p) {
 }
 
 
-  sim_data(.p)
-}
-
-
-
 
 # ANALYSIS METHOD FNS ---------------------
 
