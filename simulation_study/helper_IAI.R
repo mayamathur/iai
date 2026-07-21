@@ -699,10 +699,11 @@ sim_data = function(.p) {
       # distinguishing term. R_W = 0 stratum is unchanged.
       p0 = expit(-1 + 3*W)                        # R_W = 0 stratum (W -> R active)
       p1 = switch( .p$dag_name,
-                   "5A" = rep(1, length(W)),      # positivity exact: forces prob = 1
-                   "5B" = rep(expit(1 + 4), length(W)),    # positivity near: ~0.99
-                   "5C" = rep(expit(1), length(W)),        # CSI exact: W drops out (~0.73)
-                   "5D" = expit(1 + 0.15 * 3 * W) )        # CSI near: W very weak
+                   "5A" = expit(1 + 1 * W), # no violations or near-violations
+                   "5B" = rep(1, length(W)),      # positivity exact violation: forces prob = 1
+                   "5C" = rep(0.90, length(W)),    # positivity near-violation
+                   "5D" = rep(expit(1), length(W)),        # CSI exact: no effect of W
+                   "5E" = expit(1 + 0.10 * W) )        # CSI near-violation: W very weak
       ifelse( RW == 1, p1, p0 )
     }
     du$RA = rbinom( n = .p$N, size = 1, prob = r_prob(du$W01_true, du$RW01) )

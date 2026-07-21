@@ -36,8 +36,8 @@ scen.params = tidyr::expand_grid(
   rep.methods = c("gold ; CC ; mia-pkg-sp ; mia-pkg-ice ; IPW-nm"),
   model = "OLS",  # OLS or logistic
   coef_of_interest = "A",
-  #N = c(200, 500, 1000, 10000),
-  N = 500,
+  N = c(200, 500, 1000, 10e3),
+  #N = 500,
   
   # MICE parameters (as on cluster)
   imp_m = 50,
@@ -46,12 +46,17 @@ scen.params = tidyr::expand_grid(
   
   # AF4 / MIA parameters
   boot_reps_af4 = 1000,  # only needed for CIs; if 0, no CIs
-  mia_n_mc = 10000,      # Monte Carlo draws for mia-pkg-sp
+  mia_n_mc = 10e3,      # Monte Carlo draws for mia-pkg-sp
   
-  dag_name = c("1A", "1B", "1C",
+  dag_name = c("5A", "5B", "5C", "5D",
+               "1A", "1B", "1C",
                "2A", "2B",
-               "3A", "3B",
-               "5A", "5B", "5C", "5D"),
+               "3A", "3B"),
+  
+  # dag_name = c("1A", "1B", "1C",
+  #              "2A", "2B",
+  #              "3A", "3B",
+  #              "5A", "5B", "5C", "5D"),
   
   # ~~ W BLOCK -----------------------------------------------
   # W_dim = 1  -> legacy single binary auxiliary D (reproduces prior runs)
@@ -120,10 +125,8 @@ write.csv( scen.params, "scen_params.csv", row.names = FALSE )
 source("helper_IAI.R")
 
 # number of sbatches to generate (i.e., iterations within each scenario)
-#n.reps.per.scen = 1000
-#n.reps.in.doParallel = 500
-n.reps.per.scen = 1
-n.reps.in.doParallel = 1
+n.reps.per.scen = 1000; n.reps.in.doParallel = 500
+#n.reps.per.scen = 1; n.reps.in.doParallel = 1
 ( n.files = ( n.reps.per.scen / n.reps.in.doParallel ) * n.scen )
 
 
