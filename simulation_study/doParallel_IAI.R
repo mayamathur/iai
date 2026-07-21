@@ -104,7 +104,7 @@ if (run.local == FALSE ) {
   # simulation reps to run within this job
   # **this need to match n.reps.in.doParallel in the genSbatch script
   #sim.reps = 10
-  sim.reps = 500
+  sim.reps = 1
   
   # set the number of cores
   registerDoParallel(cores=16)
@@ -147,9 +147,9 @@ if ( run.local == TRUE ) {
     #model = c( "OLS", "logistic"), 
     coef_of_interest = "A",
     #coef_of_interest = "B",  # ***** for 7D and 7D-bin
-    N = c(1000),
+    N = c(500),
     
-    W_dim             = 10,
+    W_dim             = 1,
     W_n_cont          = 1,   # 1 continuous, 1 binary
     W_n_cont_complete = 0,   # both incomplete
     W_n_bin_complete  = 0,
@@ -174,7 +174,7 @@ if ( run.local == TRUE ) {
     boot_reps_af4 = 1000,  # only needed for CIs; if set to 0, won't give CIs
     mia_n_mc = 10000, 
     
-    dag_name = "5A"
+    dag_name = "5C"
     
     # dag_name = c("5D", "5D-bin",
     #              "6D", "6D-bin",
@@ -182,6 +182,22 @@ if ( run.local == TRUE ) {
     #              )  # make sure to pick appropriate outcome model for the DAG
     
   )
+  
+  
+  
+  # remove bad combos:
+  # 5-series must have W_dim=1
+  scen.params = scen.params %>% filter( !(dag_name %in% c("5A", "5B", "5C", "5D") & W_dim > 1 ) )
+  # check it 
+  table(scen.params$dag_name, scen.params$W_dim)
+  
+  # replace rep.methods string to not include IPW-nm when W_dim > 1
+  rm_IPW_nm = function(string) paste(setdiff(strsplit(string, "\\s*;\\s*")[[1]], "IPW-nm"), collapse = " ; ")
+  # example: rm_IPW_nm("gold ; CC ; mia-pkg-sp ; mia-pkg-ice ; IPW-nm")
+  scen.params = scen.params %>% rowwise() %>%
+    mutate( rep.methods = ifelse( W_dim > 1, rm_IPW_nm(rep.methods), rep.methods ) )
+  
+  
   
   
   start.at = 1  # scen name to start at
@@ -642,7 +658,8 @@ for ( scen in scens_to_run ) {
         
       }
       
-
+        # debugging only
+       # rep.res = data.frame()
       # ~~ MIA package; semiparametric ----
       if ( "mia-pkg-sp" %in% all.methods ) {
         rep.res = run_method_safe(method.label = c("mia-pkg-sp"),

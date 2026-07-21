@@ -653,8 +653,6 @@ sim_data = function(.p) {
   
   
   
-  #bm: waiting on current full-size sims to finish, then try sending 5A-5D! :)
-  
   # ~ DAG 5A / 5B / 5C / 5D -----------------------------
   # Collider + CSI / positivity DAG (Case 1). W is a COLLIDER on X2 -> W <- U -> Y
   # via a latent common cause U of W and Y, so the target E[Y | X] (marginal in W)
@@ -669,6 +667,7 @@ sim_data = function(.p) {
   #   5B  positivity, near  : R_W = 1 -> prob = expit(-1 + 4) (~0.95, not forced)
   #   5C  CSI, exact        : R_W = 1 -> prob = expit(-1)         (W drops out)
   #   5D  CSI, near         : R_W = 1 -> prob = expit(-1 + 0.15*3*W) (W very weak)
+  
   if ( .p$dag_name %in% c("5A", "5B", "5C", "5D") ) {
     
     # "fake" variable Z1 is always observed but is independent of everything; used only to prevent all-NA rows
@@ -695,12 +694,15 @@ sim_data = function(.p) {
     # R_A, R_B, R_C share one gated form. R_W = 0 stratum is common to all four
     # DAGs; the R_W = 1 stratum is the 2x2 cell.
     r_prob = function(W, RW) {
+      # R_W = 1 stratum uses base intercept +1 (raised from -1) so the exact-CSI
+      # cell (5C) is not starved of complete cases; each cell keeps its own
+      # distinguishing term. R_W = 0 stratum is unchanged.
       p0 = expit(-1 + 3*W)                        # R_W = 0 stratum (W -> R active)
       p1 = switch( .p$dag_name,
                    "5A" = rep(1, length(W)),      # positivity exact: forces prob = 1
-                   "5B" = rep(expit(-1 + 4), length(W)),   # positivity near: ~0.95
-                   "5C" = rep(expit(-1), length(W)),       # CSI exact: W drops out
-                   "5D" = expit(-1 + 0.15 * 3 * W) )       # CSI near: W very weak
+                   "5B" = rep(expit(1 + 4), length(W)),    # positivity near: ~0.99
+                   "5C" = rep(expit(1), length(W)),        # CSI exact: W drops out (~0.73)
+                   "5D" = expit(1 + 0.15 * 3 * W) )        # CSI near: W very weak
       ifelse( RW == 1, p1, p0 )
     }
     du$RA = rbinom( n = .p$N, size = 1, prob = r_prob(du$W01_true, du$RW01) )
@@ -741,7 +743,7 @@ sim_data = function(.p) {
     
   }  # end of .p$dag_name %in% 5A/5B/5C/5D
   
-  
+
   # ~ Finish generating data ----------------
   return( list(du = du,
                di = di,

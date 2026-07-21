@@ -33,10 +33,11 @@ lapply( allPackages,
 
 scen.params = tidyr::expand_grid(
   
-  rep.methods = c("gold ; CC ; mia-pkg-sp ; mia-pkg-ice"),
+  rep.methods = c("gold ; CC ; mia-pkg-sp ; mia-pkg-ice ; IPW-nm"),
   model = "OLS",  # OLS or logistic
   coef_of_interest = "A",
-  N = c(200, 500, 1000, 10000),
+  #N = c(200, 500, 1000, 10000),
+  N = 500,
   
   # MICE parameters (as on cluster)
   imp_m = 50,
@@ -82,20 +83,26 @@ scen.params = scen.params %>%
     W_inter_coef      = 1 )    # coefficient on each interaction term
 
 
-# remove bad combos
+# remove bad combos:
 # 5-series must have W_dim=1
 scen.params = scen.params %>% filter( !(dag_name %in% c("5A", "5B", "5C", "5D") & W_dim > 1 ) )
-
 # check it 
 table(scen.params$dag_name, scen.params$W_dim)
 
-
+# replace rep.methods string to not include IPW-nm when W_dim > 1
+rm_IPW_nm = function(string) paste(setdiff(strsplit(string, "\\s*;\\s*")[[1]], "IPW-nm"), collapse = " ; ")
+# example: rm_IPW_nm("gold ; CC ; mia-pkg-sp ; mia-pkg-ice ; IPW-nm")
+scen.params = scen.params %>% rowwise() %>%
+  mutate( rep.methods = ifelse( W_dim > 1, rm_IPW_nm(rep.methods), rep.methods ) )
 
 
 # add scen numbers
 start.at = 1
 scen.params = scen.params %>% add_column( scen = start.at : ( nrow(scen.params) + (start.at - 1) ),
                                           .before = 1 )
+# check
+table(scen.params$W_dim, scen.params$rep.methods)
+
 
 
 ( n.scen = nrow(scen.params) )
@@ -113,10 +120,10 @@ write.csv( scen.params, "scen_params.csv", row.names = FALSE )
 source("helper_IAI.R")
 
 # number of sbatches to generate (i.e., iterations within each scenario)
-n.reps.per.scen = 1000
-n.reps.in.doParallel = 500
-#n.reps.per.scen = 100
-#n.reps.in.doParallel = 1
+#n.reps.per.scen = 1000
+#n.reps.in.doParallel = 500
+n.reps.per.scen = 1
+n.reps.in.doParallel = 1
 ( n.files = ( n.reps.per.scen / n.reps.in.doParallel ) * n.scen )
 
 
@@ -132,9 +139,8 @@ runfile_path = paste(path, "/testRunFile.R", sep="")
 sbatch_params <- data.frame(jobname,
                             outfile,
                             errorfile,
-                            #jobtime = "01:00:00",  # with IPW-nm
-                            #jobtime = "00:30:00",  # with only MICE
-                            jobtime = "02:00:00",
+                            jobtime = "00:30:00",  
+                            #jobtime = "02:00:00",
                             quality = "normal",
                             node_number = 1,
                             mem_per_node = 64000,
