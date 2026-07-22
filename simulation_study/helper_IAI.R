@@ -653,51 +653,51 @@ sim_data = function(.p) {
   
   
   
-  # ~ DAG 5A / 5B / 5C / 5D -----------------------------
-  # Collider + CSI / positivity DAG (Case 1). W is a COLLIDER on X2 -> W <- U -> Y
-  # via a latent common cause U of W and Y, so the target E[Y | X] (marginal in W)
-  # is unconfounded. W is univariate (a coin flip given its parents). A single
-  # scalar R_W ~ Bern(0.5) gates the W -> R_* edges AND decides whether W is observed.
+  # ~ DAG 5A-5E -----------------------------
+  # Collider + CSI / positivity DAG (Case 1), SINGLE covariate X (= A1).
+  # Edges:  R_X <- X -> Y <-> W <- X,  W -> R_X,  W -> R_Y,  R_X <- R_W -> R_Y.
+  #   - W is a COLLIDER on X -> W <- U -> Y, where U is a latent common cause of
+  #     W and Y (the Y <-> W bidirected edge). Target is E[Y | X], marginal in W.
+  #   - R_X (= RA) depends on BOTH X and W (W gated by R_W). This X -> R_X edge is
+  #     what makes MIA's assumption W _||_ R_X | X fail, so MIA is biased.
+  #   - R_Y (= RB) depends on W (gated by R_W) but NOT on X.
+  #   - R_W (= RW01) ~ Bern(0.5); gates the W -> R_* edges and W's own observation.
   #
-  # The four DAGs are the 2x2 {positivity, CSI} x {exact, near} table. They differ
-  # ONLY in the R_W = 1 stratum of the R-model; the R_W = 0 stratum is always
-  # expit(-1 + 3*W) (W -> R active):
-  #
-  #   5A : no violation
-  #   5B  positivity, exact : R_W = 1 forces prob = 1
-  #   5C  positivity, near  : R_W = 1 -> prob = expit(-1 + 4) (~0.95, not forced)
-  #   5D  CSI, exact        : R_W = 1 -> prob = expit(-1)         (W drops out)
-  #   5E  CSI, near         : R_W = 1 -> prob = expit(-1 + 0.15*3*W) (W very weak)
-  
+  # The five cells differ ONLY in the R_W = 1 stratum of the R-model (logit scale);
+  # the R_W = 0 stratum is common. Everything is on the logit scale so the X -> R_X
+  # term (gamma_A * A1) adds uniformly across cells.
+  #   5A normal       : logit p1 = 1 + 1*W        (W -> R active, no violation)
+  #   5B posit exact   : logit p1 = 10            (~1; near-forces observation)
+  #   5C posit near    : logit p1 = qlogis(0.90)  (very likely, not forced)
+  #   5D CSI exact     : logit p1 = 1             (W drops out)
+  #   5E CSI near      : logit p1 = 1 + 0.10*W    (W very weak)
   if ( .p$dag_name %in% c("5A", "5B", "5C", "5D", "5E") ) {
     
     # "fake" variable Z1 is always observed but is independent of everything; used only to prevent all-NA rows
-    du = data.frame( Z1 = rbinom( n = .p$N, size = 1, prob = 0.5 ),
-                     C1 = rbinom( n = .p$N, size = 1, prob = 0.5 ) )
+    du = data.frame( Z1 = rbinom( n = .p$N, size = 1, prob = 0.5 ) )
     
-    coefAB = 2
-    lambda = 1        # strength of latent common cause U -> Y
+    coefAB  = 2     # X -> Y
+    lambda  = 1     # strength of latent common cause U -> Y
+    gamma_A = 2     # X -> R_X (in both strata), added on the logit scale
     
-    du$A1 = rbinom( n = .p$N, size = 1, prob = expit(-1 + 3*du$C1) )
+    # single covariate X
+    du$A1 = rbinom( n = .p$N, size = 1, prob = 0.5 )
     
     # latent common cause of W and Y (never enters any analysis dataset)
     U = rnorm( n = .p$N )
     
-    # Y: no W term (target is E[Y | X], marginal in W); carries U
-    du$B1 = rnorm( n = .p$N, mean = 2.6*du$C1 + coefAB*du$A1 + du$A1*du$C1 + lambda*U )
+    # Y: X -> Y and U -> Y; NO W term (target E[Y | X], marginal in W)
+    du$B1 = rnorm( n = .p$N, mean = coefAB*du$A1 + lambda*U )
     
-    # W: COLLIDER on X2 (A1) -> W <- U -> Y. Univariate coin flip given parents.
+    # W: COLLIDER on X (A1) -> W <- U. Univariate coin flip given parents.
     du$W01_true = rbinom( n = .p$N, size = 1, prob = expit(-0.5 + 1.5*du$A1 + 1.5*U) )
     
     # single scalar R_W: gates W -> R_* and decides whether W is observed
     du$RW01 = rbinom( n = .p$N, size = 1, prob = 0.5 )
     
-    # R_A, R_B, R_C share one gated form. R_W = 0 stratum is common to all four
-    # DAGs; the R_W = 1 stratum is the 2x2 cell.
+    # Stratum probability for the R-models (before the X -> R_X term). 
+    # p0 := p(Ri = 1 | R_W = 0); p1 := p(Ri = 1 | R_W = 1)
     r_prob = function(W, RW) {
-      # R_W = 1 stratum uses base intercept +1 (raised from -1) so the exact-CSI
-      # cell (5C) is not starved of complete cases; each cell keeps its own
-      # distinguishing term. R_W = 0 stratum is unchanged.
       p0 = expit(-1 + 3*W)                        # R_W = 0 stratum (W -> R active)
       p1 = switch( .p$dag_name,
                    "5A" = expit(1 + 1 * W), # no violations or near-violations
@@ -707,18 +707,28 @@ sim_data = function(.p) {
                    "5E" = expit(1 + 0.10 * W) )        # CSI near-violation: W very weak
       ifelse( RW == 1, p1, p0 )
     }
-    du$RA = rbinom( n = .p$N, size = 1, prob = r_prob(du$W01_true, du$RW01) )
-    du$RB = rbinom( n = .p$N, size = 1, prob = r_prob(du$W01_true, du$RW01) )
-    du$RC = rbinom( n = .p$N, size = 1, prob = r_prob(du$W01_true, du$RW01) )
     
-    du = du %>% mutate( A = ifelse(RA == 1, A1, NA),
-                        B = ifelse(RB == 1, B1, NA),
-                        C = ifelse(RC == 1, C1, NA),
+    # Add the X -> R_X edge (gamma_A * A1) on the logit scale to the stratum prob,
+    # but leave saturated probabilities at their value (so 5B's forced prob = 1
+    # stays exactly 1; X -> R_X simply does not bind in that saturated stratum).
+    add_X = function(p, X) {
+      out = p
+      unsat = p > 0 & p < 1
+      out[unsat] = expit( qlogis(p[unsat]) + gamma_A * X[unsat] )
+      out
+    }
+    
+    # R_X (= RA): depends on X and W.  R_Y (= RB): W only, NO X term.
+    du$RA = rbinom( n = .p$N, size = 1, prob = add_X( r_prob(du$W01_true, du$RW01), du$A1 ) )
+    du$RB = rbinom( n = .p$N, size = 1, prob =        r_prob(du$W01_true, du$RW01)          )
+    
+    du = du %>% mutate( A   = ifelse(RA == 1, A1, NA),
+                        B   = ifelse(RB == 1, B1, NA),
                         W01 = ifelse(RW01 == 1, W01_true, NA),
-                        Z = Z1 )
+                        Z   = Z1 )
     
-    # make dataset for imputation
-    di = du %>% select(A, B, C, W01, Z)
+    # make dataset for imputation (single X: A, outcome B, auxiliary W01, fake Z)
+    di = du %>% select(A, B, W01, Z)
     
     
     ### For just the intercept of A
@@ -728,13 +738,13 @@ sim_data = function(.p) {
     
     
     ### Coefficient of interest
-    if ( .p$coef_of_interest %in% c("A", "C" ) ){ 
+    if ( .p$coef_of_interest %in% c("A") ){ 
       
-      # regression strings
-      form_string = "B ~ A * C"
+      # regression strings (single covariate, no interaction)
+      form_string = "B ~ A"
       
       # gold-standard model uses underlying variables
-      gold_form_string = "B1 ~ A1 * C1"
+      gold_form_string = "B1 ~ A1"
       
       beta = NA
       
@@ -743,7 +753,9 @@ sim_data = function(.p) {
     }
     
     
-  }  # end of .p$dag_name %in% 5A/5B/5C/5D
+  }  # end of .p$dag_name %in% 5A/5B/5C/5D/5E
+  
+  
   
 
   # ~ Finish generating data ----------------
