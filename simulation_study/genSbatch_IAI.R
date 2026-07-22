@@ -48,6 +48,7 @@ scen.params = tidyr::expand_grid(
   boot_reps_af4 = 1000,  # only needed for CIs; if 0, no CIs
   mia_n_mc = 10e3,      # Monte Carlo draws for mia-pkg-sp
   
+  # bm2: need to run 5E
   dag_name = c("5A", "5B", "5C", "5D",
                "1A", "1B", "1C",
                "2A", "2B",
@@ -90,7 +91,7 @@ scen.params = scen.params %>%
 
 # remove bad combos:
 # 5-series must have W_dim=1
-scen.params = scen.params %>% filter( !(dag_name %in% c("5A", "5B", "5C", "5D") & W_dim > 1 ) )
+scen.params = scen.params %>% filter( !( grepl("5", dag_name) & W_dim > 1 ) )
 # check it 
 table(scen.params$dag_name, scen.params$W_dim)
 

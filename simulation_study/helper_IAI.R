@@ -664,12 +664,12 @@ sim_data = function(.p) {
   # expit(-1 + 3*W) (W -> R active):
   #
   #   5A : no violation
-  #   5A  positivity, exact : R_W = 1 forces prob = 1
-  #   5B  positivity, near  : R_W = 1 -> prob = expit(-1 + 4) (~0.95, not forced)
-  #   5C  CSI, exact        : R_W = 1 -> prob = expit(-1)         (W drops out)
-  #   5D  CSI, near         : R_W = 1 -> prob = expit(-1 + 0.15*3*W) (W very weak)
+  #   5B  positivity, exact : R_W = 1 forces prob = 1
+  #   5C  positivity, near  : R_W = 1 -> prob = expit(-1 + 4) (~0.95, not forced)
+  #   5D  CSI, exact        : R_W = 1 -> prob = expit(-1)         (W drops out)
+  #   5E  CSI, near         : R_W = 1 -> prob = expit(-1 + 0.15*3*W) (W very weak)
   
-  if ( .p$dag_name %in% c("5A", "5B", "5C", "5D") ) {
+  if ( .p$dag_name %in% c("5A", "5B", "5C", "5D", "5E") ) {
     
     # "fake" variable Z1 is always observed but is independent of everything; used only to prevent all-NA rows
     du = data.frame( Z1 = rbinom( n = .p$N, size = 1, prob = 0.5 ),

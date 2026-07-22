@@ -93,6 +93,11 @@ s = s %>% filter(!is.na(scen.name))
 table(s$dag_name)
 
 
+# ***** ONLY DOING THIS WHILE THE 5-SERIES IS WRONG:
+s = s %>% filter( !( grepl("5", dag_name) ) )
+
+
+
 # Quick Look ----------------------------------------------
 
 # sanity check
