@@ -684,8 +684,32 @@ for ( scen in scens_to_run ) {
                                     # rebuild the outcome-model formula with LHS "Y", same RHS
                                     # terms as the gold model (keeps interactions) plus W
                                     rhs_terms = labels(terms(fo))         # e.g. "A","C","A:C"
-                                    Y_form = as.formula(
-                                      paste("Y ~", paste(c(rhs_terms, Wobs), collapse = " + ")) )
+                                    
+
+                                    # rebuild the outcome-model formula with LHS "Y", same RHS
+                                    # terms as the gold model (keeps interactions), FULLY CROSSED
+                                    # with the W block. 
+                                    # ***Note: It's very important to include all C-W interactions since some DAGs, e.g., 1A, include
+                                    #  those interactions! HOWEVER, the code below does NOT include W-W interactions, which matches
+                                    #  all DAGs' DGMs as of 2026-07-22.
+                                    rhs_terms = labels(terms(fo))         # e.g. "A","C","A:C"
+                                    
+                                    # X-part: the gold model's RHS as a single grouped term,
+                                    # e.g. "(A + C + A:C)". Falls back to intercept-only if the
+                                    # gold model has no RHS terms.
+                                    x_part = if (length(rhs_terms) > 0)
+                                      paste0("(", paste(rhs_terms, collapse = " + "), ")")
+                                    else "1"
+                                    
+                                    # W-part: all observed W components as a single grouped term,
+                                    # e.g. "(W01)" for |W|=1 or "(W1 + W2 + ... )" for a W block.
+                                    w_part = paste0("(", paste(Wobs, collapse = " + "), ")")
+                                    
+                                    # Full cross: Y ~ (X terms) * (W terms). The "*" expands to all
+                                    # main effects plus every X:W interaction (and X:X, W:W within
+                                    # each group as already implied by rhs_terms / additive W).
+                                    Y_form = as.formula(paste0("Y ~ ", x_part, " * ", w_part))
+                                    # end of building the outcome-model formula
                                     
                                     # contrast: exposure 1 vs 0, all covars held at reference level 0
                                     ref = rep(0, length(covars))
