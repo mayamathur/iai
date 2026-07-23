@@ -172,7 +172,7 @@ if ( run.local == TRUE ) {
     #boot_reps_af4 = 1000,  # only needed for CIs; if set to 0, won't give CIs
     mia_n_mc = 10000, 
     
-    dag_name = "3B"
+    dag_name = "1A"
     
     # dag_name = c("5D", "5D-bin",
     #              "6D", "6D-bin",
@@ -218,7 +218,7 @@ if ( run.local == TRUE ) {
 # mimic Sherlock structure
 if (run.local == TRUE) ( scens_to_run = scen.params$scen )
 if (run.local == FALSE) ( scens_to_run = scen )  # from sbatch
-if (run.local == TRUE) sim.reps = 1
+if (run.local == TRUE) sim.reps = 500
 if ( exists("rs_all_scens") ) rm(rs_all_scens)
 #  p = scen.params[ scen.params$scen == scen, names(scen.params) != "scen"]
 
@@ -226,7 +226,7 @@ if ( exists("rs_all_scens") ) rm(rs_all_scens)
 # BEGIN FOR-LOOP to run multiple scens locally
 # if running on cluster, scen will just be length 1
 
-#bm: need to bind rs into rs_all_scens
+
 for ( scen in scens_to_run ) {
   
   if ( exists("rs") ) rm(rs)
@@ -846,7 +846,7 @@ for ( scen in scens_to_run ) {
                                     # each group as already implied by rhs_terms / additive W).
                                     Y_form = as.formula(paste0("Y ~ ", x_part, " * ", w_part))
                                     # end of building the outcome-model formula
-                                    
+
                                     
                                     # outer model: g_hat ~ (X predictors only), saturated.
                                     # RHS may reference ONLY X_names (mia_ice errors otherwise), so

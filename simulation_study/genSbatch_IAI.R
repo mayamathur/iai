@@ -50,9 +50,11 @@ scen.params = tidyr::expand_grid(
   boot_reps_af4 = 0,  # only needed for CIs; if 0, no CIs
   mia_n_mc = 10e3,      # Monte Carlo draws for mia-pkg-sp
   
-    dag_name = c("1A", "1B", "1C",
-                 "2A", "2B",
-                 "3A", "3B"),
+  dag_name = "3A",
+  
+    # dag_name = c("1A", "1B", "1C",
+    #              "2A", "2B",
+    #              "3A", "3B"),
   
   # ~~ W BLOCK -----------------------------------------------
   W_dim = 1
