@@ -21,7 +21,7 @@ source("helper_IAI.R")          # defines sim_data(), expit(), etc.
 
 
 # ---- parameter object for sim_data (|W|=1 arm) -----------------------
-p <- data.frame(    dag_name         = "1A",
+p <- data.frame(    dag_name         = "2A",
                     N                = 1000,
                     model            = "OLS",
                     coef_of_interest = "A",

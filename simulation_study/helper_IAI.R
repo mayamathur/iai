@@ -308,7 +308,7 @@ sim_data = function(.p) {
                      C1 = rbinom( n = .p$N, size = 1, prob = 0.5 ) ) 
     
     coefAB = 2
-    coefBD = 3
+    coefBD = 0.5  # don't go too high here for 2A specifically, or else will get near-violations of positivity
     
     # Y (B1) is drawn BEFORE W here, because W <- Y in this DAG (edge reversal).
     du$A1 = rbinom( n = .p$N, size = 1, prob = expit(-1 + 3*du$C1) )

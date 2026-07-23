@@ -34,118 +34,115 @@ lapply( allPackages,
 
 # FOR DEBUGGING: ISOLATE SCENARIOS - saturated model issue (1A and 3B)
 scen.params = tidyr::expand_grid(
-  
+
   #rep.methods = "gold ; CC ; mia-pkg-sp ; mia-pkg-ice ; IPW-nm",
   rep.methods = "gold ; mia-pkg-sp ; mia-pkg-ice",
   model = "OLS",  # OLS or logistic
   coef_of_interest = "A",
   N = 1000,
-  
+
   # MICE parameters (as on cluster)
   imp_m = 50,
   imp_maxit = 100,
   mice_method = NA,  # let MICE use its defaults
-  
+
   # AF4 / MIA parameters
   boot_reps_af4 = 0,  # only needed for CIs; if 0, no CIs
   mia_n_mc = 10e3,      # Monte Carlo draws for mia-pkg-sp
-  
-  dag_name = "3A",
-  
-    # dag_name = c("1A", "1B", "1C",
-    #              "2A", "2B",
-    #              "3A", "3B"),
-  
+
+  #dag_name = "3A",
+
+    dag_name = c("1A", "1B", "1C",
+                 "2A", "2B",
+                 "3A", "3B"),
+
   # ~~ W BLOCK -----------------------------------------------
-  W_dim = 1
+  W_dim = c(1, 10)
 )
 
 # ~~ W-block parameters (constant across scens; edit here to vary) ----------
 scen.params = scen.params %>%
   mutate(
     W_n_cont          = ifelse( W_dim == 1, 0, 5 ),   # 5 continuous, 5 binary when W_dim = 10
-    
+
     # W^+ / W^- split: complete vs incomplete components, type-balanced.
     # Set W_n_cont_complete = W_n_bin_complete = 0 for an all-incomplete arm.
     W_n_cont_complete = ifelse( W_dim == 1, 0, 3 ),
     W_n_bin_complete  = ifelse( W_dim == 1, 0, 2 ),
-    
+
     W_rho             = ifelse( W_dim == 1, 0, 0.4 ),  # LATENT-scale correlation
     W_cor_type        = "exch",                        # "exch" or "ar1"
     W_bin_prob        = 0.5,                            # marginal P(W_binary = 1)
-    
+
     # target marginal P(R_Wj = 0) for incomplete components. Legacy value is
     # 0.4252 (what expit(-1 + 3*D1) implies); fine at W_dim = 1 but leaves ~3.6%
     # complete cases at W_dim = 10, so the high-dim arms use 0.10.
     W_miss_rate       = ifelse( W_dim == 1, 1 - 0.5748, 0.10 ),
-    
+
     # required by the W-block generator (their absence caused the crash):
     W_parent_coef     = 1,     # strength of the W parent (X2 or Y, per DAG) -> W
     W_n_inter         = 3,     # # of W_j*W_k interaction terms in S_R (needs 2*W_n_inter <= W_dim)
     W_inter_coef      = 1  # coefficient on each interaction term
-)    
+)
 # END OF ISOLATED-SCEN SCEN PARAMS
 
 
 
-# # FULL SET
-# scen.params = tidyr::expand_grid(
-#   
-#   #rep.methods = c("gold ; CC ; mia-pkg-sp ; mia-pkg-ice ; IPW-nm"),
-#   rep.methods = c("gold ; mia-pkg-sp ; mia-pkg-ice" ),
-#   model = "OLS",  # OLS or logistic
-#   coef_of_interest = "A",
-#   #N = c(200, 500, 1000, 10e3),
-#   N = 1000,
-#   
-#   # MICE parameters (as on cluster)
-#   imp_m = 50,
-#   imp_maxit = 100,
-#   mice_method = NA,  # let MICE use its defaults
-#   
-#   # AF4 / MIA parameters
-#   boot_reps_af4 = 1000,  # only needed for CIs; if 0, no CIs
-#   mia_n_mc = 10e3,      # Monte Carlo draws for mia-pkg-sp
-#   
-#   
-#   # dag_name = c("5A", "5B", "5C", "5D",
-#   #              "1A", "1B", "1C",
-#   #              "2A", "2B",
-#   #              "3A", "3B"),
-#   
-#   # dag_name = c("1A", "1B", "1C",
-#   #              "2A", "2B",
-#   #              "3A", "3B",
-#   #              "5A", "5B", "5C", "5D", "5E"),
-#   
-#   # ~~ W BLOCK -----------------------------------------------
-#   # W_dim = 1  -> legacy single binary auxiliary D (reproduces prior runs)
-#   # W_dim = 10 -> high-dimensional correlated mixed-type W
-#   W_dim = c(1, 10) )
-# 
-# # ~~ W-block parameters (constant across scens; edit here to vary) ----------
-# scen.params = scen.params %>%
-#   mutate(
-#     W_n_cont          = ifelse( W_dim == 1, 0, 5 ),   # 5 continuous, 5 binary when W_dim = 10
-#     
-#     # W^+ / W^- split: complete vs incomplete components, type-balanced.
-#     # Set W_n_cont_complete = W_n_bin_complete = 0 for an all-incomplete arm.
-#     W_n_cont_complete = ifelse( W_dim == 1, 0, 3 ),
-#     W_n_bin_complete  = ifelse( W_dim == 1, 0, 2 ),
-#     
-#     W_rho             = ifelse( W_dim == 1, 0, 0.4 ),  # LATENT-scale correlation
-#     W_cor_type        = "exch",                        # "exch" or "ar1"
-#     W_bin_prob        = 0.5,                            # marginal P(W_binary = 1)
-#     
-#     # target marginal P(R_Wj = 0) for incomplete components. Legacy value is
-#     # 0.4252 (what expit(-1 + 3*D1) implies); fine at W_dim = 1 but leaves ~3.6%
-#     # complete cases at W_dim = 10, so the high-dim arms use 0.10.
-#     W_miss_rate       = ifelse( W_dim == 1, 1 - 0.5748, 0.10 ),
-#     
-#     # required by the W-block generator (their absence caused the crash):
-#     W_parent_coef     = 1,     # strength of the W parent (X2 or Y, per DAG) -> W
-#     W_n_inter         = 3,     # # of W_j*W_k interaction terms in S_R (needs 2*W_n_inter <= W_dim)
-#     W_inter_coef      = 1 )    # coefficient on each interaction term
+# FULL SET
+scen.params = tidyr::expand_grid(
+
+  #rep.methods = c("gold ; CC ; mia-pkg-sp ; mia-pkg-ice ; IPW-nm"),
+  rep.methods = c("gold ; mia-pkg-sp ; mia-pkg-ice" ),
+  model = "OLS",  # OLS or logistic
+  coef_of_interest = "A",
+  N = c(200, 500, 1000),
+
+  # MICE parameters (as on cluster)
+  imp_m = 50,
+  imp_maxit = 100,
+  mice_method = NA,  # let MICE use its defaults
+
+  # AF4 / MIA parameters
+  boot_reps_af4 = 1000,  # only needed for CIs; if 0, no CIs
+  mia_n_mc = 10e3,      # Monte Carlo draws for mia-pkg-sp
+
+  dag_name = c("1A", "1B", "1C",
+               "2A", "2B",
+               "3A", "3B"),
+
+  # dag_name = c("1A", "1B", "1C",
+  #              "2A", "2B",
+  #              "3A", "3B",
+  #              "5A", "5B", "5C", "5D", "5E"),
+
+  # ~~ W BLOCK -----------------------------------------------
+  # W_dim = 1  -> legacy single binary auxiliary D (reproduces prior runs)
+  # W_dim = 10 -> high-dimensional correlated mixed-type W
+  W_dim = c(1, 10) )
+
+# ~~ W-block parameters (constant across scens; edit here to vary) ----------
+scen.params = scen.params %>%
+  mutate(
+    W_n_cont          = ifelse( W_dim == 1, 0, 5 ),   # 5 continuous, 5 binary when W_dim = 10
+
+    # W^+ / W^- split: complete vs incomplete components, type-balanced.
+    # Set W_n_cont_complete = W_n_bin_complete = 0 for an all-incomplete arm.
+    W_n_cont_complete = ifelse( W_dim == 1, 0, 3 ),
+    W_n_bin_complete  = ifelse( W_dim == 1, 0, 2 ),
+
+    W_rho             = ifelse( W_dim == 1, 0, 0.4 ),  # LATENT-scale correlation
+    W_cor_type        = "exch",                        # "exch" or "ar1"
+    W_bin_prob        = 0.5,                            # marginal P(W_binary = 1)
+
+    # target marginal P(R_Wj = 0) for incomplete components. Legacy value is
+    # 0.4252 (what expit(-1 + 3*D1) implies); fine at W_dim = 1 but leaves ~3.6%
+    # complete cases at W_dim = 10, so the high-dim arms use 0.10.
+    W_miss_rate       = ifelse( W_dim == 1, 1 - 0.5748, 0.10 ),
+
+    # required by the W-block generator (their absence caused the crash):
+    W_parent_coef     = 1,     # strength of the W parent (X2 or Y, per DAG) -> W
+    W_n_inter         = 3,     # # of W_j*W_k interaction terms in S_R (needs 2*W_n_inter <= W_dim)
+    W_inter_coef      = 1 )    # coefficient on each interaction term
 # END OF SCEN PARAMS FOR FULL SIMS
 
 
@@ -188,7 +185,7 @@ write.csv( scen.params, "scen_params.csv", row.names = FALSE )
 source("helper_IAI.R")
 
 # number of sbatches to generate (i.e., iterations within each scenario)
-n.reps.per.scen = 1000; n.reps.in.doParallel = 500
+n.reps.per.scen = 500; n.reps.in.doParallel = 500
 #n.reps.per.scen = 1; n.reps.in.doParallel = 1
 ( n.files = ( n.reps.per.scen / n.reps.in.doParallel ) * n.scen )
 
