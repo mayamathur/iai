@@ -167,7 +167,7 @@ t = s2 %>% group_by(scen.name, dag_name, N, method) %>%
   mutate_if(is.numeric, function(x) round(x,2)) 
 as.data.frame(t)
 
-
+#bm: need to retain scen.params when making this summary
 
 
 # save agg data
