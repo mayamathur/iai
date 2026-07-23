@@ -122,8 +122,13 @@ mia_sp_est <- function(du) {
     #  (either hard-coded or using the same code to produce objects) 
     X_names = c("A", "C")
     
-    Y_form = as.formula("Y ~ (A + C + A:C) * (W01 + W02 + W03 + W04 + W05 + W06 + W07 + 
-                                    W08 + W09 + W10)")
+    # # as in doParallel
+    # Y_form = as.formula("Y ~ (A + C + A:C) * (W01 + W02 + W03 + W04 + W05 + W06 + W07 + 
+    #                                 W08 + W09 + W10)")
+    # remove three-way A*C*W interactions, which result in overparameterization and aren't needed given how Y is generated anyway
+    #***NEED TO MAKE THIS CHANGE IN DOPARALLEL
+    Y_form = as.formula("Y ~ (A + C) * (W01 + W02 + W03 + W04 + W05 + W06 + W07 + 
+                                    W08 + W09 + W10) + A:C")
     
     W_type = ifelse( seq_along(Wobs) <= p$W_n_cont, "normal", "binary" )
     
@@ -172,9 +177,13 @@ mia_ice_est <- function(du) {
     # beginning of stuff that's verbatim from doParallel
     #  (either hard-coded or using the same code to produce objects) 
     X_names = c("A", "C")
-    
-    Y_form = as.formula("Y ~ (A + C + A:C) * (W01 + W02 + W03 + W04 + W05 + W06 + W07 + 
-                                    W08 + W09 + W10)")
+
+    # # as in doParallel
+    # Y_form = as.formula("Y ~ (A + C + A:C) * (W01 + W02 + W03 + W04 + W05 + W06 + W07 + 
+    #                                 W08 + W09 + W10)")
+    # remove three-way A*C*W interactions, which result in overparameterization and aren't needed given how Y is generated anyway
+    Y_form = as.formula("Y ~ (A + C) * (W01 + W02 + W03 + W04 + W05 + W06 + W07 + 
+                                    W08 + W09 + W10) + A:C")
     
     W_type = ifelse( seq_along(Wobs) <= p$W_n_cont, "normal", "binary" )
     
@@ -258,6 +267,8 @@ p <- data.frame(    dag_name         = "2A",
 # du = sim_obj$du
 
 
+
+
 if(exists("mia_res")) rm(mia_res)
 if(exists("res")) rm(res)
 set.seed(1)
@@ -298,7 +309,7 @@ colMeans(res)
 # cat(sprintf("   MIA-ice: % .4f\n", bias(res$ice_cate, truth_cate)))
 # cat(sprintf("\nbeta_0 (E[B|A=0,C=0]), truth=%.4f\n", truth_int))
 # cat(sprintf("   AF4-sp : % .4f\n", bias(res$af4_int, truth_int)))
-# cat(sprintf("   MIA-sp : % .4f\n", bias(res$sp_int,  truth_int)))
+# cat(sprintf("   MIA-sp : %  .4f\n", bias(res$sp_int,  truth_int)))
 # cat(sprintf("   MIA-ice: % .4f\n", bias(res$ice_int, truth_int)))
 # 
 # # ---- one-rep deep dive: dump fitted models so divergence is visible --
