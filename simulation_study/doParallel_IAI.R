@@ -145,21 +145,7 @@ if ( run.local == TRUE ) {
     model = "OLS", 
     coef_of_interest = "A",
     N = c(1000),
-    
-    W_dim             = 1,
-    W_n_cont          = 1,   # 1 continuous, 1 binary
-    W_n_cont_complete = 0,   # both incomplete
-    W_n_bin_complete  = 0,
-    W_n_inter         = 1,   # only 1 possible pair now (needs 2*W_n_inter <= W_dim)
-    W_rho             = 0.4,   # latent correlation between the 2 components
-    W_cor_type        = "exch",
-    W_bin_prob        = 0.5,   # marginal P(W_binary = 1)
-    W_miss_rate       = 0.2,     # target marginal P(R_Wj = 0) for incomplete comps
-    W_parent_coef     = 1,       # strength of the W parent (X2 or Y, per DAG) -> W
-    W_inter_coef      = 1,       # coefficient on the single W1*W2 interaction
-    
-    
-    
+
     # MICE parameters
     # as on cluster
     #imp_m = 5,  # CURRENTLY SET LOW
@@ -172,15 +158,41 @@ if ( run.local == TRUE ) {
     #boot_reps_af4 = 1000,  # only needed for CIs; if set to 0, won't give CIs
     mia_n_mc = 10000, 
     
-    dag_name = "1A"
+    dag_name = "2A",
     
     # dag_name = c("5D", "5D-bin",
     #              "6D", "6D-bin",
     #              "7D", "7D-bin"
     #              )  # make sure to pick appropriate outcome model for the DAG
     
+    W_dim = 10
+    
   )
   
+  # W-block parameters (constant across scens; edit here to vary) ----------
+  scen.params = scen.params %>%
+    mutate(
+      W_n_cont          = ifelse( W_dim == 1, 0, 5 ),   # 5 continuous, 5 binary when W_dim = 10
+      
+      # W^+ / W^- split: complete vs incomplete components, type-balanced.
+      # Set W_n_cont_complete = W_n_bin_complete = 0 for an all-incomplete arm.
+      W_n_cont_complete = ifelse( W_dim == 1, 0, 3 ),
+      W_n_bin_complete  = ifelse( W_dim == 1, 0, 2 ),
+      
+      W_rho             = ifelse( W_dim == 1, 0, 0.4 ),  # LATENT-scale correlation
+      W_cor_type        = "exch",                        # "exch" or "ar1"
+      W_bin_prob        = 0.5,                            # marginal P(W_binary = 1)
+      
+      # target marginal P(R_Wj = 0) for incomplete components. Legacy value is
+      # 0.4252 (what expit(-1 + 3*D1) implies); fine at W_dim = 1 but leaves ~3.6%
+      # complete cases at W_dim = 10, so the high-dim arms use 0.10.
+      W_miss_rate       = ifelse( W_dim == 1, 1 - 0.5748, 0.10 ),
+      
+      # required by the W-block generator (their absence caused the crash):
+      W_parent_coef     = 1,     # strength of the W parent (X2 or Y, per DAG) -> W
+      W_n_inter         = 3,     # # of W_j*W_k interaction terms in S_R (needs 2*W_n_inter <= W_dim)
+      W_inter_coef      = 1  # coefficient on each interaction term
+    )
   
   
   # remove bad combos:
@@ -269,11 +281,6 @@ for ( scen in scens_to_run ) {
       
       
       # ~ Simulate Dataset ------------------------------
-      
-      
-      #if ( i == 1 ) cat("\n\nABOUT TO SIMULATE DATA:\n") print( head(du) )
-      
-      
       sim_obj = sim_data(.p = p)
       
       du = sim_obj$du
@@ -283,14 +290,7 @@ for ( scen in scens_to_run ) {
       ( beta = as.numeric(sim_obj$beta) )
       ( exclude_from_imp_model = as.character( sim_obj$exclude_from_imp_model ) )
       
-      
-      #if ( i == 1 ) cat("\n\nHEAD OF DU:\n") print( head(du) )
-      
-      
-      # check number of complete cases
-      # sum(complete.cases(du))
-      
-      
+
       # coefficient of interest for gold-standard model
       if ( coef_of_interest == "(Intercept)" ){
         coef_of_interest_gold = "(Intercept)"
@@ -665,7 +665,7 @@ for ( scen in scens_to_run ) {
         rep.res = run_method_safe(method.label = c("mia-pkg-sp"),
                                   
                                   method.fn = function(x) {
-                                    
+                           
                                     # parse the gold model into outcome + predictors
                                     fo        = as.formula(form_string)   # e.g. B ~ A * C
                                     outcome   = all.vars(fo)[1]           # LHS, e.g. "B"
