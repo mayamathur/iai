@@ -32,7 +32,7 @@ lapply( allPackages,
 # SET SIMULATION PARAMETERS -----------------------------------------
 
 
-# FOR DEBUGGING: ISOLATE SCENARIOS
+# FOR DEBUGGING: ISOLATE SCENARIOS - saturated model issue (1A and 3B)
 scen.params = tidyr::expand_grid(
   
   #rep.methods = "gold ; CC ; mia-pkg-sp ; mia-pkg-ice ; IPW-nm",
@@ -47,15 +47,15 @@ scen.params = tidyr::expand_grid(
   mice_method = NA,  # let MICE use its defaults
   
   # AF4 / MIA parameters
-  boot_reps_af4 = 1000,  # only needed for CIs; if 0, no CIs
+  boot_reps_af4 = 0,  # only needed for CIs; if 0, no CIs
   mia_n_mc = 10e3,      # Monte Carlo draws for mia-pkg-sp
   
-  dag_name = c("1A", "3B"),
+    dag_name = c("1A", "1B", "1C",
+                 "2A", "2B",
+                 "3A", "3B"),
   
   # ~~ W BLOCK -----------------------------------------------
-  # W_dim = 1  -> legacy single binary auxiliary D (reproduces prior runs)
-  # W_dim = 10 -> high-dimensional correlated mixed-type W
-  W_dim = 10
+  W_dim = 1
 )
 
 # ~~ W-block parameters (constant across scens; edit here to vary) ----------
@@ -83,6 +83,7 @@ scen.params = scen.params %>%
     W_inter_coef      = 1  # coefficient on each interaction term
 )    
 # END OF ISOLATED-SCEN SCEN PARAMS
+
 
 
 # # FULL SET
@@ -148,12 +149,6 @@ scen.params = scen.params %>%
 
 
 
-
-
-
-
-
-
 # remove bad combos:
 # 5-series must have W_dim=1
 scen.params = scen.params %>% filter( !( grepl("5", dag_name) & W_dim > 1 ) )
@@ -210,7 +205,7 @@ sbatch_params <- data.frame(jobname,
                             errorfile,
                             #jobtime = "00:30:00",  
                             #jobtime = "04:00:00",  # 2026-07-22: enough to run all methods (incl mia-pkg-sp, mia-pkg-ice, IPW-nm) at N=1000 but NOT N=10e3
-                            jobtime = "01:00:00",
+                            jobtime = "00:30:00",
                             quality = "normal",
                             node_number = 1,
                             mem_per_node = 64000,

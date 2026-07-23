@@ -39,9 +39,7 @@ sim_data = function(.p) {
     du$A1 = rbinom( n = .p$N, size = 1, prob = expit(-1 + 3*du$C1) )
     du$RC = 1
     du$RA = 1
-    
-    #bm1
-    
+
     
     if ( is.null(.p$W_dim) || is.na(.p$W_dim) || .p$W_dim <= 1 ) {
       
@@ -622,6 +620,7 @@ sim_data = function(.p) {
                         Z = Z1 )
     
     if ( is.null(W) ) du$W01 = ifelse(du$RW01 == 1, du$W01_true, NA)
+
     
     # make dataset for imputation
     di = du %>% select( all_of( c("A", "B", "C", W_obs_names, "Z") ) )
@@ -788,16 +787,7 @@ fit_regression = function(form_string,
                           du,
                           
                           imps) {
-  
-  
-  cat("\n ***** fit_regression flag1: form_string")
-  cat(form_string)
-  
-  
-  # # test only
-  # form_string = CC_adj_form_string
-  # model = "OLS"
-  # miss_method = "CC"
+
   
   # prediction for conditional mean E[Y | A=1, ...] for some choice of covariate values
   # only used for certain DAGs and used to check if these means could be wrong even though CATE is correct
@@ -815,10 +805,6 @@ fit_regression = function(form_string,
     if ( model == "OLS" ) {
       mod = lm( eval( parse(text = form_string) ),
                 data = dat )
-      # debugging
-      cat("***** fit_regression flag 1.1: fitted mod coefs:")
-      cat(mod$coefficients)
-      
     }
     
     if ( model == "logistic" ) {
@@ -834,11 +820,7 @@ fit_regression = function(form_string,
         }
       )
       
-      
-      
-      # debugging
-      cat("\n***** fit_regression flag 1.1: fitted mod coefs:")
-      cat(mod$coefficients)
+
     }
     
     if ( model == "log" ) {
@@ -849,20 +831,12 @@ fit_regression = function(form_string,
     
     bhats = coef(mod)
     
-    cat("\n***** fit_regression flag 1.2: about to try my_ols_hc0")
-    
     # robust SEs in case we're fitting OLS with binary outcome
-    
-    cat("\n coef_of_interest: ", coef_of_interest)
-    cat("\n bhats: ", bhats)    
     
     # should work even for logistic regression
     mod_hc0 <- my_ols_hc0(coefName = coef_of_interest,
                           ols = mod)
-    
-    cat("\n***** fit_regression flag 1.3: done with my_ols_hc0; results:")
-    cat("\n bhat:", as.numeric( bhats[coef_of_interest]) )
-    cat("\n bhat lo:", mod_hc0$lo )
+
     
     mod_hc0_int <- my_ols_hc0(coefName = "(Intercept)",
                               ols = mod)

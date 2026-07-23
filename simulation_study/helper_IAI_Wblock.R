@@ -54,16 +54,16 @@ w_default_W_params = function() {
 # ~ Names and index bookkeeping -----------------------------------------------
 
 w_names = function(.p) {
-  
+
   d = .p$W_dim
   if ( is.null(d) || is.na(d) || d == 0 ) {
     return( list( true = character(0), obs = character(0), R = character(0),
                   cont = integer(0), bin = integer(0) ) )
   }
-  
+
   idx    = sprintf("%02d", 1:d)
   n_cont = .p$W_n_cont
-  
+
   list( true = paste0("W", idx, "_true"),
         obs  = paste0("W", idx),
         R    = paste0("RW", idx),
@@ -74,14 +74,14 @@ w_names = function(.p) {
 
 # TRUE = component is complete (in W^+); FALSE = incomplete (in W^-).
 w_complete_flag = function(.p) {
-  
+
   nm = w_names(.p)
   d  = .p$W_dim
   if (d == 0) return(logical(0))
-  
+
   if ( .p$W_n_cont_complete > length(nm$cont) ) stop("W_n_cont_complete exceeds W_n_cont")
   if ( .p$W_n_bin_complete  > length(nm$bin)  ) stop("W_n_bin_complete exceeds the number of binary components")
-  
+
   flag = rep(FALSE, d)
   if ( .p$W_n_cont_complete > 0 ) flag[ nm$cont[ seq_len(.p$W_n_cont_complete) ] ] = TRUE
   if ( .p$W_n_bin_complete  > 0 ) flag[ nm$bin[  seq_len(.p$W_n_bin_complete)  ] ] = TRUE
@@ -93,11 +93,11 @@ w_complete_flag = function(.p) {
 # deterministic: adjacent disjoint pairs (1,2), (3,4), (5,6), ...
 # With W_n_cont = 5, the pair (5,6) is a cont x bin interaction.
 w_inter_pairs = function(.p) {
-  
+
   n = .p$W_n_inter
   if ( is.null(n) || is.na(n) || n == 0 || .p$W_dim < 2 ) return( matrix(nrow = 0, ncol = 2) )
   if ( 2*n > .p$W_dim ) stop("W_n_inter too large: need 2 * W_n_inter <= W_dim")
-  
+
   cbind( seq(1, by = 2, length.out = n),
          seq(2, by = 2, length.out = n) )
 }
@@ -106,24 +106,24 @@ w_inter_pairs = function(.p) {
 # ~ Latent correlation --------------------------------------------------------
 
 w_latent_Sigma = function(.p) {
-  
+
   d = .p$W_dim
-  
+
   if ( .p$W_cor_type == "exch" ) {
     S = matrix(.p$W_rho, nrow = d, ncol = d)
     diag(S) = 1
-    
+
   } else if ( .p$W_cor_type == "ar1" ) {
     S = .p$W_rho ^ abs( outer(1:d, 1:d, "-") )
-    
+
   } else {
     stop("Unrecognized W_cor_type: use 'exch' or 'ar1'")
   }
-  
+
   if ( min( eigen(S, symmetric = TRUE, only.values = TRUE)$values ) <= 0 ) {
     stop("W latent correlation matrix is not positive definite for this W_rho / W_dim")
   }
-  
+
   S
 }
 
@@ -137,30 +137,30 @@ w_latent_Sigma = function(.p) {
 #         rather than functions of the realized sample. NULL => solve from the
 #         sample (used only inside the pilot itself).
 gen_W_block = function(.p, parent = NULL, thresh = NULL) {
-  
+
   d = .p$W_dim
   if ( is.null(d) || is.na(d) || d == 0 ) return(NULL)
-  
+
   nm   = w_names(.p)
   comp = w_complete_flag(.p)
-  
+
   # ~~ latent draws (vectorized; no rowwise) ----
   # Z = W_parent_coef * parent + E,  E ~ MVN(0, R)
   # The latent is deliberately NOT standardized: the W -> Y and W -> R_Y indices
   # are calibrated downstream, so their scale absorbs Var(Z) anyway.
   E = MASS::mvrnorm( n = .p$N, mu = rep(0, d), Sigma = w_latent_Sigma(.p) )
   if (d == 1) E = matrix(E, ncol = 1)
-  
+
   Z = E
   if ( !is.null(parent) ) {
     if ( length(parent) != .p$N ) stop("parent must have length .p$N")
     Z = Z + .p$W_parent_coef * parent
   }
-  
+
   # ~~ mixed-type marginals via the copula ----
   Wt = matrix(NA_real_, nrow = .p$N, ncol = d)
   if ( length(nm$cont) > 0 ) Wt[, nm$cont] = Z[, nm$cont, drop = FALSE]
-  
+
   if ( length(nm$bin) > 0 ) {
     if ( is.null(thresh) ) {
       # solve so that P(W_j = 1) = W_bin_prob marginally, averaging over the
@@ -172,7 +172,7 @@ gen_W_block = function(.p, parent = NULL, thresh = NULL) {
     Wt[, nm$bin] = 1 * sweep( Z[, nm$bin, drop = FALSE], 2, thresh, ">" )
   }
   colnames(Wt) = nm$true
-  
+
   # ~~ missingness (MCAR) ----
   # R_Wj has no parents in every DAG (a)-(g): each incomplete component is
   # observed with probability 1 - W_miss_rate, independent of everything.
@@ -180,20 +180,20 @@ gen_W_block = function(.p, parent = NULL, thresh = NULL) {
   R = matrix(1L, nrow = .p$N, ncol = d)
   colnames(R) = nm$R
   for ( j in which(!comp) ) R[, j] = rbinom( n = .p$N, size = 1, prob = 1 - .p$W_miss_rate )
-  
+
   # ~~ punch out the observed versions ----
   Wo = Wt
   Wo[ R == 0 ] = NA
   colnames(Wo) = nm$obs
-  
+
   out = cbind( as.data.frame(Wt), as.data.frame(Wo), as.data.frame(R) )
-  
+
   if ( d == 1 ) {
     out$D1 = out[[ nm$true[1] ]]
     out$D  = out[[ nm$obs[1]  ]]
     out$RD = out[[ nm$R[1]    ]]
   }
-  
+
   attr(out, "W_complete_flag") = comp
   attr(out, "W_thresh")        = thresh
   out
@@ -207,19 +207,19 @@ gen_W_block = function(.p, parent = NULL, thresh = NULL) {
 #   with_inter = TRUE  -> sum + W_n_inter pairwise terms (the W -> R_Y index)
 # Equal weights keep this simple and make W_dim == 1 collapse to D1 exactly.
 w_index_raw = function(W, .p, with_inter) {
-  
+
   nm = w_names(.p)
   M  = as.matrix( W[, nm$true, drop = FALSE] )
-  
+
   raw = rowSums(M)
-  
+
   if ( with_inter ) {
     prs = w_inter_pairs(.p)
     if ( nrow(prs) > 0 ) {
       for ( k in 1:nrow(prs) ) raw = raw + .p$W_inter_coef * M[, prs[k,1]] * M[, prs[k,2]]
     }
   }
-  
+
   raw
 }
 
@@ -273,42 +273,42 @@ w_index_raw = function(W, .p, with_inter) {
 #   cfg$coefDB        -> coefficient on W in Y's mean (the "2" in 2 W_1).
 # The pilot is fixed-seed and cached; the caller's RNG stream is restored.
 w_calibrate = function(.p, cfg, n_pilot = 2e5, seed = 20260717) {
-  
+
   key = paste(.p$dag_name, .p$W_dim, .p$W_n_cont, .p$W_rho, .p$W_cor_type,
               .p$W_bin_prob, .p$W_parent_coef, .p$W_n_inter, .p$W_inter_coef,
               cfg$y_child, cfg$coefDB, sep = "|")
   if ( !is.null(.w_cal_cache[[key]]) ) return( .w_cal_cache[[key]] )
-  
+
   has_seed = exists(".Random.seed", envir = .GlobalEnv)
   if (has_seed) old_seed = get(".Random.seed", envir = .GlobalEnv)
   set.seed(seed)
-  
+
   pp   = .p
   pp$N = n_pilot
-  
+
   pilot     = cfg$gen_pilot(n_pilot)
   C1        = pilot$C1
   parent    = pilot$parent
   W1_scalar = pilot$W1_scalar
-  
+
   Wp = gen_W_block(pp, parent = parent, thresh = NULL)
   W_thresh = attr(Wp, "W_thresh")
-  
+
   raw_Y = w_index_raw(Wp, pp, with_inter = FALSE)
   raw_R = w_index_raw(Wp, pp, with_inter = TRUE)
-  
+
   # ~~ Y index: match mean & variance of the scalar's W-contribution to Y ----
   # Only needed when W is a child of Y.
   if ( isTRUE(cfg$y_child) ) {
     mult     = cfg$coefDB + C1
     tgt_mean = mean( W1_scalar * mult )
     tgt_var  = var(  W1_scalar * mult )
-    
+
     Emult  = mean(mult)
     Ermult = mean(raw_Y * mult)
     a_of_b = function(b) ( tgt_mean - b * Ermult ) / Emult
     varfun = function(b) var( (a_of_b(b) + b * raw_Y) * mult ) - tgt_var
-    
+
     bY = uniroot(varfun, interval = c(1e-8, 5), extendInt = "upX", tol = 1e-10)$root
     aY = a_of_b(bY)
     chk_Y_mean_new = mean( (aY + bY*raw_Y) * mult )
@@ -318,18 +318,18 @@ w_calibrate = function(.p, cfg, n_pilot = 2e5, seed = 20260717) {
     tgt_mean = NA_real_; tgt_var = NA_real_
     chk_Y_mean_new = NA_real_; chk_Y_var_new = NA_real_
   }
-  
+
   # ~~ R index (shared by every R-node W points into) ----
   # Scale S_R to the scalar's mean/sd, then match the marginal P(R = 1) that the
   # scalar's expit(-1 + 3 W_1) would produce.
   bR  = sd(W1_scalar) / sd(raw_R)
   aR  = mean(W1_scalar) - bR * mean(raw_R)
   S_R = aR + bR * raw_R
-  
+
   tgt_R = mean( plogis(-1 + 3*W1_scalar) )
   R_int = uniroot( function(a0) mean( plogis(a0 + 3*S_R) ) - tgt_R,
                    interval = c(-30, 30), tol = 1e-10 )$root
-  
+
   out = list( aY = aY, bY = bY, aR = aR, bR = bR,
               R_int = R_int, y_child = isTRUE(cfg$y_child),
               W_thresh = W_thresh,
@@ -340,7 +340,7 @@ w_calibrate = function(.p, cfg, n_pilot = 2e5, seed = 20260717) {
               chk_Y_var_new     = chk_Y_var_new,
               chk_R_legacy      = tgt_R,
               chk_R_new         = mean( plogis(R_int + 3*S_R) ) )
-  
+
   if (has_seed) assign(".Random.seed", old_seed, envir = .GlobalEnv)
   .w_cal_cache[[key]] = out
   out
@@ -350,18 +350,18 @@ w_calibrate = function(.p, cfg, n_pilot = 2e5, seed = 20260717) {
 # ~ Sanity-check summary ------------------------------------------------------
 
 w_sanchecks = function(W, .p, cal = NULL) {
-  
+
   if ( is.null(W) ) return( data.frame( sancheck.W_dim = 0 ) )
-  
+
   nm   = w_names(.p)
   comp = attr(W, "W_complete_flag")
-  
+
   Rmat = as.matrix( W[, nm$R, drop = FALSE] )
   Wt   = as.matrix( W[, nm$true, drop = FALSE] )
-  
+
   cors    = suppressWarnings( cor(Wt) )
   offdiag = if (ncol(Wt) > 1) cors[ upper.tri(cors) ] else NA
-  
+
   out = data.frame(
     sancheck.W_dim            = .p$W_dim,
     sancheck.W_n_incomplete   = sum(!comp),
@@ -370,13 +370,13 @@ w_sanchecks = function(W, .p, cal = NULL) {
     sancheck.W_cor_mean       = mean(offdiag),
     sancheck.W_cor_min        = min(offdiag),
     sancheck.W_cor_max        = max(offdiag) )
-  
+
   if ( !is.null(cal) ) {
     out$sancheck.W_Y_mean_ratio = cal$chk_Y_mean_new / cal$chk_Y_mean_legacy
     out$sancheck.W_Y_var_ratio  = cal$chk_Y_var_new  / cal$chk_Y_var_legacy
     out$sancheck.W_R_ratio      = cal$chk_R_new      / cal$chk_R_legacy
   }
-  
+
   out
 }
 
@@ -392,14 +392,14 @@ w_sanchecks = function(W, .p, cal = NULL) {
 # cfg fields (see w_calibrate): gen_pilot, y_child, coefDB.
 # parent: the realized parent vector in the CURRENT sample (A1, or B1, or NULL).
 w_apply = function(.p, parent, cfg) {
-  
+
   cal = w_calibrate(.p, cfg = cfg)
-  
+
   W = gen_W_block(.p, parent = parent, thresh = cal$W_thresh)
-  
+
   S_Y = if ( cal$y_child ) cal$aY + cal$bY * w_index_raw(W, .p, with_inter = FALSE) else NULL
   S_R = cal$aR + cal$bR * w_index_raw(W, .p, with_inter = TRUE)
   pR  = plogis( cal$R_int + 3 * S_R )
-  
+
   list( W = W, cal = cal, S_Y = S_Y, pR = pR )
 }

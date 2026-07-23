@@ -143,10 +143,8 @@ if ( run.local == TRUE ) {
     #rep.methods = "IPW-nm",
     
     model = "OLS", 
-    #model = c( "OLS", "logistic"), 
     coef_of_interest = "A",
-    #coef_of_interest = "B",  # ***** for 7D and 7D-bin
-    N = c(500),
+    N = c(1000),
     
     W_dim             = 1,
     W_n_cont          = 1,   # 1 continuous, 1 binary
@@ -170,10 +168,11 @@ if ( run.local == TRUE ) {
     mice_method = NA,  # let MICE use its defaults
     
     # AF4 parameters
-    boot_reps_af4 = 1000,  # only needed for CIs; if set to 0, won't give CIs
+    boot_reps_af4 = 0,
+    #boot_reps_af4 = 1000,  # only needed for CIs; if set to 0, won't give CIs
     mia_n_mc = 10000, 
     
-    dag_name = "5C"
+    dag_name = "3B"
     
     # dag_name = c("5D", "5D-bin",
     #              "6D", "6D-bin",
@@ -196,9 +195,7 @@ if ( run.local == TRUE ) {
   scen.params = scen.params %>% rowwise() %>%
     mutate( rep.methods = ifelse( W_dim > 1, rm_IPW_nm(rep.methods), rep.methods ) )
   
-  
-  
-  
+
   start.at = 1  # scen name to start at
   scen.params$scen = start.at:( nrow(scen.params) + start.at - 1 )
   
@@ -221,13 +218,15 @@ if ( run.local == TRUE ) {
 # mimic Sherlock structure
 if (run.local == TRUE) ( scens_to_run = scen.params$scen )
 if (run.local == FALSE) ( scens_to_run = scen )  # from sbatch
-
 if (run.local == TRUE) sim.reps = 1
+if ( exists("rs_all_scens") ) rm(rs_all_scens)
 #  p = scen.params[ scen.params$scen == scen, names(scen.params) != "scen"]
 
 
 # BEGIN FOR-LOOP to run multiple scens locally
 # if running on cluster, scen will just be length 1
+
+#bm: need to bind rs into rs_all_scens
 for ( scen in scens_to_run ) {
   
   if ( exists("rs") ) rm(rs)
@@ -250,7 +249,7 @@ for ( scen in scens_to_run ) {
       
       # extract simulation params for this scenario (row)
       # exclude the column with the scenario name itself (col) 
-      if ( verbose == TRUE ) {
+      if ( FALSE ) {
         cat("\n\n scen variable:\n")
         print(scen)
         
@@ -657,8 +656,10 @@ for ( scen in scens_to_run ) {
         
       }
       
-        # debugging only
-       # rep.res = data.frame()
+      # for debugging only
+      # rep.res = data.frame()
+
+      
       # ~~ MIA package; semiparametric ----
       if ( "mia-pkg-sp" %in% all.methods ) {
         rep.res = run_method_safe(method.label = c("mia-pkg-sp"),
@@ -698,8 +699,7 @@ for ( scen in scens_to_run ) {
                                     # e.g. "(A + C + A:C)". Falls back to intercept-only if the
                                     # gold model has no RHS terms.
                                     x_part = if (length(rhs_terms) > 0)
-                                      paste0("(", paste(rhs_terms, collapse = " + "), ")")
-                                    else "1"
+                                      paste0("(", paste(rhs_terms, collapse = " + "), ")") else "1"
                                     
                                     # W-part: all observed W components as a single grouped term,
                                     # e.g. "(W01)" for |W|=1 or "(W1 + W2 + ... )" for a W block.
@@ -787,7 +787,9 @@ for ( scen in scens_to_run ) {
         if (run.local == TRUE) srr(rep.res)
       }
       
-      
+      # FOR DEBUGGING
+      cat("\n rep.res after running mia-pkg-sp")
+      if (exists("rep.res")) srr(rep.res)
       
       # ~~ MIA-ICE (miapack, iterative conditional expectation) --------------
       # miapack::mia_ice (ice-implementation branch): plug-in estimator of
@@ -820,11 +822,31 @@ for ( scen in scens_to_run ) {
                                     di_mia = di
                                     names(di_mia)[names(di_mia) == outcome] = "Y"
                                     
-                                    # outcome model: LHS "Y", same RHS terms as the gold model
-                                    # (keeps interactions) plus the W components.
+                                    
+                                    # rebuild the outcome-model formula with LHS "Y", same RHS
+                                    # terms as the gold model (keeps interactions), FULLY CROSSED
+                                    # with the W block. 
+                                    # ***Note: It's very important to include all C-W interactions since some DAGs, e.g., 1A, include
+                                    #  those interactions! HOWEVER, the code below does NOT include W-W interactions, which matches
+                                    #  all DAGs' DGMs as of 2026-07-22.
                                     rhs_terms = labels(terms(fo))         # e.g. "A","C","A:C"
-                                    Y_form = as.formula(
-                                      paste("Y ~", paste(c(rhs_terms, Wobs), collapse = " + ")) )
+                                    
+                                    # X-part: the gold model's RHS as a single grouped term,
+                                    # e.g. "(A + C + A:C)". Falls back to intercept-only if the
+                                    # gold model has no RHS terms.
+                                    x_part = if (length(rhs_terms) > 0)
+                                      paste0("(", paste(rhs_terms, collapse = " + "), ")") else "1"
+                                    
+                                    # W-part: all observed W components as a single grouped term,
+                                    # e.g. "(W01)" for |W|=1 or "(W1 + W2 + ... )" for a W block.
+                                    w_part = paste0("(", paste(Wobs, collapse = " + "), ")")
+                                    
+                                    # Full cross: Y ~ (X terms) * (W terms). The "*" expands to all
+                                    # main effects plus every X:W interaction (and X:X, W:W within
+                                    # each group as already implied by rhs_terms / additive W).
+                                    Y_form = as.formula(paste0("Y ~ ", x_part, " * ", w_part))
+                                    # end of building the outcome-model formula
+                                    
                                     
                                     # outer model: g_hat ~ (X predictors only), saturated.
                                     # RHS may reference ONLY X_names (mia_ice errors otherwise), so
@@ -900,6 +922,10 @@ for ( scen in scens_to_run ) {
       }
       
       
+      # FOR DEBUGGING
+      cat("\n rep.res after running mia-pkg-ice")
+      if (exists("rep.res")) srr(rep.res)
+      
       
       # ~ Add Scen Params and Sanity Checks --------------------------------------
       
@@ -926,6 +952,8 @@ for ( scen in scens_to_run ) {
       
     }  # END foreach %dopar% body
   })  # END system.time({
+  
+  if ( exists("rs_all_scens") ) rs_all_scens = rs_all_scens %>% bind_rows(rs) else rs_all_scens = rs
 
   
 }  # END FOR-LOOP to run multiple scens locally

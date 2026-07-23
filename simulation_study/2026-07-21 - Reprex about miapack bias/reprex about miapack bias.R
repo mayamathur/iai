@@ -19,30 +19,19 @@ source("helper_IAI.R")          # defines sim_data(), expit(), etc.
 # helper_IAI_Wblock.R is sourced inside helper_IAI.R; for |W|=1 it is never exercised,
 # but it must exist so the source() call at the top of helper_IAI.R succeeds.
 
-# ---- truth for DGM (a): beta_{X2} = 2, and E[B | A=0,C=0] --------------
-# Y mean = 2*W + 2.6*C + W*C + 2*A + A*C, with W ~ Bern(expit(-1+3A)), so
-#   E[B | A=0,C=0] = 2 * E[W | A=0] = 2 * expit(-1) = 2 * 0.2689414 = 0.5378828
-# and  E[B | A=1,C=0] - E[B|A=0,C=0] = 2 + 2*(E[W|A=1]-E[W|A=0])
-#   E[W|A=1] = expit(-1+3) = expit(2) = 0.8807971
-# beta_{X2} (the A main effect / CATE at C=0) = 2 + 2*(0.8807971 - 0.2689414) = 3.223711
-p_expit <- function(x) 1/(1+exp(-x))
-EW_A0 <- p_expit(-1); EW_A1 <- p_expit(2)
-truth_int  <- 2*EW_A0                          # E[B | A=0, C=0]
-truth_cate <- 2 + 2*(EW_A1 - EW_A0)            # CATE at C=0  (== "beta_{X2}" row)
-cat(sprintf("TRUTH: E[B|A=0,C=0]=%.4f   CATE@C=0=%.4f\n", truth_int, truth_cate))
 
 # ---- parameter object for sim_data (|W|=1 arm) -----------------------
-make_p <- function(N = 2000) {
-  list(
-    dag_name         = "1A",
-    N                = N,
-    model            = "OLS",
-    coef_of_interest = "A",
-    W_dim            = 1,      # <= 1 triggers the LEGACY scalar-W branch
-    imp_m = 50, imp_maxit = 100, mice_method = NA,
-    boot_reps_af4 = 0, mia_n_mc = 10000
-  )
-}
+p <- data.frame(    dag_name         = "1A",
+                    N                = 1000,
+                    model            = "OLS",
+                    coef_of_interest = "A",
+                    W_dim            = 1,      # <= 1 triggers the LEGACY scalar-W branch
+                    imp_m = 50, imp_maxit = 100, mice_method = NA,
+                    boot_reps_af4 = 0, mia_n_mc = 10000)
+
+
+# test
+sim_data(p)
 
 # ---- (1) legacy AF4-sp, inlined so the reprex is self-contained -------
 # Reads a column named D (the observed auxiliary) + RA/RC/RD gating.
@@ -50,15 +39,23 @@ make_p <- function(N = 2000) {
 af4_sp <- function(du) {
   dc <- du[complete.cases(du), ]
   dw <- du %>% filter(RA == 1 & RD == 1 & RC == 1)
+  
   m_B_ac <- function(a, c) {
     fit_B <- lm(B ~ A * C * D, data = dc)
     fit_D <- glm(D ~ A * C, data = dw, family = binomial)
+    
+    # summing over the 2 possible values of W
     sum(sapply(0:1, function(d) {
+      # p(W=1 | a, c, RA = RC = RW = 1)
       p_d1 <- predict(fit_D, newdata = data.frame(A = a, C = c), type = "response")
+      # turn it into p(W=0|...) if needed (d=0 case)
       p_d  <- if (d == 1) p_d1 else 1 - p_d1
+      # E[Y | a, c, d, RY = RA = RC = RW = 1]
       mu   <- predict(fit_B, newdata = data.frame(A = a, C = c, D = d))
+      # summand of MIA functional
       p_d * mu
     }))
+    
   }
   cate <- m_B_ac(1, 0) - m_B_ac(0, 0)
   int  <- m_B_ac(0, 0)
@@ -72,83 +69,121 @@ af4_sp <- function(du) {
 to_mia_df <- function(du) {
   data.frame(
     Y  = du$B,      # outcome, NA where RB==0
-    X1 = du$C,      # C  (always observed in 1A)
-    X2 = du$A,      # A  (always observed in 1A)
+    X1 = du$C,      
+    X2 = du$A,
     W  = du$W01     # observed auxiliary, NA where RW01==0
   )
 }
 
 # ---- (2) SP and (3) ICE via miapack ----------------------------------
+
+# reproduce what we're passing in doParallel:
+# > X_names
+# [1] "A" "C"
+# > Xv1
+# [1] 1 0
+# > Xv0
+# [1] 0 0
+# > Y_form
+# Y ~ (A + C + A:C) * (W01)
+# > W_forms
+# [[1]]
+# W01 ~ A + C
+# <environment: 0x751d5f3f0>
+#   
+#   > W_type
+# [1] "normal"
+# > outer_form
+# g_hat ~ A * C
+
+
 mia_sp_est <- function(du) {
   d <- to_mia_df(du)
   # mu(X2=0) and mu(X2=1) at ... note: X1 (=C) must also be fixed to 0 to match CATE@C=0.
   # miapack marginalizes over W but NOT over other X's, so we fix X1=0 in both.
-  m0 <- mia(data = d, X_names = c("X1","X2"), X_values_1 = c(0,0),
-            Y_model = Y ~ W * X1 * X2, W_model = W ~ X1 * X2,
+  mia_res <- mia(data = d, X_names = c("X1", "X2"), X_values_1 = c(0,1),
+            X_values_2 = c(0,0),
+            Y_model = Y ~ W * X1 * X2, W_model = W ~ X1 + X2,
             Y_type = "continuous", W_type = "binary", n_mc = 20000)
-  m1 <- mia(data = d, X_names = c("X1","X2"), X_values_1 = c(0,1),
-            Y_model = Y ~ W * X1 * X2, W_model = W ~ X1 * X2,
-            Y_type = "continuous", W_type = "binary", n_mc = 20000)
-  c(cate = m1$mean_est_1 - m0$mean_est_1, int = m0$mean_est_1)
+
+  c(cate = mia_res$contrast_est, int = mia_res$mean_est_2)  
 }
 
 mia_ice_est <- function(du) {
   d <- to_mia_df(du)
-  m0 <- mia_ice(data = d, X_names = c("X1","X2"), X_values_1 = c(0,0),
-                Y_model = Y ~ W * X1 * X2, outer_model = g_hat ~ X1 * X2,
-                Y_type = "continuous")
-  m1 <- mia_ice(data = d, X_names = c("X1","X2"), X_values_1 = c(0,1),
-                Y_model = Y ~ W * X1 * X2, outer_model = g_hat ~ X1 * X2,
-                Y_type = "continuous")
-  c(cate = m1$mean_est_1 - m0$mean_est_1, int = m0$mean_est_1)
+  mia_res <- mia_ice(data = d, X_names = c("X1", "X2"), X_values_1 = c(0,1),
+                 X_values_2 = c(0,0),
+                 Y_model = Y ~ W * X1 * X2, outer_model = g_hat ~ X1 * X2,
+                 Y_type = "continuous")
+  
+  c(cate = mia_res$contrast_est, int = mia_res$mean_est_2) 
 }
 
+# gold std
+gold_mod = function(du){
+  mod = lm(B1 ~ A1 * C1, data = du)
+  return( list(gold_cate = coef(mod)[["A1"]],
+               gold_int = coef(mod)[["(Intercept)"]] ) )
+}
+
+
+
 # ---- run many reps ---------------------------------------------------
+
+
+
+if(exists("res")) rm(res)
 set.seed(1)
 R <- 500
 res <- lapply(1:R, function(r) {
-  sd <- sim_data(make_p(N = 2000))
+  sd <- sim_data(p)
   du <- sd$du
   # alias for legacy AF4:
   du$D  <- du$W01
   du$RD <- du$RW01
+  g <- tryCatch(gold_mod(du),     error = function(e) c(cate=NA, int=NA))
   a  <- tryCatch(af4_sp(du),     error = function(e) c(cate=NA, int=NA))
   s  <- tryCatch(mia_sp_est(du), error = function(e) c(cate=NA, int=NA))
   i  <- tryCatch(mia_ice_est(du),error = function(e) c(cate=NA, int=NA))
   data.frame(rep = r,
+             gold_cate = g["gold_cate"], gold_int = g["gold_int"],
              af4_cate = a["cate"], af4_int = a["int"],
              sp_cate  = s["cate"], sp_int  = s["int"],
              ice_cate = i["cate"], ice_int = i["int"])
 })
 res <- bind_rows(res)
 
-# ---- report bias -----------------------------------------------------
-bias <- function(x, truth) mean(x - truth, na.rm = TRUE)
-cat("\n================ BIAS (est - truth) ================\n")
-cat(sprintf("beta_X2 (CATE@C=0), truth=%.4f\n", truth_cate))
-cat(sprintf("   AF4-sp : % .4f\n", bias(res$af4_cate, truth_cate)))
-cat(sprintf("   MIA-sp : % .4f\n", bias(res$sp_cate,  truth_cate)))
-cat(sprintf("   MIA-ice: % .4f\n", bias(res$ice_cate, truth_cate)))
-cat(sprintf("\nbeta_0 (E[B|A=0,C=0]), truth=%.4f\n", truth_int))
-cat(sprintf("   AF4-sp : % .4f\n", bias(res$af4_int, truth_int)))
-cat(sprintf("   MIA-sp : % .4f\n", bias(res$sp_int,  truth_int)))
-cat(sprintf("   MIA-ice: % .4f\n", bias(res$ice_int, truth_int)))
+colMeans(res)
 
-# ---- one-rep deep dive: dump fitted models so divergence is visible --
-cat("\n================ SINGLE-REP MODEL DUMP ================\n")
-set.seed(42)
-sd <- sim_data(make_p(N = 5000)); du <- sd$du; du$D <- du$W01; du$RD <- du$RW01
-dc <- du[complete.cases(du), ]
-dw <- du %>% filter(RA==1 & RD==1 & RC==1)
-cat("\n-- legacy AF4 subsets --\n")
-cat(sprintf("dc (Y-model, complete.cases) n = %d\n", nrow(dc)))
-cat(sprintf("dw (W-model, RA&RD&RC)       n = %d\n", nrow(dw)))
-d <- to_mia_df(du)
-R_X <- complete.cases(d[, c("X1","X2")]); R_W <- complete.cases(d[, "W", drop=FALSE]); R_Y <- !is.na(d$Y)
-cat("\n-- miapack subsets --\n")
-cat(sprintf("data_fit_Y (R_X & R_W & R_Y) n = %d\n", sum(R_X & R_W & R_Y)))
-cat(sprintf("data_fit_W (R_X & R_W)       n = %d\n", sum(R_X & R_W)))
-cat("\nIf dc n  != data_fit_Y n, or dw n != data_fit_W n, the fit subsets differ -> that's the bug.\n")
-cat("Legacy Y-model coefs (B ~ A*C*D):\n");  print(round(coef(lm(B ~ A*C*D, data = dc)), 4))
-cat("\nmiapack Y-model coefs (Y ~ W*X1*X2 on data_fit_Y):\n")
-print(round(coef(lm(Y ~ W*X1*X2, data = d[R_X & R_W & R_Y, ])), 4))
+
+
+# # ---- report bias -----------------------------------------------------
+# bias <- function(x, truth) mean(x - truth, na.rm = TRUE)
+# cat("\n================ BIAS (est - truth) ================\n")
+# cat(sprintf("beta_X2 (CATE@C=0), truth=%.4f\n", truth_cate))
+# cat(sprintf("   AF4-sp : % .4f\n", bias(res$af4_cate, truth_cate)))
+# cat(sprintf("   MIA-sp : % .4f\n", bias(res$sp_cate,  truth_cate)))
+# cat(sprintf("   MIA-ice: % .4f\n", bias(res$ice_cate, truth_cate)))
+# cat(sprintf("\nbeta_0 (E[B|A=0,C=0]), truth=%.4f\n", truth_int))
+# cat(sprintf("   AF4-sp : % .4f\n", bias(res$af4_int, truth_int)))
+# cat(sprintf("   MIA-sp : % .4f\n", bias(res$sp_int,  truth_int)))
+# cat(sprintf("   MIA-ice: % .4f\n", bias(res$ice_int, truth_int)))
+# 
+# # ---- one-rep deep dive: dump fitted models so divergence is visible --
+# cat("\n================ SINGLE-REP MODEL DUMP ================\n")
+# set.seed(42)
+# sd <- sim_data(make_p(N = 5000)); du <- sd$du; du$D <- du$W01; du$RD <- du$RW01
+# dc <- du[complete.cases(du), ]
+# dw <- du %>% filter(RA==1 & RD==1 & RC==1)
+# cat("\n-- legacy AF4 subsets --\n")
+# cat(sprintf("dc (Y-model, complete.cases) n = %d\n", nrow(dc)))
+# cat(sprintf("dw (W-model, RA&RD&RC)       n = %d\n", nrow(dw)))
+# d <- to_mia_df(du)
+# R_X <- complete.cases(d[, c("X1","X2")]); R_W <- complete.cases(d[, "W", drop=FALSE]); R_Y <- !is.na(d$Y)
+# cat("\n-- miapack subsets --\n")
+# cat(sprintf("data_fit_Y (R_X & R_W & R_Y) n = %d\n", sum(R_X & R_W & R_Y)))
+# cat(sprintf("data_fit_W (R_X & R_W)       n = %d\n", sum(R_X & R_W)))
+# cat("\nIf dc n  != data_fit_Y n, or dw n != data_fit_W n, the fit subsets differ -> that's the bug.\n")
+# cat("Legacy Y-model coefs (B ~ A*C*D):\n");  print(round(coef(lm(B ~ A*C*D, data = dc)), 4))
+# cat("\nmiapack Y-model coefs (Y ~ W*X1*X2 on data_fit_Y):\n")
+# print(round(coef(lm(Y ~ W*X1*X2, data = d[R_X & R_W & R_Y, ])), 4))
