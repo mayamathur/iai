@@ -1,3 +1,5 @@
+
+
 # PRELIMINARIES -----------------------------------------
 
 path = "/home/groups/manishad/IAI"
@@ -102,8 +104,8 @@ scen.params = tidyr::expand_grid(
   mice_method = NA,  # let MICE use its defaults
 
   # AF4 / MIA parameters
-  #boot_reps_af4 = 1000,  # only needed for CIs; if 0, no CIs
-  boot_reps_af4 = 0,
+  boot_reps_af4 = 1000,  # only needed for CIs; if 0, no CIs
+  #boot_reps_af4 = 0,
   mia_n_mc = 10e3,      # Monte Carlo draws for mia-pkg-sp
 
   dag_name = c("1A", "1B", "1C",
@@ -185,7 +187,7 @@ write.csv( scen.params, "scen_params.csv", row.names = FALSE )
 source("helper_IAI.R")
 
 # number of sbatches to generate (i.e., iterations within each scenario)
-n.reps.per.scen = 500; n.reps.in.doParallel = 500
+n.reps.per.scen = 1000; n.reps.in.doParallel = 250
 #n.reps.per.scen = 1; n.reps.in.doParallel = 1
 ( n.files = ( n.reps.per.scen / n.reps.in.doParallel ) * n.scen )
 
@@ -203,8 +205,8 @@ sbatch_params <- data.frame(jobname,
                             outfile,
                             errorfile,
                             #jobtime = "00:30:00",  
-                            #jobtime = "04:00:00",  # 2026-07-22: enough to run all methods (incl mia-pkg-sp, mia-pkg-ice, IPW-nm) at N=1000 but NOT N=10e3
-                            jobtime = "01:00:00",
+                            jobtime = "04:00:00",  # 2026-07-22: enough to run all methods (incl mia-pkg-sp, mia-pkg-ice, IPW-nm) at N=1000 but NOT N=10e3
+                            #jobtime = "01:00:00",
                             quality = "normal",
                             node_number = 1,
                             mem_per_node = 64000,

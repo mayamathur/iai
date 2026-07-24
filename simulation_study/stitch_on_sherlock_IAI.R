@@ -1,14 +1,6 @@
 
 
-path = "/home/groups/manishad/IAI"
-setwd(path)
-source("stitch_on_sherlock_helper_IAI.R")
-
-stitch()
-
-
-
-# TO RUN STITCH() LINE-BY-LINE: ----------------------------------------------
+# PRELIMINARIES ----------------------------------------------
 
 path = "/home/groups/manishad/IAI"
 setwd(path)
@@ -95,7 +87,7 @@ table(s$dag_name)
 
 
 
-# Quick Look ----------------------------------------------
+# MAKE AGG DATA ----------------------------------------------
 
 # sanity check
 table(s$dag_name, s$coef_of_interest)
@@ -135,39 +127,51 @@ as.data.frame( s2 %>% group_by(dag_name, coef_of_interest, model) %>%
                 summarise(beta[1]) )
 # end of filling in beta and int
 
-# in this case, don't need to group by coef_of_interest because they're all A
-t = s2 %>% group_by(scen.name, dag_name, N, method) %>%
-  summarise( 
+
+
+
+# For every variable, check whether it is constant (1 unique value)
+# within every scen.name group
+varying_check <- s2 %>%
+  group_by(scen.name) %>%
+  summarise(across(everything(), ~ n_distinct(., na.rm = FALSE))) %>%
+  ungroup()
+
+# A variable is "non-varying within scen.name" if its number of distinct
+# values is 1 in EVERY scen.name group
+scenario_vars <- varying_check %>%
+  select(-scen.name) %>%
+  summarise(across(everything(), ~ all(. == 1))) %>%
+  unlist()
+
+scenario_vars <- names(scenario_vars)[scenario_vars]
+scenario_vars  # inspect this
+
+
+
+t = s2 %>%
+  group_by(across(all_of(scenario_vars)), method) %>%
+  summarise(
     reps = n(),
     PropNA = mean(is.na(bhat)),
     Bhat = meanNA(bhat),
     BhatBias = meanNA(bhat - beta),
-    #BhatRelBias = meanNA( (bhat - beta)/beta ),
-    #BhatWidth = meanNA(bhat_hi - bhat_lo),
     BhatRMSE = sqrt( meanNA( (bhat - beta)^2 ) ),
-    BhatCover = meanNA( covers(truth = beta,
-                               lo = bhat_lo,
-                               hi = bhat_hi) ),
-    
+    BhatWidth = meanNA( bhat_hi - bhat_lo ),
+    BhatCover = meanNA( covers(truth = beta, lo = bhat_lo, hi = bhat_hi) ),
     IntHat = meanNA(inthat),
     IntBias = meanNA(inthat - int),
     IntRMSE = sqrt( meanNA( (inthat - int)^2 ) ),
-    #BhatRelBias = meanNA( (bhat - beta)/beta ),
-    #BhatWidth = meanNA(bhat_hi - bhat_lo),
-    BhatRMSE = sqrt( meanNA( (bhat - beta)^2 ) ),
-    IntCover = meanNA( covers(truth = int,
-                               lo = int_lo,
-                               hi = int_hi) )
-    
-    # sancheck.mean_RB = meanNA(sancheck.mean_RB),
-    # sancheck.mean_RC = meanNA(sancheck.mean_RC),
-    # sancheck.prop_complete = meanNA(sancheck.prop_complete),
-    ) %>%
-  arrange() %>%
-  mutate_if(is.numeric, function(x) round(x,2)) 
+    IntWidth = meanNA( int_hi - int_lo ),
+    IntCover = meanNA( covers(truth = int, lo = int_lo, hi = int_hi) ),
+    .groups = "drop"
+  ) %>%
+  mutate_if(is.numeric, function(x) round(x, 2))
+
 as.data.frame(t)
 
-#bm: need to retain scen.params when making this summary
+
+
 
 
 # save agg data
