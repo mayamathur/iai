@@ -96,8 +96,9 @@ scen.params = tidyr::expand_grid(
   rep.methods = c("gold ; CC ; mia-pkg-sp ; mia-pkg-ice ; IPW-nm"),
   model = "OLS",  # OLS or logistic
   coef_of_interest = "A",
-  N = c(200, 500, 1000),
-
+  #N = c(200, 500, 1000),
+  N = c(2000, 5000, 10000),
+  
   # MICE parameters (as on cluster)
   imp_m = 50,
   imp_maxit = 100,
@@ -118,9 +119,10 @@ scen.params = tidyr::expand_grid(
   #              "5A", "5B", "5C", "5D", "5E"),
 
   # ~~ W BLOCK -----------------------------------------------
-  # W_dim = 1  -> legacy single binary auxiliary D (reproduces prior runs)
-  # W_dim = 10 -> high-dimensional correlated mixed-type W
-  W_dim = c(1, 10) )
+  #W_dim = c(1, 10)
+  W_dim = 10
+
+)
 
 # ~~ W-block parameters (constant across scens; edit here to vary) ----------
 scen.params = scen.params %>%
@@ -187,7 +189,8 @@ write.csv( scen.params, "scen_params.csv", row.names = FALSE )
 source("helper_IAI.R")
 
 # number of sbatches to generate (i.e., iterations within each scenario)
-n.reps.per.scen = 1000; n.reps.in.doParallel = 250
+# 2026-07-24 - for sims with N <= 1,000 including all methods, sim.reps=250 with job time 4:00:00 worked well
+n.reps.per.scen = 1000; n.reps.in.doParallel = 25
 #n.reps.per.scen = 1; n.reps.in.doParallel = 1
 ( n.files = ( n.reps.per.scen / n.reps.in.doParallel ) * n.scen )
 
@@ -204,9 +207,7 @@ runfile_path = paste(path, "/testRunFile.R", sep="")
 sbatch_params <- data.frame(jobname,
                             outfile,
                             errorfile,
-                            #jobtime = "00:30:00",  
-                            jobtime = "04:00:00",  # 2026-07-22: enough to run all methods (incl mia-pkg-sp, mia-pkg-ice, IPW-nm) at N=1000 but NOT N=10e3
-                            #jobtime = "01:00:00",
+                            jobtime = "04:00:00",  
                             quality = "normal",
                             node_number = 1,
                             mem_per_node = 64000,

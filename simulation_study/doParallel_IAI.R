@@ -103,8 +103,8 @@ if (run.local == FALSE ) {
   # ~~****** Cluster sim reps ----------------
   # simulation reps to run within this job
   # **this need to match n.reps.in.doParallel in the genSbatch script
-  #sim.reps = 10
-  sim.reps = 250
+  # 2026-07-24 - for sims with N <= 1,000 including all methods, sim.reps=250 with job time 4:00:00 worked well
+  sim.reps = 25
   
   # set the number of cores
   registerDoParallel(cores=16)
