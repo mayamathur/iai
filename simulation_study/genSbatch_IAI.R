@@ -51,6 +51,9 @@ lapply( allPackages,
 #   # AF4 / MIA parameters
 #   boot_reps_af4 = 0,  # only needed for CIs; if 0, no CIs
 #   mia_n_mc = 10e3,      # Monte Carlo draws for mia-pkg-sp
+#
+# for mia_tmle
+#calculate_tmle_CIS = TRUE,
 # 
 #   dag_name = c("2A"),
 # 
