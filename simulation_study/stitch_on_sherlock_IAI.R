@@ -116,6 +116,7 @@ as.data.frame(int_emp)
 
 s2 = s
 
+
 s2 = s2 %>% rowwise() %>%
   mutate( beta = ifelse( !is.na(beta),
                          beta,

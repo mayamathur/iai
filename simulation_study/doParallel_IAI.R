@@ -230,7 +230,7 @@ if ( run.local == TRUE ) {
 # mimic Sherlock structure
 if (run.local == TRUE) ( scens_to_run = scen.params$scen )
 if (run.local == FALSE) ( scens_to_run = scen )  # from sbatch
-if (run.local == TRUE) sim.reps = 500
+if (run.local == TRUE) sim.reps = 1
 if ( exists("rs_all_scens") ) rm(rs_all_scens)
 #  p = scen.params[ scen.params$scen == scen, names(scen.params) != "scen"]
 
@@ -259,9 +259,8 @@ for ( scen in scens_to_run ) {
       # results for just this simulation rep
       if ( exists("rep.res") ) suppressWarnings( rm(rep.res) )
       
-      # extract simulation params for this scenario (row)
-      # exclude the column with the scenario name itself (col) 
-      if ( FALSE ) {
+      # for debugging
+      if ( TRUE ) {
         cat("\n\n scen variable:\n")
         print(scen)
         
@@ -304,6 +303,11 @@ for ( scen in scens_to_run ) {
         coef_of_interest_gold = paste(coef_of_interest, "1", sep = "")
       }
       
+      
+      # for debugging
+      if ( TRUE ) {
+        cat("\n\n doParallel flag: Done generating data\n")
+      }
       
       
       # ~ Make Imputed Data ------------------------------
@@ -660,7 +664,7 @@ for ( scen in scens_to_run ) {
       # rep.res = data.frame()
 
       
-      # ~~ MIA package; semiparametric ----
+      # ~~ MIA-SP package (semiparametric, using miapack) ----
       if ( "mia-pkg-sp" %in% all.methods ) {
         rep.res = run_method_safe(method.label = c("mia-pkg-sp"),
                                   
@@ -791,7 +795,7 @@ for ( scen in scens_to_run ) {
       cat("\n rep.res after running mia-pkg-sp")
       if (exists("rep.res")) srr(rep.res)
       
-      # ~~ MIA-ICE (miapack, iterative conditional expectation) --------------
+      # ~~ MIA-ICE (iterative conditional expectation, using miapack) --------------
       # miapack::mia_ice (ice-implementation branch): plug-in estimator of
       #   mu_MIA(x) = E[ E[Y | X=x, W, M=1] | X=x, R_W=R_X=1 ].
       # Differs from the Monte Carlo mia(): no W-density model and no n_mc.
@@ -925,6 +929,12 @@ for ( scen in scens_to_run ) {
       # FOR DEBUGGING
       cat("\n rep.res after running mia-pkg-ice")
       if (exists("rep.res")) srr(rep.res)
+      
+      
+      
+      # ~~ MIA-TMLE; using tmle package ----
+      
+      #bm1
       
       
       # ~ Add Scen Params and Sanity Checks --------------------------------------

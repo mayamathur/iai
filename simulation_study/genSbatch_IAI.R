@@ -166,7 +166,7 @@ scen.params = scen.params %>% rowwise() %>%
 
 
 # add scen numbers
-start.at = 1
+start.at = 43
 scen.params = scen.params %>% add_column( scen = start.at : ( nrow(scen.params) + (start.at - 1) ),
                                           .before = 1 )
 # check
@@ -228,6 +228,7 @@ n.files
 # run just the first one
 # sbatch -p qsu,owners,normal /home/groups/manishad/IAI/sbatch_files/1.sbatch
 
+
 path = "/home/groups/manishad/IAI"
 setwd( paste(path, "/sbatch_files", sep="") )
 for (i in 1:n.files) {
@@ -255,3 +256,8 @@ setwd( paste(path, "/sbatch_files", sep="") )
 for (i in missed.nums) {
   system( paste("sbatch -p qsu,owners,normal /home/groups/manishad/IAI/sbatch_files/", i, ".sbatch", sep="") )
 }
+
+
+
+
+
