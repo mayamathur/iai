@@ -130,6 +130,7 @@ if ( run.local == TRUE ) {
   
   # ~~ ********** Set Sim Params: Local Run -----------------------------
   
+  #bm: 43% NA only happens at N=200; try that now
   scen.params = tidyr::expand_grid(
     
     #rep.methods = "gold ; CC ; mia-pkg-sp ; mia-pkg-ice ; mia-tmle", 
@@ -137,7 +138,7 @@ if ( run.local == TRUE ) {
     
     model = "OLS", 
     coef_of_interest = "A",
-    N = c(1000),
+    N = c(200),
     
     # MICE parameters
     # as on cluster
@@ -154,16 +155,16 @@ if ( run.local == TRUE ) {
     # for mia_tmle
     calculate_tmle_CIs = TRUE,
     
-    # dag_name = "2A",
+    dag_name = "1C",
     # 
     # dag_name = c("5D", "5D-bin",
     #              "6D", "6D-bin",
     #              "7D", "7D-bin"
     #              )  # make sure to pick appropriate outcome model for the DAG
     
-    dag_name = c("1A", "1B", "1C",
-                 "2A", "2B",
-                 "3A", "3B"),
+    # dag_name = c("1A", "1B", "1C",
+    #              "2A", "2B",
+    #              "3A", "3B"),
     
     W_dim = 1
     #W_dim = c(1, 10)
@@ -250,9 +251,9 @@ for ( scen in scens_to_run ) {
   # ~ ********** Beginning of ForEach Loop -----------------------------
   doParallel.seconds = system.time({
     
-    rs = foreach( i = 1:n.reps.in.doParallel, .combine = bind_rows ) %dopar% {
+    #rs = foreach( i = 1:n.reps.in.doParallel, .combine = bind_rows ) %dopar% {
       #for debugging (out file will contain all printed things):
-      #for ( i in 1:2 ) {
+      #for ( i in 1:sim.reps ) {
       
       # only print info for first sim rep for visual clarity
       if ( i == 1 ) cat("\n\n~~~~~~~~~~~~~~~~ BEGIN SIM REP", i, "~~~~~~~~~~~~~~~~")
@@ -1036,7 +1037,8 @@ for ( scen in scens_to_run ) {
               family       = fam,
               Qform        = Q_form,
               prescreenW.g = FALSE,          # keep the whole W block in the g model
-              verbose      = FALSE
+              verbose      = FALSE,
+              cvQinit = FALSE  # ****2026-07-27 - added to prevent tmle from crashing
             )
             
             # var.psi is the plug-in EIF variance, var(IC)/n, where
@@ -1121,6 +1123,9 @@ for ( scen in scens_to_run ) {
         .rep.res = rep.res )
       
       if (run.local == TRUE) srr(rep.res)
+      # DEBUGGING ONLY
+      #bm
+      #if( is.na( rep.res$bhat[rep.res$method == "mia-tmle"] ) ) browser()
       
       
       # ~ Add Scen Params and Sanity Checks --------------------------------------
@@ -1140,7 +1145,7 @@ for ( scen in scens_to_run ) {
       # add more info
       rep.res = rep.res %>% add_column( rep.name = i, .before = 1 )
       rep.res = rep.res %>% add_column( scen.name = scen, .before = 1 )
-      rep.res = rep.res %>% add_column( job.name = jobname, .before = 1 )
+      if (run.local == FALSE ) rep.res = rep.res %>% add_column( job.name = jobname, .before = 1 )
   
       
       # return this rep's results as the last expression of the foreach body
