@@ -1,12 +1,8 @@
+
 expit = function(p) exp(p) / (1 + exp(p))
 # NOTE: this used to read `p / (1-p)`, which is the ODDS, not the logit. It was
 # silently shadowed by the correct definition further down this file; fixed here.
 logit = function(p) log( p / (1-p) )
-
-# high-dimensional auxiliary block W (correlated, mixed-type, per-component R)
-source("helper_IAI_Wblock.R")
-
-
 
 
 
@@ -1053,7 +1049,7 @@ fit_regression = function(form_string,
                                       imp_methods = imp_methods ) ) )
   }
   
-  
+
   # ~ IPW-custom  ---------------------
   
   # Note: this ignores the model argument passed to fit_regression
@@ -2374,6 +2370,106 @@ get_boot_CIs = function(boot.res, type, n.ests) {
   
   
 }
+
+
+
+# MIA-TMLE  -------------------------------------------------
+
+
+# TMLE estimation of mu_MIA(x) at values xv of the X-variables
+mia_tmle_pt_est = function(xv) {
+  
+  keep = Reduce(`&`, lapply(seq_along(X_names),
+                            function(k) dS[[ X_names[k] ]] == xv[k]))
+  idx = which(keep)
+  
+  # X is constant inside the stratum, so the adjustment set is W alone.
+  # Note this sidesteps the X-by-W interaction trap that bites the
+  # additive Y_model specification: within a stratum every X:W term is
+  # collinear with the corresponding W main effect, so an additive-in-W
+  # model here is the exact analogue of the fully crossed
+  # Y ~ (A + C + A:C) * (W...) model used by mia-pkg-sp.
+  cc_mean = function() {
+    yo = Yv[idx][ rY[idx] == 1 ]
+    list( psi = mean(yo), var = var(yo) / length(yo) )
+  }
+  
+  Wd = dS[idx, Wobs, drop = FALSE]
+  
+  # drop no-variation columns BEFORE expansion: a single-level factor
+  # makes model.matrix() error on contrasts
+  Wd = Wd[, vapply(Wd, function(z) length(unique(z)) > 1L, logical(1)),
+          drop = FALSE]
+  if ( ncol(Wd) == 0L ) return( cc_mean() )
+  
+  # Expand factors to numeric dummies HERE, so that tmle's internal
+  #   W <- model.matrix(tempY ~ -1 + ., data = data.frame(tempY, W))
+  # (tmle.R ~line 1720) is a no-op on the column names. Passing a factor
+  # straight through lets tmle rename W01 -> W010/W011, after which a
+  # hand-built Qform referencing "W01" dies with
+  #   Error in eval(predvars, data, env) : object 'W01' not found
+  Wd = stats::model.matrix( ~ ., data = Wd )[, -1, drop = FALSE]
+  
+  # a dummy can still be constant within a stratum
+  Wd = Wd[, apply(Wd, 2, function(z) length(unique(z)) > 1L), drop = FALSE]
+  if ( ncol(Wd) == 0L ) return( cc_mean() )
+  
+  # generic syntactic names: formula-safe, and guaranteed to survive
+  # tmle's model.matrix pass unchanged since Wd is now numeric
+  colnames(Wd) = paste0("W", seq_len(ncol(Wd)))
+  
+  # missingness model
+  # Fitted HERE rather than handed to tmle via g.Deltaform. tmle's internal
+  # call is
+  #   estimateG(d = data.frame(Delta, Z=1, A, W[, retainW.Delta]), ...)
+  # (tmle.R ~line 1898) and that subset carries no drop = FALSE, so when
+  # exactly one W column is retained it collapses to a vector and
+  # data.frame() names the column off the deparsed expression instead of
+  # "W1" -- after which a g.Deltaform referencing W1 dies with
+  #   Error in eval(predvars, data, env) : object 'W1' not found
+  # Supplying pDelta1 skips that path entirely. With Z = NULL it must be
+  # n x 2, [P(Delta=1|A=0,W), P(Delta=1|A=1,W)]; A is constant here so the
+  # two columns are identical. tmle still applies its own truncation
+  # downstream at line 1901, so nothing is lost by precomputing.
+  pD = if ( all(rY[idx] == 1) ) {
+    matrix(1, nrow = length(idx), ncol = 2)
+  } else {
+    gfit   = stats::glm( rY[idx] ~ ., data = as.data.frame(Wd),
+                         family = stats::binomial() )
+    pi_hat = stats::predict(gfit, type = "response")
+    cbind(pi_hat, pi_hat)
+  }  # end of mu_at fn
+  
+  # outcome model
+  # Q is safe to pass as a formula: its data frame is
+  # data.frame(Y, Z, A, W, Delta) with the FULL W, so it never hits the
+  # drop-to-vector path above. collapse = " " is load-bearing -- deparse()
+  # returns a character VECTOR once the formula exceeds width.cutoff = 60
+  # chars, which "Y ~ A + W1 + ... + W10" does, and tmle would then pass
+  # that multi-element vector to formula() (deprecated).
+  Q_form = paste( deparse( reformulate(c("A", colnames(Wd)), response = "Y") ),
+                  collapse = " " )
+  
+  fit = tmle::tmle(
+    Y            = Yv[idx],
+    A            = NULL,           # no treatment => EY1 is the target
+    W            = Wd,
+    Delta        = rY[idx],
+    pDelta1      = pD,             # missingness model supplied directly
+    family       = fam,
+    Qform        = Q_form,
+    prescreenW.g = FALSE,          # keep the whole W block in the g model
+    verbose      = FALSE
+  )
+  
+  # var.psi is the plug-in EIF variance, var(IC)/n, where
+  #   IC = rY/pi(x,W) * {Y - b(x,W)} + b(x,W) - psi
+  # already back-transformed to the original Y scale.
+  list( psi = fit$estimates$EY1$psi,
+        var = fit$estimates$EY1$var.psi )
+}
+
+
 
 
 # MODEL-FITTING HELPERS ---------------------

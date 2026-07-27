@@ -1,3 +1,5 @@
+
+
 # IMPORTANT NOTES -----------------------------
 
 
@@ -63,6 +65,7 @@ if (run.local == FALSE ) {
   
   jobname = args[1]
   scen = args[2]  # this will be a number
+  n.reps.in.doParallel = args[3]
   
   # load packages with informative messages if one can't be installed
   # **Common reason to get the "could not library" error: You did ml load R/XXX using an old version
@@ -89,6 +92,7 @@ if (run.local == FALSE ) {
   path = "/home/groups/manishad/IAI"
   setwd(path)
   source("helper_IAI.R")
+  source("helper_IAI_Wblock.R")
   
   
   # get scen parameters (made by genSbatch.R)
@@ -98,14 +102,6 @@ if (run.local == FALSE ) {
   
   cat("\n\nHEAD OF ENTIRE SCEN.PARAMS:\n")
   print(p)
-  
-  
-  
-  # ~~****** Cluster sim reps ----------------
-  # simulation reps to run within this job
-  # **this need to match n.reps.in.doParallel in the genSbatch script
-  # 2026-07-24 - for sims with N <= 1,000 including all methods, sim.reps=250 with job time 4:00:00 worked well
-  sim.reps = 25
   
   # set the number of cores
   registerDoParallel(cores=16)
@@ -126,6 +122,7 @@ if ( run.local == TRUE ) {
   code.dir = here()
   setwd(code.dir)
   source("helper_IAI.R")
+  source("helper_IAI_Wblock.R")
   
   # for saving intermediate results
   data.dir = str_replace( string = here(),
@@ -235,7 +232,7 @@ if ( run.local == TRUE ) {
 # mimic Sherlock structure
 if (run.local == TRUE) ( scens_to_run = scen.params$scen )
 if (run.local == FALSE) ( scens_to_run = scen )  # from sbatch
-if (run.local == TRUE) sim.reps = 1
+if (run.local == TRUE) n.reps.in.doParallel = 1
 if ( exists("rs_all_scens") ) rm(rs_all_scens)
 #  p = scen.params[ scen.params$scen == scen, names(scen.params) != "scen"]
 
@@ -254,7 +251,7 @@ for ( scen in scens_to_run ) {
   # ~ ********** Beginning of ForEach Loop -----------------------------
   doParallel.seconds = system.time({
     
-    rs = foreach( i = 1:sim.reps, .combine = bind_rows ) %dopar% {
+    rs = foreach( i = 1:n.reps.in.doParallel, .combine = bind_rows ) %dopar% {
       #for debugging (out file will contain all printed things):
       #for ( i in 1:2 ) {
       
@@ -938,12 +935,7 @@ for ( scen in scens_to_run ) {
       
       
       
-      ## ===========================================================================
-      ## mia-tmle : TMLE estimate of the MIA functional
-      ##
-      ## Drop-in block for doParallel_IAI.R, same shape as the "mia-pkg-sp" block.
-      ## Requires: tmle
-      ##
+     # ~~ MIA-tmle -------------------------------------------------
       ## mu_MIA(x) = E[ E(Y | X = x, W, S, r_Y = 1) | X = x, S ],  S = {r_X = r_W = 1}
       ##
       ## Restrict to S, subset to the X = x stratum, call tmle() with A = NULL and
@@ -955,7 +947,7 @@ for ( scen in scens_to_run ) {
       ## bhat   = mu_MIA(exposure = 1, covars = 0) - mu_MIA(exposure = 0, covars = 0)
       ## inthat = mu_MIA(exposure = 0, covars = 0)   <- reference level, matching the
       ##          mean_est_2 / ci_2 convention used for the miapack methods.
-      ## ===========================================================================
+
       
       rep.res = run_method_safe(
         method.label = c("mia-tmle"),
@@ -995,108 +987,12 @@ for ( scen in scens_to_run ) {
                         collapse = "; "),
                  ". Use mia() / mia_ice() for continuous X.")
           }
+
           
-          # TMLE estimation of mu_MIA(x) at a single x ------------------------------
-          mu_at = function(xv) {
-            
-            keep = Reduce(`&`, lapply(seq_along(X_names),
-                                      function(k) dS[[ X_names[k] ]] == xv[k]))
-            idx = which(keep)
-            
-            if ( length(idx) < 30L || sum(rY[idx]) < 10L ) {
-              return( list(psi = NA_real_, var = NA_real_) )
-            }
-            
-            # X is constant inside the stratum, so the adjustment set is W alone.
-            # Note this sidesteps the X-by-W interaction trap that bites the
-            # additive Y_model specification: within a stratum every X:W term is
-            # collinear with the corresponding W main effect, so an additive-in-W
-            # model here is the exact analogue of the fully crossed
-            # Y ~ (A + C + A:C) * (W...) model used by mia-pkg-sp.
-            cc_mean = function() {
-              yo = Yv[idx][ rY[idx] == 1 ]
-              list( psi = mean(yo), var = var(yo) / length(yo) )
-            }
-            
-            Wd = dS[idx, Wobs, drop = FALSE]
-            
-            # drop no-variation columns BEFORE expansion: a single-level factor
-            # makes model.matrix() error on contrasts
-            Wd = Wd[, vapply(Wd, function(z) length(unique(z)) > 1L, logical(1)),
-                    drop = FALSE]
-            if ( ncol(Wd) == 0L ) return( cc_mean() )
-            
-            # Expand factors to numeric dummies HERE, so that tmle's internal
-            #   W <- model.matrix(tempY ~ -1 + ., data = data.frame(tempY, W))
-            # (tmle.R ~line 1720) is a no-op on the column names. Passing a factor
-            # straight through lets tmle rename W01 -> W010/W011, after which a
-            # hand-built Qform referencing "W01" dies with
-            #   Error in eval(predvars, data, env) : object 'W01' not found
-            Wd = stats::model.matrix( ~ ., data = Wd )[, -1, drop = FALSE]
-            
-            # a dummy can still be constant within a stratum
-            Wd = Wd[, apply(Wd, 2, function(z) length(unique(z)) > 1L), drop = FALSE]
-            if ( ncol(Wd) == 0L ) return( cc_mean() )
-            
-            # generic syntactic names: formula-safe, and guaranteed to survive
-            # tmle's model.matrix pass unchanged since Wd is now numeric
-            colnames(Wd) = paste0("W", seq_len(ncol(Wd)))
-            
-            # ---- missingness model -------------------------------------------------
-            # Fitted HERE rather than handed to tmle via g.Deltaform. tmle's internal
-            # call is
-            #   estimateG(d = data.frame(Delta, Z=1, A, W[, retainW.Delta]), ...)
-            # (tmle.R ~line 1898) and that subset carries no drop = FALSE, so when
-            # exactly one W column is retained it collapses to a vector and
-            # data.frame() names the column off the deparsed expression instead of
-            # "W1" -- after which a g.Deltaform referencing W1 dies with
-            #   Error in eval(predvars, data, env) : object 'W1' not found
-            # Supplying pDelta1 skips that path entirely. With Z = NULL it must be
-            # n x 2, [P(Delta=1|A=0,W), P(Delta=1|A=1,W)]; A is constant here so the
-            # two columns are identical. tmle still applies its own truncation
-            # downstream at line 1901, so nothing is lost by precomputing.
-            pD = if ( all(rY[idx] == 1) ) {
-              matrix(1, nrow = length(idx), ncol = 2)
-            } else {
-              gfit   = stats::glm( rY[idx] ~ ., data = as.data.frame(Wd),
-                                   family = stats::binomial() )
-              pi_hat = stats::predict(gfit, type = "response")
-              cbind(pi_hat, pi_hat)
-            }
-            
-            # ---- outcome model -----------------------------------------------------
-            # Q is safe to pass as a formula: its data frame is
-            # data.frame(Y, Z, A, W, Delta) with the FULL W, so it never hits the
-            # drop-to-vector path above. collapse = " " is load-bearing -- deparse()
-            # returns a character VECTOR once the formula exceeds width.cutoff = 60
-            # chars, which "Y ~ A + W1 + ... + W10" does, and tmle would then pass
-            # that multi-element vector to formula() (deprecated).
-            Q_form = paste( deparse( reformulate(c("A", colnames(Wd)), response = "Y") ),
-                            collapse = " " )
-            
-            fit = tmle::tmle(
-              Y            = Yv[idx],
-              A            = NULL,           # no treatment => EY1 is the target
-              W            = Wd,
-              Delta        = rY[idx],
-              pDelta1      = pD,             # missingness model supplied directly
-              family       = fam,
-              Qform        = Q_form,
-              prescreenW.g = FALSE,          # keep the whole W block in the g model
-              verbose      = FALSE
-            )
-            
-            # var.psi is the plug-in EIF variance, var(IC)/n, where
-            #   IC = rY/pi(x,W) * {Y - b(x,W)} + b(x,W) - psi
-            # already back-transformed to the original Y scale.
-            list( psi = fit$estimates$EY1$psi,
-                  var = fit$estimates$EY1$var.psi )
-          }
-          
-          # contrast: exposure 1 vs 0, covars held at reference 0 -------------------
+          # contrast: exposure 1 vs 0, covars held at reference 0
           ref = rep(0, length(covars))
-          m1  = mu_at( c(1, ref) )
-          m0  = mu_at( c(0, ref) )
+          m1  = mia_tmle_pt_est( c(1, ref) )
+          m0  = mia_tmle_pt_est( c(0, ref) )
           
           bhat   = m1$psi - m0$psi
           inthat = m0$psi
