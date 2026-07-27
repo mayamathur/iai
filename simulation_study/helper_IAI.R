@@ -1,4 +1,11 @@
 
+
+
+
+source("helper_IAI_Wblock.R")
+
+
+
 expit = function(p) exp(p) / (1 + exp(p))
 # NOTE: this used to read `p / (1-p)`, which is the ODDS, not the logit. It was
 # silently shadowed by the correct definition further down this file; fixed here.
@@ -2373,103 +2380,6 @@ get_boot_CIs = function(boot.res, type, n.ests) {
 
 
 
-# MIA-TMLE  -------------------------------------------------
-
-
-# TMLE estimation of mu_MIA(x) at values xv of the X-variables
-mia_tmle_pt_est = function(xv) {
-  
-  keep = Reduce(`&`, lapply(seq_along(X_names),
-                            function(k) dS[[ X_names[k] ]] == xv[k]))
-  idx = which(keep)
-  
-  # X is constant inside the stratum, so the adjustment set is W alone.
-  # Note this sidesteps the X-by-W interaction trap that bites the
-  # additive Y_model specification: within a stratum every X:W term is
-  # collinear with the corresponding W main effect, so an additive-in-W
-  # model here is the exact analogue of the fully crossed
-  # Y ~ (A + C + A:C) * (W...) model used by mia-pkg-sp.
-  cc_mean = function() {
-    yo = Yv[idx][ rY[idx] == 1 ]
-    list( psi = mean(yo), var = var(yo) / length(yo) )
-  }
-  
-  Wd = dS[idx, Wobs, drop = FALSE]
-  
-  # drop no-variation columns BEFORE expansion: a single-level factor
-  # makes model.matrix() error on contrasts
-  Wd = Wd[, vapply(Wd, function(z) length(unique(z)) > 1L, logical(1)),
-          drop = FALSE]
-  if ( ncol(Wd) == 0L ) return( cc_mean() )
-  
-  # Expand factors to numeric dummies HERE, so that tmle's internal
-  #   W <- model.matrix(tempY ~ -1 + ., data = data.frame(tempY, W))
-  # (tmle.R ~line 1720) is a no-op on the column names. Passing a factor
-  # straight through lets tmle rename W01 -> W010/W011, after which a
-  # hand-built Qform referencing "W01" dies with
-  #   Error in eval(predvars, data, env) : object 'W01' not found
-  Wd = stats::model.matrix( ~ ., data = Wd )[, -1, drop = FALSE]
-  
-  # a dummy can still be constant within a stratum
-  Wd = Wd[, apply(Wd, 2, function(z) length(unique(z)) > 1L), drop = FALSE]
-  if ( ncol(Wd) == 0L ) return( cc_mean() )
-  
-  # generic syntactic names: formula-safe, and guaranteed to survive
-  # tmle's model.matrix pass unchanged since Wd is now numeric
-  colnames(Wd) = paste0("W", seq_len(ncol(Wd)))
-  
-  # missingness model
-  # Fitted HERE rather than handed to tmle via g.Deltaform. tmle's internal
-  # call is
-  #   estimateG(d = data.frame(Delta, Z=1, A, W[, retainW.Delta]), ...)
-  # (tmle.R ~line 1898) and that subset carries no drop = FALSE, so when
-  # exactly one W column is retained it collapses to a vector and
-  # data.frame() names the column off the deparsed expression instead of
-  # "W1" -- after which a g.Deltaform referencing W1 dies with
-  #   Error in eval(predvars, data, env) : object 'W1' not found
-  # Supplying pDelta1 skips that path entirely. With Z = NULL it must be
-  # n x 2, [P(Delta=1|A=0,W), P(Delta=1|A=1,W)]; A is constant here so the
-  # two columns are identical. tmle still applies its own truncation
-  # downstream at line 1901, so nothing is lost by precomputing.
-  pD = if ( all(rY[idx] == 1) ) {
-    matrix(1, nrow = length(idx), ncol = 2)
-  } else {
-    gfit   = stats::glm( rY[idx] ~ ., data = as.data.frame(Wd),
-                         family = stats::binomial() )
-    pi_hat = stats::predict(gfit, type = "response")
-    cbind(pi_hat, pi_hat)
-  }  # end of mu_at fn
-  
-  # outcome model
-  # Q is safe to pass as a formula: its data frame is
-  # data.frame(Y, Z, A, W, Delta) with the FULL W, so it never hits the
-  # drop-to-vector path above. collapse = " " is load-bearing -- deparse()
-  # returns a character VECTOR once the formula exceeds width.cutoff = 60
-  # chars, which "Y ~ A + W1 + ... + W10" does, and tmle would then pass
-  # that multi-element vector to formula() (deprecated).
-  Q_form = paste( deparse( reformulate(c("A", colnames(Wd)), response = "Y") ),
-                  collapse = " " )
-  
-  fit = tmle::tmle(
-    Y            = Yv[idx],
-    A            = NULL,           # no treatment => EY1 is the target
-    W            = Wd,
-    Delta        = rY[idx],
-    pDelta1      = pD,             # missingness model supplied directly
-    family       = fam,
-    Qform        = Q_form,
-    prescreenW.g = FALSE,          # keep the whole W block in the g model
-    verbose      = FALSE
-  )
-  
-  # var.psi is the plug-in EIF variance, var(IC)/n, where
-  #   IC = rY/pi(x,W) * {Y - b(x,W)} + b(x,W) - psi
-  # already back-transformed to the original Y scale.
-  list( psi = fit$estimates$EY1$psi,
-        var = fit$estimates$EY1$var.psi )
-}
-
-
 
 
 # MODEL-FITTING HELPERS ---------------------
@@ -2843,291 +2753,136 @@ R -f PATH_TO_R_SCRIPT ARGS_TO_R_SCRIPT
 
 
 
+# generateSbatch()
+# Drop-in replacement for the version in helper_IAI.R.
+# Backward compatible: generateSbatch(sbatch_params, runfile_path) behaves as before
+# for any sbatch_params data frame that worked with the old function.
+#
+# Changes vs. the old version:
+#   - 13 copy-pasted if/else blocks -> one placeholder->column table, so adding a new
+#     sbatch field (e.g. PARTITION, ARRAY) is one line in ph_map or one entry in
+#     extra_placeholders, not another 6-line block.
+#   - Placeholders are substituted longest-first with fixed = TRUE, so a new placeholder
+#     can never be clobbered by being a substring of another.
+#   - outfile_lines is always initialized (old version errored when runfile_path was NA
+#     but server_sbatch_path was set).
+#   - server_sbatch_path / write_path are read null-safely (old version errored on
+#     is.na(NULL) when the column was absent).
+#   - The ##VISUAL_ALERT## substitution now happens on every branch, and which jobs get
+#     the alert is an argument rather than hardcoded to "job_1". Default: no alerts, and
+#     the placeholder is stripped. If the skeleton has no ##VISUAL_ALERT## this is a no-op.
+#   - Optionally creates the write_path directory, adds a trailing newline, and can
+#     throttle submissions in the runfile.
+
 generateSbatch <- function(sbatch_params,
                            runfile_path = NA,
-                           run_now = F) {
+                           run_now = FALSE,
+                           alert_jobnames = NULL,      # character vector of jobnames that get the ##VISUAL_ALERT## block
+                           extra_placeholders = NULL,  # named char vector: c(PLACEHOLDER = "column_name")
+                           sleep_between = 0,          # seconds of Sys.sleep() between submissions in the runfile
+                           create_dirs = TRUE,
+                           verbose = TRUE) {
   
-  #sbatch_params is a data frame with the following columns
-  #jobname: string, specifies name associated with job in SLURM queue
-  #outfile: string, specifies the name of the output file generated by job
-  #errorfile: string, specifies the name of the error file generated by job
-  #jobtime: string in hh:mm:ss format, max (maybe soft) is 48:00:00 
-  #specifies the amoung of time job resources should be allocated
-  #jobs still running after this amount of time will be aborted
-  #quality: kind of like priority, normal works
-  #node_number, integer: the number of nodes (computers w/16 cpus each) to allocate 
-  #mem_per_node, integer: RAM, in MB, to allocate to each node
-  #mailtype, string: ALL, BEGIN, END, FAIL: what types of events should you be notified about via email
-  #user_email string: email address: email address to send notifications
-  #tasks_per_node: integer, number of tasks, you should probably use 1
-  #cpus_per_task: integer, 1-16, number of cpus to use, corresponds to number of available cores per task
-  #path_to_r_script: path to r script on sherlock
-  #args_to_r_script: arguments to pass to r script on command line
-  #write_path: where to write the sbatch file
-  #server_sbatch_path: where sbatch files will be stored on sherlock
-  #runfile_path is a string containing a path at which to write an R script that can be used to run
-  #the batch files generated by this function. 
-  #if NA, no runfile will be written
-  #run_now is a boolean specifying whether batch files should be run as they are generated
+  # placeholder in sbatch_skeleton()  ->  column in sbatch_params
+  ph_map <- c(
+    JOBNAME          = "jobname",
+    OUTFILE          = "outfile",
+    ERRORFILE        = "errorfile",
+    JOBTIME          = "jobtime",
+    QUALITY          = "quality",
+    NODENUMBER       = "node_number",
+    MEMPERNODE       = "mem_per_node",
+    MAILTYPE         = "mailtype",
+    USER_EMAIL       = "user_email",
+    TASKS_PER_NODE   = "tasks_per_node",
+    CPUS_PER_TASK    = "cpus_per_task",
+    PATH_TO_R_SCRIPT = "path_to_r_script",
+    ARGS_TO_R_SCRIPT = "args_to_r_script"
+  )
+  if ( !is.null(extra_placeholders) ) ph_map <- c(ph_map, extra_placeholders)
   
-  sbatches <- list()
-  if (!is.na(runfile_path)) {
-    outfile_lines <- c(paste0("# Generated on ",  Sys.time()))
+  # longest first: guarantees no placeholder is eaten as a substring of another
+  ph_map <- ph_map[ order( nchar(names(ph_map)), decreasing = TRUE ) ]
+  
+  # null-safe column access: NULL if the column doesn't exist
+  get_col <- function(df, col, i) {
+    if ( is.null(df[[col]]) ) return(NULL)
+    df[[col]][i]
   }
-  for (sbatch in 1:nrow(sbatch_params) ) {
+  
+  sbatches <- vector("list", nrow(sbatch_params))
+  outfile_lines <- paste0("# Generated on ", Sys.time())  # always initialized
+  
+  for ( sbatch in seq_len( nrow(sbatch_params) ) ) {
+    
     gen_batch <- sbatch_skeleton()
-    #set job name
-    if (is.null(sbatch_params$jobname[sbatch])) { 
-      gen_batch <- gsub("JOBNAME", "unnamed", gen_batch) 
-    } else { 
-      gen_batch <- gsub("JOBNAME", sbatch_params$jobname[sbatch], gen_batch) 
-    }
-    #set outfile name
-    if (is.null(sbatch_params$outfile[sbatch])) { 
-      gen_batch <- gsub("OUTFILE", "unnamed", gen_batch) 
-    } else { 
-      gen_batch <- gsub("OUTFILE", sbatch_params$outfile[sbatch], gen_batch) 
-    }
-    #set errorfile name
-    if (is.null(sbatch_params$errorfile[sbatch])) { 
-      gen_batch <- gsub("ERRORFILE", "unnamed", gen_batch) 
-    } else { 
-      gen_batch <- gsub("ERRORFILE", sbatch_params$errorfile[sbatch], gen_batch) 
-    }
-    #set jobtime
-    if (is.null(sbatch_params$jobtime[sbatch])) { 
-      gen_batch <- gsub("JOBTIME", "unnamed", gen_batch) 
-    } else { 
-      gen_batch <- gsub("JOBTIME", sbatch_params$jobtime[sbatch], gen_batch) 
-    }
-    #set quality
-    if (is.null(sbatch_params$quality[sbatch])) { 
-      gen_batch <- gsub("QUALITY", "unnamed", gen_batch) 
-    } else { 
-      gen_batch <- gsub("QUALITY", sbatch_params$quality[sbatch], gen_batch) 
-    }
-    #set number of nodes
-    if (is.null(sbatch_params$node_number[sbatch])) { 
-      gen_batch <- gsub("NODENUMBER", "unnamed", gen_batch) 
-    } else { 
-      gen_batch <- gsub("NODENUMBER", sbatch_params$node_number[sbatch], gen_batch) 
-    }
-    #set memory per node
-    if (is.null(sbatch_params$mem_per_node[sbatch])) { 
-      gen_batch <- gsub("MEMPERNODE", "unnamed", gen_batch) 
-    } else { 
-      gen_batch <- gsub("MEMPERNODE", sbatch_params$mem_per_node[sbatch], gen_batch) 
-    }
-    #set requested mail message types
-    if (is.null(sbatch_params$mailtype[sbatch])) { 
-      gen_batch <- gsub("MAILTYPE", "unnamed", gen_batch) 
-    } else { 
-      gen_batch <- gsub("MAILTYPE", sbatch_params$mailtype[sbatch], gen_batch) 
-    }
-    #set email at which to receive messages
-    if (is.null(sbatch_params$user_email[sbatch])) { 
-      gen_batch <- gsub("USER_EMAIL", "unnamed", gen_batch) 
-    } else { 
-      gen_batch <- gsub("USER_EMAIL", sbatch_params$user_email[sbatch], gen_batch) 
-    }
-    #set tasks per node
-    if (is.null(sbatch_params$tasks_per_node[sbatch])) { 
-      gen_batch <- gsub("TASKS_PER_NODE", "unnamed", gen_batch) 
-    } else { 
-      gen_batch <- gsub("TASKS_PER_NODE", sbatch_params$tasks_per_node[sbatch], gen_batch) 
-    }
-    #set cpus per task
-    if (is.null(sbatch_params$cpus_per_task[sbatch])) { 
-      gen_batch <- gsub("CPUS_PER_TASK", "unnamed", gen_batch) 
-    } else { 
-      gen_batch <- gsub("CPUS_PER_TASK", sbatch_params$cpus_per_task[sbatch], gen_batch) 
-    }
-    #set path to r script
-    if (is.null(sbatch_params$path_to_r_script[sbatch])) { 
-      gen_batch <- gsub("PATH_TO_R_SCRIPT", "unnamed", gen_batch) 
-    } else { 
-      gen_batch <- gsub("PATH_TO_R_SCRIPT", sbatch_params$path_to_r_script[sbatch], gen_batch) 
-    }
-    #set args to r script
-    if (is.null(sbatch_params$args_to_r_script[sbatch])) { 
-      gen_batch <- gsub("ARGS_TO_R_SCRIPT", "unnamed", gen_batch) 
-    } else { 
-      gen_batch <- gsub("ARGS_TO_R_SCRIPT", sbatch_params$args_to_r_script[sbatch], gen_batch) 
-    }
     
-    #write batch file
-    if (is.null(sbatch_params$write_path[sbatch])) { 
-      cat(gen_batch, file = paste0("~/sbatch_generated_at_", gsub(" |:|-", "_", Sys.time()) ), append = F)
-    } else { 
-      
-      
-      ### START NEW ADDITION
-      # add visual alert if jobname is "job_1"
-      if (sbatch_params$jobname[sbatch] == "job_1") {
-        alert_block <- paste(
-          'echo "========================================================="',
-          'echo "🚨🚨🚨 JOB_1 COMPLETE — CHECK YOUR OUTPUT! 🚨🚨🚨"',
-          'echo "========================================================="',
-          'echo -e "\\a\\a\\a"',
-          sep = "\n"
-        )
-      } else {
-        alert_block <- ""
+    for ( ph in names(ph_map) ) {
+      val <- get_col(sbatch_params, ph_map[[ph]], sbatch)
+      # old behavior preserved: absent column -> "unnamed"; NA value -> literal "NA"
+      if ( is.null(val) ) {
+        val <- "unnamed"
+      } else if ( is.na(val) ) {
+        warning( paste0("Row ", sbatch, ": column '", ph_map[[ph]],
+                        "' is NA; writing the literal string NA into the sbatch file.") )
       }
-      gen_batch <- gsub("##VISUAL_ALERT##", alert_block, gen_batch, fixed = TRUE)
-      ### END NEW ADDITION
-      
-      
-      cat(gen_batch, file = sbatch_params$write_path[sbatch], append = F)
+      gen_batch <- gsub(ph, as.character(val), gen_batch, fixed = TRUE)
     }
     
-    if (!is.na(sbatch_params$server_sbatch_path[sbatch])) {
-      outfile_lines <- c(outfile_lines, paste0("system(\"sbatch ", sbatch_params$server_sbatch_path[sbatch], "\")"))
-    } 
+    # optional visual alert; no-op if the skeleton has no ##VISUAL_ALERT## placeholder
+    jn <- get_col(sbatch_params, "jobname", sbatch)
+    alert_block <- ""
+    if ( !is.null(jn) && !is.na(jn) && jn %in% alert_jobnames ) {
+      bar <- 'echo "========================================================="'
+      alert_block <- paste(
+        bar,
+        paste0('echo "*** ', jn, ' COMPLETE -- CHECK YOUR OUTPUT ***"'),
+        bar,
+        'echo -e "\\a"',
+        sep = "\n"
+      )
+    }
+    gen_batch <- gsub("##VISUAL_ALERT##", alert_block, gen_batch, fixed = TRUE)
+    
+    # write the sbatch file
+    wp <- get_col(sbatch_params, "write_path", sbatch)
+    if ( is.null(wp) || is.na(wp) ) {
+      wp <- paste0( "~/sbatch_generated_at_", gsub(" |:|-", "_", Sys.time()) )
+    }
+    if ( create_dirs ) dir.create( dirname(wp), recursive = TRUE, showWarnings = FALSE )
+    cat( gen_batch, "\n", sep = "", file = wp, append = FALSE )
+    
+    # line in the runfile that submits this job
+    ssp <- get_col(sbatch_params, "server_sbatch_path", sbatch)
+    if ( !is.null(ssp) && !is.na(ssp) ) {
+      outfile_lines <- c( outfile_lines,
+                          paste0( 'system("sbatch ', ssp, '")' ) )
+      if ( sleep_between > 0 ) {
+        outfile_lines <- c( outfile_lines, paste0("Sys.sleep(", sleep_between, ")") )
+      }
+    }
+    
     sbatches[[sbatch]] <- gen_batch
   }
-  if (!is.na(runfile_path)) {
-    cat(paste0(outfile_lines, collapse = "\n"), file = runfile_path)
+  
+  if ( !is.na(runfile_path) ) {
+    if ( create_dirs ) dir.create( dirname(runfile_path), recursive = TRUE, showWarnings = FALSE )
+    cat( paste0(outfile_lines, collapse = "\n"), "\n", sep = "", file = runfile_path )
+    if ( verbose && length(outfile_lines) == 1 ) {
+      message("Note: runfile contains no sbatch calls (server_sbatch_path is NA for every row).")
+    }
   }
-  if(run_now) { system(paste0("R -f ", runfile_path)) } 
+  
+  if ( verbose ) {
+    message( "Wrote ", nrow(sbatch_params), " sbatch files",
+             if ( !is.na(runfile_path) ) paste0(" and runfile ", runfile_path) else "" )
+  }
+  
+  if ( run_now ) system( paste0("R -f ", runfile_path) )
   
   return(sbatches)
 }
 
-
-
-# original version: no visual alerts
-# generateSbatch <- function(sbatch_params,
-#                            runfile_path = NA,
-#                            run_now = F) {
-#   
-#   #sbatch_params is a data frame with the following columns
-#   #jobname: string, specifies name associated with job in SLURM queue
-#   #outfile: string, specifies the name of the output file generated by job
-#   #errorfile: string, specifies the name of the error file generated by job
-#   #jobtime: string in hh:mm:ss format, max (maybe soft) is 48:00:00 
-#   #specifies the amoung of time job resources should be allocated
-#   #jobs still running after this amount of time will be aborted
-#   #quality: kind of like priority, normal works
-#   #node_number, integer: the number of nodes (computers w/16 cpus each) to allocate 
-#   #mem_per_node, integer: RAM, in MB, to allocate to each node
-#   #mailtype, string: ALL, BEGIN, END, FAIL: what types of events should you be notified about via email
-#   #user_email string: email address: email address to send notifications
-#   #tasks_per_node: integer, number of tasks, you should probably use 1
-#   #cpus_per_task: integer, 1-16, number of cpus to use, corresponds to number of available cores per task
-#   #path_to_r_script: path to r script on sherlock
-#   #args_to_r_script: arguments to pass to r script on command line
-#   #write_path: where to write the sbatch file
-#   #server_sbatch_path: where sbatch files will be stored on sherlock
-#   #runfile_path is a string containing a path at which to write an R script that can be used to run
-#   #the batch files generated by this function. 
-#   #if NA, no runfile will be written
-#   #run_now is a boolean specifying whether batch files should be run as they are generated
-#   
-#   sbatches <- list()
-#   if (!is.na(runfile_path)) {
-#     outfile_lines <- c(paste0("# Generated on ",  Sys.time()))
-#   }
-#   for (sbatch in 1:nrow(sbatch_params) ) {
-#     gen_batch <- sbatch_skeleton()
-#     #set job name
-#     if (is.null(sbatch_params$jobname[sbatch])) { 
-#       gen_batch <- gsub("JOBNAME", "unnamed", gen_batch) 
-#     } else { 
-#       gen_batch <- gsub("JOBNAME", sbatch_params$jobname[sbatch], gen_batch) 
-#     }
-#     #set outfile name
-#     if (is.null(sbatch_params$outfile[sbatch])) { 
-#       gen_batch <- gsub("OUTFILE", "unnamed", gen_batch) 
-#     } else { 
-#       gen_batch <- gsub("OUTFILE", sbatch_params$outfile[sbatch], gen_batch) 
-#     }
-#     #set errorfile name
-#     if (is.null(sbatch_params$errorfile[sbatch])) { 
-#       gen_batch <- gsub("ERRORFILE", "unnamed", gen_batch) 
-#     } else { 
-#       gen_batch <- gsub("ERRORFILE", sbatch_params$errorfile[sbatch], gen_batch) 
-#     }
-#     #set jobtime
-#     if (is.null(sbatch_params$jobtime[sbatch])) { 
-#       gen_batch <- gsub("JOBTIME", "unnamed", gen_batch) 
-#     } else { 
-#       gen_batch <- gsub("JOBTIME", sbatch_params$jobtime[sbatch], gen_batch) 
-#     }
-#     #set quality
-#     if (is.null(sbatch_params$quality[sbatch])) { 
-#       gen_batch <- gsub("QUALITY", "unnamed", gen_batch) 
-#     } else { 
-#       gen_batch <- gsub("QUALITY", sbatch_params$quality[sbatch], gen_batch) 
-#     }
-#     #set number of nodes
-#     if (is.null(sbatch_params$node_number[sbatch])) { 
-#       gen_batch <- gsub("NODENUMBER", "unnamed", gen_batch) 
-#     } else { 
-#       gen_batch <- gsub("NODENUMBER", sbatch_params$node_number[sbatch], gen_batch) 
-#     }
-#     #set memory per node
-#     if (is.null(sbatch_params$mem_per_node[sbatch])) { 
-#       gen_batch <- gsub("MEMPERNODE", "unnamed", gen_batch) 
-#     } else { 
-#       gen_batch <- gsub("MEMPERNODE", sbatch_params$mem_per_node[sbatch], gen_batch) 
-#     }
-#     #set requested mail message types
-#     if (is.null(sbatch_params$mailtype[sbatch])) { 
-#       gen_batch <- gsub("MAILTYPE", "unnamed", gen_batch) 
-#     } else { 
-#       gen_batch <- gsub("MAILTYPE", sbatch_params$mailtype[sbatch], gen_batch) 
-#     }
-#     #set email at which to receive messages
-#     if (is.null(sbatch_params$user_email[sbatch])) { 
-#       gen_batch <- gsub("USER_EMAIL", "unnamed", gen_batch) 
-#     } else { 
-#       gen_batch <- gsub("USER_EMAIL", sbatch_params$user_email[sbatch], gen_batch) 
-#     }
-#     #set tasks per node
-#     if (is.null(sbatch_params$tasks_per_node[sbatch])) { 
-#       gen_batch <- gsub("TASKS_PER_NODE", "unnamed", gen_batch) 
-#     } else { 
-#       gen_batch <- gsub("TASKS_PER_NODE", sbatch_params$tasks_per_node[sbatch], gen_batch) 
-#     }
-#     #set cpus per task
-#     if (is.null(sbatch_params$cpus_per_task[sbatch])) { 
-#       gen_batch <- gsub("CPUS_PER_TASK", "unnamed", gen_batch) 
-#     } else { 
-#       gen_batch <- gsub("CPUS_PER_TASK", sbatch_params$cpus_per_task[sbatch], gen_batch) 
-#     }
-#     #set path to r script
-#     if (is.null(sbatch_params$path_to_r_script[sbatch])) { 
-#       gen_batch <- gsub("PATH_TO_R_SCRIPT", "unnamed", gen_batch) 
-#     } else { 
-#       gen_batch <- gsub("PATH_TO_R_SCRIPT", sbatch_params$path_to_r_script[sbatch], gen_batch) 
-#     }
-#     #set args to r script
-#     if (is.null(sbatch_params$args_to_r_script[sbatch])) { 
-#       gen_batch <- gsub("ARGS_TO_R_SCRIPT", "unnamed", gen_batch) 
-#     } else { 
-#       gen_batch <- gsub("ARGS_TO_R_SCRIPT", sbatch_params$args_to_r_script[sbatch], gen_batch) 
-#     }
-#     
-#     #write batch file
-#     if (is.null(sbatch_params$write_path[sbatch])) { 
-#       cat(gen_batch, file = paste0("~/sbatch_generated_at_", gsub(" |:|-", "_", Sys.time()) ), append = F)
-#     } else { 
-#       cat(gen_batch, file = sbatch_params$write_path[sbatch], append = F)
-#     }
-#     
-#     if (!is.na(sbatch_params$server_sbatch_path[sbatch])) {
-#       outfile_lines <- c(outfile_lines, paste0("system(\"sbatch ", sbatch_params$server_sbatch_path[sbatch], "\")"))
-#     } 
-#     sbatches[[sbatch]] <- gen_batch
-#   }
-#   if (!is.na(runfile_path)) {
-#     cat(paste0(outfile_lines, collapse = "\n"), file = runfile_path)
-#   }
-#   if(run_now) { system(paste0("R -f ", runfile_path)) } 
-#   
-#   return(sbatches)
-# }
 
 
 # looks at results files to identify sbatches that didn't write a file

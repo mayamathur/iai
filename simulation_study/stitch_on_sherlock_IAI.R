@@ -93,7 +93,7 @@ table(s$dag_name)
 table(s$dag_name, s$coef_of_interest)
 
 correct.order = c("gold", "CC", "MICE-std", "Am-std", "genloc", "IPW-custom", "IPW-nm",
-                  "af4-np", "af4-sp", "mia-pkg-sp", "mia-pkg-ice",
+                  "af4-np", "af4-sp", "mia-pkg-sp", "mia-pkg-ice", "mia-tmle",
                   "g-form", "custom")
 s$method = factor(s$method, levels = correct.order)
 
