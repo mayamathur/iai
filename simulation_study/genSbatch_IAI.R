@@ -201,7 +201,7 @@ cat("\nTotal scens:", n.scen, "  Total sbatch files:", n.files, "\n")
 
 # ~~ BUILD SBATCH PARAMS -------------------------------------------------------
 
-partition = "qsu,owners,normal"
+
 
 jobname = paste("job", 1:n.files, sep="_")
 outfile = paste("/home/groups/manishad/IAI/rmfiles/rm_", 1:n.files, ".out", sep="")
@@ -238,8 +238,9 @@ n.files
 # sbatch -p qsu,owners,normal /home/groups/manishad/IAI/sbatch_files/1.sbatch
 
 path = "/home/groups/manishad/IAI"
+partition = "qsu,owners,normal"
 setwd( paste(path, "/sbatch_files", sep="") )
-for (i in 1:n.files) {
+for (i in 1:924) {
   system( paste("sbatch -p ", partition, " /home/groups/manishad/IAI/sbatch_files/", i, ".sbatch", sep="") )
 }
 
@@ -260,7 +261,7 @@ source("helper_IAI.R")
 missed.nums = sbatch_not_run( "/home/groups/manishad/IAI/long_results",
                               "/home/groups/manishad/IAI/long_results",
                               .name.prefix = "long_results",
-                              .max.sbatch.num = n.files )
+                              .max.sbatch.num = 924 )
 
 setwd( paste(path, "/sbatch_files", sep="") )
 for (i in missed.nums) {

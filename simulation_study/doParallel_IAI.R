@@ -251,7 +251,7 @@ for ( scen in scens_to_run ) {
   # ~ ********** Beginning of ForEach Loop -----------------------------
   doParallel.seconds = system.time({
     
-    #rs = foreach( i = 1:n.reps.in.doParallel, .combine = bind_rows ) %dopar% {
+    rs = foreach( i = 1:n.reps.in.doParallel, .combine = bind_rows ) %dopar% {
       #for debugging (out file will contain all printed things):
       #for ( i in 1:sim.reps ) {
       
