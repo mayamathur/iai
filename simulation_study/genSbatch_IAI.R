@@ -33,8 +33,8 @@ lapply( allPackages,
 # FULL SET
 scen.params = tidyr::expand_grid(
   
-  #rep.methods = c("gold ; CC ; mia-pkg-sp ; mia-pkg-ice ; mia-tmle ; IPW-nm"),
-  rep.methods = c("gold ; mia-tmle"),
+  rep.methods = c("gold ; CC ; mia-pkg-ice ; mia-tmle ; IPW-nm"),
+  #rep.methods = c("gold ; mia-tmle"),
   
   model = "OLS",  # OLS or logistic
   
@@ -50,10 +50,10 @@ scen.params = tidyr::expand_grid(
   # imp_maxit = 100,
   # mice_method = NA,  # let MICE use its defaults
   
-  # mia-pkg-ice parameters
-  boot_reps_af4 = 1000,  # only needed for CIs; if 0, no CIs
-  #boot_reps_af4 = 0,
-  mia_n_mc = 10e3,      # Monte Carlo draws for mia-pkg-sp
+  # # mia-pkg-sp parameters
+  # boot_reps_af4 = 1000,  # only needed for CIs; if 0, no CIs
+  # #boot_reps_af4 = 0,
+  # mia_n_mc = 10e3,      # Monte Carlo draws for mia-pkg-sp
   
   # mia-tmle parameters
   calculate_tmle_CIs = TRUE,
@@ -102,8 +102,8 @@ scen.params = scen.params %>%
 
 # remove bad combos:
 # W_dim=10 and W_dim = 1 use different sample sizes
-scen.params = scen.params %>% filter( !( N >  1000 & W_dim == 1 ) )
-scen.params = scen.params %>% filter( !( N <= 1000 & W_dim >  1 ) )
+#scen.params = scen.params %>% filter( !( N > 5000 & W_dim == 1 ) )
+scen.params = scen.params %>% filter( !( N < 1000 & W_dim >  1 ) )
 # check it
 table(scen.params$N, scen.params$W_dim)
 # both W_dim columns should be nonempty
@@ -116,20 +116,17 @@ table(scen.params$dag_name, scen.params$W_dim)
 
 # replace rep.methods string to not include IPW-nm when W_dim > 1
 rm_IPW_nm = function(string) paste(setdiff(strsplit(string, "\\s*;\\s*")[[1]], "IPW-nm"), collapse = " ; ")
-# example: rm_IPW_nm("gold ; CC ; mia-pkg-sp ; mia-pkg-ice ; IPW-nm")
+# example: rm_IPW_nm("gold ; CC ; mia-pkg-sp ; mia-pkg-ice ; IPW-nm") returns ""gold ; CC ; mia-pkg-sp ; mia-pkg-ice"
 scen.params = scen.params %>% rowwise() %>%
   mutate( rep.methods = ifelse( W_dim > 1, rm_IPW_nm(rep.methods), rep.methods ) ) %>%
-  ungroup()   ### CHANGED: rowwise() grouping otherwise persists into everything downstream
+  ungroup()  
+# check 
+table(scen.params$W_dim, scen.params$rep.methods)
 
 # add scen numbers
 start.at = 1
 scen.params = scen.params %>% add_column( scen = start.at : ( nrow(scen.params) + (start.at - 1) ),
                                           .before = 1 )
-
-# check
-table(scen.params$W_dim, scen.params$rep.methods)
-
-( n.scen = nrow(scen.params) )
 
 # look at it
 head( as.data.frame(scen.params) )
@@ -154,16 +151,13 @@ n.reps.per.scen = 1000
 #n.reps.per.scen = 1  # debugging
 
 # reps per doParallel job, one entry per row of scen.params.
-# This is the only line to edit when the sizing rule changes.
-reps.in.doParallel = ifelse( scen.params$W_dim == 1, 250, 25 )
+reps.in.doParallel = ifelse( (scen.params$W_dim == 1 & scen.params$N < 10e3), 250, 25 )
 
 # job resources, also per scenario (currently constant across arms; split these if the
 # W_dim > 1 scens turn out to need more wall time or memory)
 jobtime.by.scen      = ifelse( scen.params$W_dim == 1, "04:00:00", "04:00:00" )
 mem_per_node.by.scen = rep( 64000, n.scen )
 
-stopifnot( "W_dim" %in% names(scen.params) )
-stopifnot( all(reps.in.doParallel >= 1) )
 
 # split n.reps.per.scen into chunks of AT MOST max.per.chunk, as evenly as possible, so
 # the chunks sum to exactly n.reps.per.scen (no over- or under-run when the numbers
@@ -201,8 +195,6 @@ cat("\nTotal scens:", n.scen, "  Total sbatch files:", n.files, "\n")
 
 # ~~ BUILD SBATCH PARAMS -------------------------------------------------------
 
-
-
 jobname = paste("job", 1:n.files, sep="_")
 outfile = paste("/home/groups/manishad/IAI/rmfiles/rm_", 1:n.files, ".out", sep="")
 errorfile = paste("/home/groups/manishad/IAI/rmfiles/rm_", 1:n.files, ".err", sep="")
@@ -212,10 +204,10 @@ runfile_path = paste(path, "/testRunFile.R", sep="")
 sbatch_params <- data.frame(jobname,
                             outfile,
                             errorfile,
-                            jobtime = jobtime,              ### CHANGED: now per scenario
+                            jobtime = jobtime,             
                             quality = "normal",
                             node_number = 1,
-                            mem_per_node = mem_per_node,    ### CHANGED: now per scenario
+                            mem_per_node = mem_per_node,    
                             mailtype =  "NONE",
                             user_email = "mmathur@stanford.edu",
                             tasks_per_node = 16,
@@ -240,7 +232,7 @@ n.files
 path = "/home/groups/manishad/IAI"
 partition = "qsu,owners,normal"
 setwd( paste(path, "/sbatch_files", sep="") )
-for (i in 1:924) {
+for (i in 1:1540) {
   system( paste("sbatch -p ", partition, " /home/groups/manishad/IAI/sbatch_files/", i, ".sbatch", sep="") )
 }
 

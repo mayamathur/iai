@@ -1038,7 +1038,14 @@ for ( scen in scens_to_run ) {
               Qform        = Q_form,
               prescreenW.g = FALSE,          # keep the whole W block in the g model
               verbose      = FALSE,
-              cvQinit = FALSE  # ****2026-07-27 - added to prevent tmle from crashing
+              #cvQinit = FALSE  # ****2026-07-27 - added to prevent tmle from crashing
+              
+              # 2026-07-28 - NOTE: The next 2 arguments patch a bug in tmle(): 
+              #  throws "subscript out of bounds" whenever cvQinit = TRUE and the input has fewer rows than V.Q,
+              #  because estimateQ builds its fold list via split(sample(1:n.id), rep(1:V, length = n.id)). 
+              # That returns only n.id folds when n.id < V — then indexes id.split[[v]] over the full 1:V.
+              cvQinit = TRUE,
+              V.Q = max(2, min(10, floor(length(idx)/5)))
             )
             
             # var.psi is the plug-in EIF variance, var(IC)/n, where
