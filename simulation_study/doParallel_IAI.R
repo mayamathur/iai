@@ -148,8 +148,8 @@ if ( run.local == TRUE ) {
     mice_method = NA,  # let MICE use its defaults
     
     # AF4 parameters
-    boot_reps_af4 = 0,
-    #boot_reps_af4 = 1000,  # only needed for CIs; if set to 0, won't give CIs
+    boot_reps_mia_ice = 0,
+    #boot_reps_mia_ice = 1000,  # only needed for CIs; if set to 0, won't give CIs
     mia_n_mc = 10000, 
     
     # for mia_tmle
@@ -751,7 +751,7 @@ for ( scen in scens_to_run ) {
                                     # point estimate = the exposure 1 vs 0 contrast
                                     # inthat = reference-level mean E0 (exposure 0, covars 0),
                                     # i.e. fit$mean_est_2 -- the "(Intercept)"-analogue level.
-                                    if ( p$boot_reps_af4 == 0 ) {
+                                    if ( p$boot_reps_mia_ice == 0 ) {
                                       return( list( stats = data.frame(
                                         bhat   = fit$contrast_est,
                                         inthat = fit$mean_est_2
@@ -763,7 +763,7 @@ for ( scen in scens_to_run ) {
                                     # and wraps boot / boot.ci. type = "bca" is the mia default.
                                     ci_obj = miapack::get_CI(
                                       mia_res = fit,
-                                      n_boot  = p$boot_reps_af4,
+                                      n_boot  = p$boot_reps_mia_ice,
                                       type    = "bca",   
                                       conf    = 0.95
                                     )
@@ -884,7 +884,7 @@ for ( scen in scens_to_run ) {
                                     # point estimate = the exposure 1 vs 0 contrast
                                     # inthat = reference-level mean E0 (exposure 0, covars 0),
                                     # i.e. fit$mean_est_2 -- the "(Intercept)"-analogue level.
-                                    if ( p$boot_reps_af4 == 0 ) {
+                                    if ( p$boot_reps_mia_ice == 0 ) {
                                       return( list( stats = data.frame(
                                         bhat   = fit$contrast_est,
                                         inthat = fit$mean_est_2
@@ -896,7 +896,7 @@ for ( scen in scens_to_run ) {
                                     # and wraps boot / boot.ci. type = "bca" is the mia default.
                                     ci_obj = miapack::get_CI(
                                       mia_res = fit,
-                                      n_boot  = p$boot_reps_af4,
+                                      n_boot  = p$boot_reps_mia_ice,
                                       type    = "bca",   
                                       conf    = 0.95
                                     )

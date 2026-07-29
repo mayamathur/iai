@@ -50,9 +50,11 @@ scen.params = tidyr::expand_grid(
   # imp_maxit = 100,
   # mice_method = NA,  # let MICE use its defaults
   
-  # # mia-pkg-sp parameters
-  # boot_reps_af4 = 1000,  # only needed for CIs; if 0, no CIs
-  # #boot_reps_af4 = 0,
+  # # mia-pkg-ice parameters
+  boot_reps_mia_ice = 1000,  # only needed for CIs; if 0, no CIs
+  # #boot_reps_mia_ice = 0,
+  
+  # mia-pkg-sp parameters
   # mia_n_mc = 10e3,      # Monte Carlo draws for mia-pkg-sp
   
   # mia-tmle parameters
@@ -135,6 +137,8 @@ head( as.data.frame(scen.params) )
 setwd(path)
 write.csv( scen.params, "scen_params.csv", row.names = FALSE )
 
+n.scen = length(unique(scen.params$scen))
+
 
 ########################## GENERATE SBATCHES ##########################
 
@@ -155,7 +159,7 @@ reps.in.doParallel = ifelse( (scen.params$W_dim == 1 & scen.params$N < 10e3), 25
 
 # job resources, also per scenario (currently constant across arms; split these if the
 # W_dim > 1 scens turn out to need more wall time or memory)
-jobtime.by.scen      = ifelse( scen.params$W_dim == 1, "04:00:00", "04:00:00" )
+jobtime.by.scen      = ifelse( scen.params$W_dim == 1, "08:00:00", "08:00:00" )
 mem_per_node.by.scen = rep( 64000, n.scen )
 
 
@@ -229,10 +233,11 @@ n.files
 # run just the first one
 # sbatch -p qsu,owners,normal /home/groups/manishad/IAI/sbatch_files/1.sbatch
 
+# 1540 total
 path = "/home/groups/manishad/IAI"
 partition = "qsu,owners,normal"
 setwd( paste(path, "/sbatch_files", sep="") )
-for (i in 1:1540) {
+for (i in 1:1000) {
   system( paste("sbatch -p ", partition, " /home/groups/manishad/IAI/sbatch_files/", i, ".sbatch", sep="") )
 }
 
