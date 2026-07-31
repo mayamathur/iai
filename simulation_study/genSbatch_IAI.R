@@ -30,48 +30,92 @@ lapply( allPackages,
 
 # SET SIMULATION PARAMETERS -----------------------------------------
 
-# FULL SET
+
+# 2026-07-31 - piloting 5A
 scen.params = tidyr::expand_grid(
   
-  rep.methods = c("gold ; CC ; mia-pkg-ice ; mia-tmle ; IPW-nm"),
-  #rep.methods = c("gold ; mia-tmle"),
+  #rep.methods = "gold ; CC ; mia-pkg-sp ; mia-pkg-ice ; mia-tmle", 
+  #rep.methods = "gold ; mia-tmle ; mia-pkg-ice ; IPW-nm",
+  rep.methods = "gold ; mia-tmle ; mia-pkg-ice ; IPW-nm",
   
-  model = "OLS",  # OLS or logistic
-  
+  model = "OLS", 
   coef_of_interest = "A",
+  N = c(5000),
   
-  # later only N <= 1000 will be retained for W_dim=1 scens,
-  #  and only N > 1000 for w_dim > 1 scens
-  N = c(200, 500, 1000,
-        2000, 5000, 10000),
+  # MICE parameters
+  # as on cluster
+  #imp_m = 5,  # CURRENTLY SET LOW
+  imp_m = 50,
+  imp_maxit = 100,
+  mice_method = NA,  # let MICE use its defaults
   
-  # # MICE parameters (as on cluster)
-  # imp_m = 50,
-  # imp_maxit = 100,
-  # mice_method = NA,  # let MICE use its defaults
+  # AF4 parameters
+  #boot_reps_mia_ice = 0,
+  boot_reps_mia_ice = 1000,  # only needed for CIs; if set to 0, won't give CIs
+  mia_n_mc = 10000, 
   
-  # # mia-pkg-ice parameters
-  boot_reps_mia_ice = 1000,  # only needed for CIs; if 0, no CIs
-  # #boot_reps_mia_ice = 0,
-  
-  # mia-pkg-sp parameters
-  # mia_n_mc = 10e3,      # Monte Carlo draws for mia-pkg-sp
-  
-  # mia-tmle parameters
+  # for mia_tmle
   calculate_tmle_CIs = TRUE,
   
-  dag_name = c("1A", "1B", "1C",
-               "2A", "2B",
-               "3A", "3B"),
+  dag_name = "5A",
+  # 
+  # dag_name = c("5D", "5D-bin",
+  #              "6D", "6D-bin",
+  #              "7D", "7D-bin"
+  #              )  # make sure to pick appropriate outcome model for the DAG
+  
   # dag_name = c("1A", "1B", "1C",
   #              "2A", "2B",
-  #              "3A", "3B",
-  #              "5A", "5B", "5C", "5D", "5E"),
+  #              "3A", "3B"),
   
-  # ~~ W BLOCK -----------------------------------------------
-  W_dim = c(1, 10)
-  #W_dim = 10
+  W_dim = 1
+  #W_dim = c(1, 10)
+  
 )
+
+
+# # FULL SET - 2026-07-30
+# scen.params = tidyr::expand_grid(
+#   
+#   rep.methods = c("gold ; CC ; mia-pkg-ice ; mia-tmle ; IPW-nm"),
+#   #rep.methods = c("gold ; mia-tmle"),
+#   
+#   model = "OLS",  # OLS or logistic
+#   
+#   coef_of_interest = "A",
+#   
+#   # later only N <= 1000 will be retained for W_dim=1 scens,
+#   #  and only N > 1000 for w_dim > 1 scens
+#   N = c(200, 500, 1000,
+#         2000, 5000, 10000),
+#   
+#   # # MICE parameters (as on cluster)
+#   # imp_m = 50,
+#   # imp_maxit = 100,
+#   # mice_method = NA,  # let MICE use its defaults
+#   
+#   # # mia-pkg-ice parameters
+#   boot_reps_mia_ice = 1000,  # only needed for CIs; if 0, no CIs
+#   # #boot_reps_mia_ice = 0,
+#   
+#   # mia-pkg-sp parameters
+#   # mia_n_mc = 10e3,      # Monte Carlo draws for mia-pkg-sp
+#   
+#   # mia-tmle parameters
+#   calculate_tmle_CIs = TRUE,
+#   
+#   dag_name = c("1A", "1B", "1C",
+#                "2A", "2B",
+#                "3A", "3B"),
+#   # dag_name = c("1A", "1B", "1C",
+#   #              "2A", "2B",
+#   #              "3A", "3B",
+#   #              "5A", "5B", "5C", "5D", "5E"),
+#   
+#   # ~~ W BLOCK -----------------------------------------------
+#   W_dim = c(1, 10)
+#   #W_dim = 10
+# )
 
 
 
@@ -111,10 +155,10 @@ table(scen.params$N, scen.params$W_dim)
 # both W_dim columns should be nonempty
 stopifnot( all( table(scen.params$W_dim) > 0 ) )
 
-# 5-series must have W_dim=1
-scen.params = scen.params %>% filter( !( grepl("5", dag_name) & W_dim > 1 ) )
-# check it
-table(scen.params$dag_name, scen.params$W_dim)
+# # 5-series must have W_dim=1
+# scen.params = scen.params %>% filter( !( grepl("5", dag_name) & W_dim > 1 ) )
+# # check it
+# table(scen.params$dag_name, scen.params$W_dim)
 
 # replace rep.methods string to not include IPW-nm when W_dim > 1
 rm_IPW_nm = function(string) paste(setdiff(strsplit(string, "\\s*;\\s*")[[1]], "IPW-nm"), collapse = " ; ")
@@ -137,7 +181,9 @@ head( as.data.frame(scen.params) )
 setwd(path)
 write.csv( scen.params, "scen_params.csv", row.names = FALSE )
 
-n.scen = length(unique(scen.params$scen))
+
+
+( n.scen = length(unique(scen.params$scen)) )
 
 
 ########################## GENERATE SBATCHES ##########################
@@ -155,7 +201,7 @@ n.reps.per.scen = 1000
 #n.reps.per.scen = 1  # debugging
 
 # reps per doParallel job, one entry per row of scen.params.
-reps.in.doParallel = ifelse( (scen.params$W_dim == 1 & scen.params$N < 10e3), 250, 25 )
+reps.in.doParallel = ifelse( (scen.params$W_dim == 1 & scen.params$N < 10e3), 250, 10 )
 
 # job resources, also per scenario (currently constant across arms; split these if the
 # W_dim > 1 scens turn out to need more wall time or memory)
@@ -233,19 +279,14 @@ n.files
 # run just the first one
 # sbatch -p qsu,owners,normal /home/groups/manishad/IAI/sbatch_files/1.sbatch
 
-# 1540 total
+
 path = "/home/groups/manishad/IAI"
 partition = "qsu,owners,normal"
 setwd( paste(path, "/sbatch_files", sep="") )
-for (i in 1:1000) {
+
+for (i in 1:4) {
   system( paste("sbatch -p ", partition, " /home/groups/manishad/IAI/sbatch_files/", i, ".sbatch", sep="") )
 }
-
-# to stage the two arms separately, e.g. submit only the W_dim = 1 jobs first:
-# scens.this.arm = scen.params$scen[ scen.params$W_dim == 1 ]
-# for (i in which( scen.name %in% scens.this.arm )) {
-#   system( paste("sbatch -p ", partition, " /home/groups/manishad/IAI/sbatch_files/", i, ".sbatch", sep="") )
-# }
 
 
 ######## If Running Only Some Jobs To Fill Gaps ########
@@ -258,7 +299,7 @@ source("helper_IAI.R")
 missed.nums = sbatch_not_run( "/home/groups/manishad/IAI/long_results",
                               "/home/groups/manishad/IAI/long_results",
                               .name.prefix = "long_results",
-                              .max.sbatch.num = 924 )
+                              .max.sbatch.num = 1540 )
 
 setwd( paste(path, "/sbatch_files", sep="") )
 for (i in missed.nums) {

@@ -654,112 +654,160 @@ sim_data = function(.p) {
   }  # end of .p$dag_name == "3B"
   
   
+  # ~ DAG 5A-B -----------------------------
+  # 5A: W = W^- case where MIA fails (only for intercept) but MAR works due to CSI
+  # 
   
-  # ~ DAG 5A-5E -----------------------------
-  # Collider + CSI / positivity DAG (Case 1), SINGLE covariate X (= A1).
-  # Edges:  R_X <- X -> Y <-> W <- X,  W -> R_X,  W -> R_Y,  R_X <- R_W -> R_Y.
-  #   - W is a COLLIDER on X -> W <- U -> Y, where U is a latent common cause of
-  #     W and Y (the Y <-> W bidirected edge). Target is E[Y | X], marginal in W.
-  #   - R_X (= RA) depends on BOTH X and W (W gated by R_W). This X -> R_X edge is
-  #     what makes MIA's assumption W _||_ R_X | X fail, so MIA is biased.
-  #   - R_Y (= RB) depends on W (gated by R_W) but NOT on X.
-  #   - R_W (= RW01) ~ Bern(0.5); gates the W -> R_* edges and W's own observation.
-  #
-  # The five cells differ ONLY in the R_W = 1 stratum of the R-model (logit scale);
-  # the R_W = 0 stratum is common. Everything is on the logit scale so the X -> R_X
-  # term (gamma_A * A1) adds uniformly across cells.
-  #   5A normal       : logit p1 = 1 + 1*W        (W -> R active, no violation)
-  #   5B posit exact   : logit p1 = 10            (~1; near-forces observation)
-  #   5C posit near    : logit p1 = qlogis(0.90)  (very likely, not forced)
-  #   5D CSI exact     : logit p1 = 1             (W drops out)
-  #   5E CSI near      : logit p1 = 1 + 0.10*W    (W very weak)
-  if ( .p$dag_name %in% c("5A", "5B", "5C", "5D", "5E") ) {
+  if ( .p$dag_name %in% c("5A", "5B") ) {
     
-    # "fake" variable Z1 is always observed but is independent of everything; used only to prevent all-NA rows
-    du = data.frame( Z1 = rbinom( n = .p$N, size = 1, prob = 0.5 ) )
+    # "fake" variable Z1 is always observed but is independent of everything; used only
+    #  to prevent all-NA rows
+    du = data.frame( Z1 = rbinom( n = .p$N, size = 1, prob = 0.5 ),
+                     C1 = rbinom( n = .p$N, size = 1, prob = 0.5 ) )
     
-    coefAB  = 2     # X -> Y
-    lambda  = 1     # strength of latent common cause U -> Y
-    gamma_A = 2     # X -> R_X (in both strata), added on the logit scale
+    coefAB = 2   # X2 -> Y
+    coefDB = 2   # W  -> Y  
     
-    # single covariate X
-    du$A1 = rbinom( n = .p$N, size = 1, prob = 0.5 )
-    
-    # latent common cause of W and Y (never enters any analysis dataset)
-    U = rnorm( n = .p$N )
-    
-    # Y: X -> Y and U -> Y; NO W term (target E[Y | X], marginal in W)
-    du$B1 = rnorm( n = .p$N, mean = coefAB*du$A1 + lambda*U )
-    
-    # W: COLLIDER on X (A1) -> W <- U. Univariate coin flip given parents.
-    du$W01_true = rbinom( n = .p$N, size = 1, prob = expit(-0.5 + 1.5*du$A1 + 1.5*U) )
-    
-    # single scalar R_W: gates W -> R_* and decides whether W is observed
-    du$RW01 = rbinom( n = .p$N, size = 1, prob = 0.5 )
-    
-    # Stratum probability for the R-models (before the X -> R_X term). 
-    # p0 := p(Ri = 1 | R_W = 0); p1 := p(Ri = 1 | R_W = 1)
-    r_prob = function(W, RW) {
-      p0 = expit(-1 + 3*W)                        # R_W = 0 stratum (W -> R active)
-      p1 = switch( .p$dag_name,
-                   "5A" = expit(1 + 1 * W), # no violations or near-violations
-                   "5B" = rep(1, length(W)),      # positivity exact violation: forces prob = 1
-                   "5C" = rep(0.90, length(W)),    # positivity near-violation
-                   "5D" = rep(expit(1), length(W)),        # CSI exact: no effect of W
-                   "5E" = expit(1 + 0.10 * W) )        # CSI near-violation: W very weak
-      ifelse( RW == 1, p1, p0 )
+    if ( is.null(.p$W_dim) || is.na(.p$W_dim) || .p$W_dim <= 1 ) {
+      
+      # ~~ LEGACY single scalar auxiliary D ------------------------------------
+      du$W01_true = rbinom( n = .p$N, size = 1, prob = 0.5 )   # W is a source node
+      du$RW01     = rbinom( n = .p$N, size = 1, prob = 0.5 )   # R_W is isolated
+      du$A1       = rbinom( n = .p$N, size = 1, prob = expit(-1 + 3*du$C1) )
+      du$B1       = rnorm(  n = .p$N, mean = coefAB*du$A1 + 2.6*du$C1 + du$A1*du$C1 +
+                              coefDB*du$W01_true )
+      
+      # 5A: true CSI
+      if ( .p$dag_name == "5A") pR = ifelse( du$RW01 == 1,
+                                             expit(-0.5 + 2*du$W01_true),
+                                             0.5 )
+      
+      # 5B: near-CSI (just a very strong interaction)
+      if ( .p$dag_name == "5A") pR = ifelse( du$RW01 == 1,
+                                             expit(-0.5 + 2*du$W01_true),
+                                             expit(-0.5 + 0.5*du$W01_true) )
+      
+      du$RA = rbinom( n = .p$N, size = 1, prob = pR )
+      du$RB = rbinom( n = .p$N, size = 1, prob = pR )
+      
+      W = NULL; W_cal = NULL; W_obs_names = "W01"
+      
+    } else {
+      stop("Only W_dim = 1 is implemented for this DAG.")
     }
     
-    # Add the X -> R_X edge (gamma_A * A1) on the logit scale to the stratum prob,
-    # but leave saturated probabilities at their value (so 5B's forced prob = 1
-    # stays exactly 1; X -> R_X simply does not bind in that saturated stratum).
-    add_X = function(p, X) {
-      out = p
-      unsat = p > 0 & p < 1
-      out[unsat] = expit( qlogis(p[unsat]) + gamma_A * X[unsat] )
-      out
+    du = du %>% mutate( A = ifelse(RA == 1, A1, NA),
+                        B = ifelse(RB == 1, B1, NA),
+                        C = C1,
+                        Z = Z1,
+                        W01 = ifelse(RW01 == 1, W01_true, NA) )
+    
+    
+    # sanity check
+  #bm
+    cc = du %>% filter(RA == 1 & RB == 1 & RW01 == 1)
+    mean(cc$W01_true)
+    if ( length(unique(cc$W01_true)) < 2 ) {
+      warning("5A: W01 is constant among complete cases; Y model not estimable")
     }
-    
-    # R_X (= RA): depends on X and W.  R_Y (= RB): W only, NO X term.
-    du$RA = rbinom( n = .p$N, size = 1, prob = add_X( r_prob(du$W01_true, du$RW01), du$A1 ) )
-    du$RB = rbinom( n = .p$N, size = 1, prob =        r_prob(du$W01_true, du$RW01)          )
-    
-    du = du %>% mutate( A   = ifelse(RA == 1, A1, NA),
-                        B   = ifelse(RB == 1, B1, NA),
-                        W01 = ifelse(RW01 == 1, W01_true, NA),
-                        Z   = Z1 )
-    
-    # make dataset for imputation (single X: A, outcome B, auxiliary W01, fake Z)
-    di = du %>% select(A, B, W01, Z)
-    
+
+    # make dataset for imputation
+    di = du %>% select( all_of( c("A", "B", "C", W_obs_names, "Z") ) )
     
     ### For just the intercept of A
     if ( .p$coef_of_interest == "(Intercept)" ){ 
       stop("Intercept not implemented for this DAG")
     }
     
-    
     ### Coefficient of interest
-    if ( .p$coef_of_interest %in% c("A") ){ 
-      
-      # regression strings (single covariate, no interaction)
-      form_string = "B ~ A"
-      
-      # gold-standard model uses underlying variables
-      gold_form_string = "B1 ~ A1"
-      
-      beta = NA
-      
-      # custom predictor matrix for MICE-ours-pred
+    if ( .p$coef_of_interest %in% c("A", "C" ) ){ 
+      form_string      = "B ~ A * C"
+      gold_form_string = "B1 ~ A1 * C1"
+      beta             = NA
       exclude_from_imp_model = NULL
     }
     
+  }  # end of .p$dag_name == "5A"
+  
+  
+  
+  # ~ DAG 6A -----------------------------
+  # V^- = Y (X complete); W = {Wc (COMPLETE), W01 (incomplete)}, so W != W^-.
+  #   => Key Case 1 applies, Key Case 2 does NOT.
+  #   MNAR wrt V u W^+ = {X, Y, Wc}, yet MAR holds wrt V u W: the incomplete
+  #   auxiliary restores MAR, contradicting Corollary 1 / Theorem 2.
+  #   A1 (positivity) HOLDS; only A2 (CSI) is violated:
+  #     W01 -> R_Y is active only conditional on R_W01 = 1.
+  #
+  #   Wc -> R_W01 is an ORDINARY edge (Wc is complete, so it may appear in every
+  #   pattern probability without breaking MAR) -- this is what puts Wc into W_R.
+  #
+  # Consequences:
+  #   mu_MAR   CORRECT via (C1-WCC)
+  #   W_R = {Wc}, W_R^c = {W01}; Y \nind Wc | (X, W01)  => (C2-MIA) VIOLATED
+  #   (C1-MIA) HOLDS, so MIA's only bias source is the tilted outer measure
+  #   uCC biased about twice as much as MIA (tilts both Wc and W01)
+  
+  if ( .p$dag_name == "6A" ) {
     
-  }  # end of .p$dag_name %in% 5A/5B/5C/5D/5E
+    # "fake" variable Z1 is always observed but is independent of everything; used only
+    #  to prevent all-NA rows
+    du = data.frame( Z1 = rbinom( n = .p$N, size = 1, prob = 0.5 ),
+                     C1 = rbinom( n = .p$N, size = 1, prob = 0.5 ) )
+    
+    coefAB  = 2   # X2 -> Y
+    coefDB  = 2   # W01 -> Y   (REQUIRED for MNAR wrt V u W^+)
+    coefWcB = 2   # Wc  -> Y   (REQUIRED: without it, Y \ind Wc and (C2-MIA)(b) holds)
+    
+    if ( is.null(.p$W_dim) || is.na(.p$W_dim) || .p$W_dim <= 1 ) {
+      
+      # ~~ LEGACY scalar branch, but with TWO auxiliaries -----------------------
+      du$Wc01     = rbinom( n = .p$N, size = 1, prob = 0.5 )   # COMPLETE auxiliary
+      du$W01_true = rbinom( n = .p$N, size = 1, prob = 0.5 )   # incomplete auxiliary
+      du$A1       = rbinom( n = .p$N, size = 1, prob = expit(-1 + 3*du$C1) )
+      du$B1       = rnorm(  n = .p$N, mean = coefAB*du$A1 + 2.6*du$C1 + du$A1*du$C1 +
+                              coefWcB*du$Wc01 + coefDB*du$W01_true )
+      
+      # Wc -> R_W01 (ordinary edge; Wc always observed)
+      du$RW01 = rbinom( n = .p$N, size = 1, prob = expit(-1 + 3*du$Wc01) )
+      
+      # CSI: W01 -> R_Y active iff R_W01 = 1
+      pRY   = ifelse( du$RW01 == 1, expit(-1 + 3*du$W01_true), 0.5 )
+      du$RB = rbinom( n = .p$N, size = 1, prob = pRY )
+      
+      du$RA = 1L   # X is complete
+      du$RC = 1L
+      
+      W = NULL; W_cal = NULL; W_obs_names = c("W01", "Wc01")
+      
+    } else {
+      stop("Only W_dim = 1 is implemented for this DAG.")
+    }
+    
+    du = du %>% mutate( A = A1,
+                        B = ifelse(RB == 1, B1, NA),
+                        C = C1,
+                        Z = Z1,
+                        W01 = ifelse(RW01 == 1, W01_true, NA) )
+    
+    # make dataset for imputation
+    di = du %>% select( all_of( c("A", "B", "C", W_obs_names, "Z") ) )
+    
+    ### For just the intercept of A
+    if ( .p$coef_of_interest == "(Intercept)" ){ 
+      stop("Intercept not implemented for this DAG")
+    }
+    
+    ### Coefficient of interest
+    if ( .p$coef_of_interest %in% c("A", "C" ) ){ 
+      form_string      = "B ~ A * C"
+      gold_form_string = "B1 ~ A1 * C1"
+      beta             = NA
+      exclude_from_imp_model = NULL
+    }
+    
+  }  # end of .p$dag_name == "6A"
   
-  
-  
-
   # ~ Finish generating data ----------------
   return( list(du = du,
                di = di,
@@ -2306,10 +2354,6 @@ af4_cate_c = function( du, c, type){
         p_d1 <- mean( dw$D[ dw$A == a & dw$C == c ] == 1 )
         # c.f. truth
         # mean( du$W01_true[ du$A1 == a & du$C1 == c ] == 1 )
-        
-        #bm: for DAG 3A, the above IS wrong, as expected
-        # could look at coef of C in the regression below?
-        # doesn't this mean that at least the D=1 term is wrong, i.e., m_B_ac? - try it.
         
         if (d == 1) p_d = p_d1 else p_d = 1 - p_d1
         
