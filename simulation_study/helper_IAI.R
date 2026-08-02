@@ -656,7 +656,8 @@ sim_data = function(.p) {
   
   # ~ DAG 5A-B -----------------------------
   # 5A: W = W^- case where MIA fails (only for intercept) but MAR works due to CSI
-  # 
+  # 5A: MAR
+  # 5B: slight MNAR
   
   if ( .p$dag_name %in% c("5A", "5B") ) {
     
@@ -666,7 +667,7 @@ sim_data = function(.p) {
                      C1 = rbinom( n = .p$N, size = 1, prob = 0.5 ) )
     
     coefAB = 2   # X2 -> Y
-    coefDB = 2   # W  -> Y  
+    coefDB = 3   # W  -> Y  
     
     if ( is.null(.p$W_dim) || is.na(.p$W_dim) || .p$W_dim <= 1 ) {
       
@@ -679,13 +680,13 @@ sim_data = function(.p) {
       
       # 5A: true CSI
       if ( .p$dag_name == "5A") pR = ifelse( du$RW01 == 1,
-                                             expit(-0.5 + 2*du$W01_true),
+                                             expit(-0.5 + 3*du$W01_true),
                                              0.5 )
       
       # 5B: near-CSI (just a very strong interaction)
-      if ( .p$dag_name == "5A") pR = ifelse( du$RW01 == 1,
-                                             expit(-0.5 + 2*du$W01_true),
-                                             expit(-0.5 + 0.5*du$W01_true) )
+      if ( .p$dag_name == "5B") pR = ifelse( du$RW01 == 1,
+                                             expit(-0.5 + 3*du$W01_true),
+                                             expit(-0.5 + 0.75*du$W01_true) )
       
       du$RA = rbinom( n = .p$N, size = 1, prob = pR )
       du$RB = rbinom( n = .p$N, size = 1, prob = pR )
@@ -731,54 +732,53 @@ sim_data = function(.p) {
   
   
   
-  # ~ DAG 6A -----------------------------
-  # V^- = Y (X complete); W = {Wc (COMPLETE), W01 (incomplete)}, so W != W^-.
-  #   => Key Case 1 applies, Key Case 2 does NOT.
-  #   MNAR wrt V u W^+ = {X, Y, Wc}, yet MAR holds wrt V u W: the incomplete
-  #   auxiliary restores MAR, contradicting Corollary 1 / Theorem 2.
-  #   A1 (positivity) HOLDS; only A2 (CSI) is violated:
-  #     W01 -> R_Y is active only conditional on R_W01 = 1.
-  #
-  #   Wc -> R_W01 is an ORDINARY edge (Wc is complete, so it may appear in every
-  #   pattern probability without breaking MAR) -- this is what puts Wc into W_R.
-  #
-  # Consequences:
-  #   mu_MAR   CORRECT via (C1-WCC)
-  #   W_R = {Wc}, W_R^c = {W01}; Y \nind Wc | (X, W01)  => (C2-MIA) VIOLATED
-  #   (C1-MIA) HOLDS, so MIA's only bias source is the tilted outer measure
-  #   uCC biased about twice as much as MIA (tilts both Wc and W01)
+  # ~ DAG 6A-B -----------------------------
+  # V^- = Y (X complete); W = {W02 (COMPLETE), W01 (incomplete)}, so W != W^-.
+  # 6A: MAR
+  # 6B: slight MNAR
   
-  if ( .p$dag_name == "6A" ) {
+  
+  if ( .p$dag_name %in% c( "6A", "6B" ) ) {
     
     # "fake" variable Z1 is always observed but is independent of everything; used only
     #  to prevent all-NA rows
     du = data.frame( Z1 = rbinom( n = .p$N, size = 1, prob = 0.5 ),
                      C1 = rbinom( n = .p$N, size = 1, prob = 0.5 ) )
     
-    coefAB  = 2   # X2 -> Y
-    coefDB  = 2   # W01 -> Y   (REQUIRED for MNAR wrt V u W^+)
-    coefWcB = 2   # Wc  -> Y   (REQUIRED: without it, Y \ind Wc and (C2-MIA)(b) holds)
+    coefAB    = 2   # X2  -> Y
+    coefW01B  = 2   # W01 -> Y   (incomplete auxiliary)
+    coefW02B  = 2   # W02 -> Y   (complete auxiliary)
     
     if ( is.null(.p$W_dim) || is.na(.p$W_dim) || .p$W_dim <= 1 ) {
       
       # ~~ LEGACY scalar branch, but with TWO auxiliaries -----------------------
-      du$Wc01     = rbinom( n = .p$N, size = 1, prob = 0.5 )   # COMPLETE auxiliary
+      # W01 is the incomplete auxiliary; W02 is complete by construction (RW02 == 1).
       du$W01_true = rbinom( n = .p$N, size = 1, prob = 0.5 )   # incomplete auxiliary
+      du$W02_true = rbinom( n = .p$N, size = 1, prob = 0.5 )   # COMPLETE auxiliary
       du$A1       = rbinom( n = .p$N, size = 1, prob = expit(-1 + 3*du$C1) )
       du$B1       = rnorm(  n = .p$N, mean = coefAB*du$A1 + 2.6*du$C1 + du$A1*du$C1 +
-                              coefWcB*du$Wc01 + coefDB*du$W01_true )
+                              coefW01B*du$W01_true + coefW02B*du$W02_true )
       
-      # Wc -> R_W01 (ordinary edge; Wc always observed)
-      du$RW01 = rbinom( n = .p$N, size = 1, prob = expit(-1 + 3*du$Wc01) )
+      # W02 -> R_W01 (ordinary edge; W02 always observed)
+      du$RW01 = rbinom( n = .p$N, size = 1, prob = expit(-1 + 3*du$W02_true) )
+      du$RW02 = 1L   # W02 is complete
       
-      # CSI: W01 -> R_Y active iff R_W01 = 1
-      pRY   = ifelse( du$RW01 == 1, expit(-1 + 3*du$W01_true), 0.5 )
+      # 6A: true CSI
+      if ( .p$dag_name == "6A" ) pRY   = ifelse( du$RW01 == 1,
+                                                 expit(-1 + 2*du$W01_true),
+                                                 0.5 )
+      # 6B: near-CSI
+      if ( .p$dag_name == "6B" ) pRY   = ifelse( du$RW01 == 1,
+                                                 expit(-1 + 2*du$W01_true),
+                                                 expit(-1 + 0.5*du$W01_true))
+      
+      
       du$RB = rbinom( n = .p$N, size = 1, prob = pRY )
       
       du$RA = 1L   # X is complete
       du$RC = 1L
       
-      W = NULL; W_cal = NULL; W_obs_names = c("W01", "Wc01")
+      W = NULL; W_cal = NULL; W_obs_names = c("W01", "W02")
       
     } else {
       stop("Only W_dim = 1 is implemented for this DAG.")
@@ -788,25 +788,12 @@ sim_data = function(.p) {
                         B = ifelse(RB == 1, B1, NA),
                         C = C1,
                         Z = Z1,
-                        W01 = ifelse(RW01 == 1, W01_true, NA) )
+                        W01 = ifelse(RW01 == 1, W01_true, NA),
+                        W02 = ifelse(RW02 == 1, W02_true, NA) )
     
     # make dataset for imputation
     di = du %>% select( all_of( c("A", "B", "C", W_obs_names, "Z") ) )
-    
-    ### For just the intercept of A
-    if ( .p$coef_of_interest == "(Intercept)" ){ 
-      stop("Intercept not implemented for this DAG")
-    }
-    
-    ### Coefficient of interest
-    if ( .p$coef_of_interest %in% c("A", "C" ) ){ 
-      form_string      = "B ~ A * C"
-      gold_form_string = "B1 ~ A1 * C1"
-      beta             = NA
-      exclude_from_imp_model = NULL
-    }
-    
-  }  # end of .p$dag_name == "6A"
+  
   
   # ~ Finish generating data ----------------
   return( list(du = du,

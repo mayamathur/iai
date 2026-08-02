@@ -57,7 +57,7 @@ scen.params = tidyr::expand_grid(
   # for mia_tmle
   calculate_tmle_CIs = TRUE,
   
-  dag_name = "5A",
+  dag_name = c("5A", "5B", "6A", "6B"),
   # 
   # dag_name = c("5D", "5D-bin",
   #              "6D", "6D-bin",
@@ -197,7 +197,7 @@ source("helper_IAI.R")
 # scenario still gets exactly n.reps.per.scen reps in total.
 # 2026-07-24 - for sims with N <= 1,000 including all methods, sim.reps=250 with job
 #   time 4:00:00 worked well (these are now the W_dim = 1 scens).
-n.reps.per.scen = 1000
+n.reps.per.scen = 500  # **temp: I used 1000 for real sims
 #n.reps.per.scen = 1  # debugging
 
 # reps per doParallel job, one entry per row of scen.params.
@@ -284,7 +284,7 @@ path = "/home/groups/manishad/IAI"
 partition = "qsu,owners,normal"
 setwd( paste(path, "/sbatch_files", sep="") )
 
-for (i in 1:4) {
+for (i in 1:8) {
   system( paste("sbatch -p ", partition, " /home/groups/manishad/IAI/sbatch_files/", i, ".sbatch", sep="") )
 }
 
