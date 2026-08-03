@@ -40,7 +40,7 @@ scen.params = tidyr::expand_grid(
   
   model = "OLS", 
   coef_of_interest = "A",
-  N = c(5000),
+  N = c(1000),
   
   # MICE parameters
   # as on cluster
@@ -198,15 +198,21 @@ source("helper_IAI.R")
 # 2026-07-24 - for sims with N <= 1,000 including all methods, sim.reps=250 with job
 #   time 4:00:00 worked well (these are now the W_dim = 1 scens).
 n.reps.per.scen = 500  # **temp: I used 1000 for real sims
-#n.reps.per.scen = 1  # debugging
 
 # reps per doParallel job, one entry per row of scen.params.
 reps.in.doParallel = ifelse( (scen.params$W_dim == 1 & scen.params$N < 10e3), 250, 10 )
 
 # job resources, also per scenario (currently constant across arms; split these if the
 # W_dim > 1 scens turn out to need more wall time or memory)
-jobtime.by.scen      = ifelse( scen.params$W_dim == 1, "08:00:00", "08:00:00" )
+jobtime.by.scen      = ifelse( scen.params$W_dim == 1, "02:00:00", "08:00:00" )
 mem_per_node.by.scen = rep( 64000, n.scen )
+
+# ******* DEBUGGING ONLY
+if (FALSE) {
+  n.reps.per.scen = 1  # debugging
+  jobtime.by.scen      = ifelse( scen.params$W_dim == 1, "00:20:00", "00:20:00" )
+}
+
 
 
 # split n.reps.per.scen into chunks of AT MOST max.per.chunk, as evenly as possible, so
@@ -284,7 +290,7 @@ path = "/home/groups/manishad/IAI"
 partition = "qsu,owners,normal"
 setwd( paste(path, "/sbatch_files", sep="") )
 
-for (i in 1:8) {
+for (i in 2:8) {
   system( paste("sbatch -p ", partition, " /home/groups/manishad/IAI/sbatch_files/", i, ".sbatch", sep="") )
 }
 

@@ -705,7 +705,6 @@ sim_data = function(.p) {
     
     
     # sanity check
-  #bm
     cc = du %>% filter(RA == 1 & RB == 1 & RW01 == 1)
     mean(cc$W01_true)
     if ( length(unique(cc$W01_true)) < 2 ) {
@@ -793,6 +792,22 @@ sim_data = function(.p) {
     
     # make dataset for imputation
     di = du %>% select( all_of( c("A", "B", "C", W_obs_names, "Z") ) )
+    
+    ### For just the intercept of A
+    if ( .p$coef_of_interest == "(Intercept)" ){ 
+      stop("Intercept not implemented for this DAG")
+    }
+    
+    ### Coefficient of interest
+    if ( .p$coef_of_interest %in% c("A", "C" ) ){ 
+      form_string      = "B ~ A * C"
+      gold_form_string = "B1 ~ A1 * C1"
+      beta             = NA
+      exclude_from_imp_model = NULL
+    }
+    
+  }  # end of .p$dag_name == "6A"
+  
   
   
   # ~ Finish generating data ----------------
@@ -904,13 +919,11 @@ fit_regression = function(form_string,
     
     # Identify variables to be used in the analysis
     # misnomer because we'd also include auxiliaries here! 
-    #analysis_vars <- all.vars( as.formula(form_string) )
-    # was: intersect(c("A", "B", "C", "W01"), colnames(dat)) -- hard-coded, and
-    # silently dropped every W component once W became high-dimensional.
-    analysis_vars = intersect( c("A", "B", "C", "W01", w_names(p)$obs), colnames(dat) )
-    # guard: the JAGS pattern model builds one parameter block per observed
-    # missingness pattern, so it is not viable for a high-dimensional W.
-    if ( length(analysis_vars) > 4 ) {
+    W_cols = grep( "^W[0-9]+$", colnames(dat), value = TRUE )
+    analysis_vars = intersect( c("A", "B", "C", W_cols), colnames(dat) )
+    
+    # pattern count is driven by *incomplete* variables; complete auxiliaries are free
+    if ( sum( vapply(dat[, analysis_vars, drop = FALSE], anyNA, logical(1)) ) > 4 ) {
       stop("IPW-nm is not supported when W is high-dimensional (pattern count explodes); use MICE instead.")
     }
     

@@ -133,7 +133,7 @@ if ( run.local == TRUE ) {
   scen.params = tidyr::expand_grid(
     
     #rep.methods = "gold ; CC ; mia-pkg-sp ; mia-pkg-ice ; mia-tmle", 
-    rep.methods = "gold ; IPW-nm",
+    rep.methods = "gold ; mia-pkg-ice ; mia-tmle ; IPW-nm",
     #rep.methods = "mia-pkg-ice",
     
     model = "OLS", 
@@ -148,14 +148,14 @@ if ( run.local == TRUE ) {
     mice_method = NA,  # let MICE use its defaults
     
     # AF4 parameters
-    boot_reps_mia_ice = 0,
-    #boot_reps_mia_ice = 1000,  # only needed for CIs; if set to 0, won't give CIs
+    #boot_reps_mia_ice = 0,
+    boot_reps_mia_ice = 1000,  # only needed for CIs; if set to 0, won't give CIs
     mia_n_mc = 10000, 
     
     # for mia_tmle
     calculate_tmle_CIs = TRUE,
     
-    dag_name = c("6A"),
+    dag_name = c("5A"),
     # 
     # dag_name = c("5D", "5D-bin",
     #              "6D", "6D-bin",

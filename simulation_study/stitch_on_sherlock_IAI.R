@@ -7,6 +7,11 @@ setwd(path)
 source("helper_IAI.R")
 
 
+
+source("stitch_IAI.R")
+stitch()
+
+
 # PRELIMINARIES ----------------------------------------------
 
 library(data.table)
