@@ -9,10 +9,13 @@ source("helper_IAI.R")
 
 
 source("stitch_IAI.R")
+
+
+# runs everything below:
 stitch()
 
 
-# PRELIMINARIES ----------------------------------------------
+# TO RUN STITCH() MANUALLY ----------------------------------------------
 
 library(data.table)
 library(dplyr)
@@ -103,11 +106,6 @@ correct.order = c("gold", "CC", "MICE-std", "Am-std", "genloc", "IPW-custom", "I
 s$method = factor(s$method, levels = correct.order)
 
 # fill in beta (where it's NA) using gold-standard
-# s = data.frame( scen.name = c(1,1,1,1,2,2,2,2),
-#                 beta = c( rep(NA,4), rep(1,4)),
-#                 method = rep( c("gold", "gold", "other", "other"), 2),
-#                 bhat = rep( c(2,3,0,1), 2 ) )  # test
-
 beta_emp = s %>% filter(method == "gold") %>%
   group_by(scen.name) %>%
   summarise(beta = meanNA(bhat)) 
@@ -123,9 +121,11 @@ s2 = s
 
 
 s2 = s2 %>% rowwise() %>%
+  # beta defaults to the hard-coded true one UNLESS it's not available...
   mutate( beta = ifelse( !is.na(beta),
                          beta,
                          beta_emp$beta[ beta_emp$scen.name == scen.name ] ),
+          # ... but intercept always uses the empirical one.
           int = int_emp$int[ int_emp$scen.name == scen.name ] )
 
 # sanity check

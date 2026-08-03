@@ -57,7 +57,7 @@ scen.params = tidyr::expand_grid(
   # for mia_tmle
   calculate_tmle_CIs = TRUE,
   
-  dag_name = c("5A", "5B", "6A", "6B"),
+  dag_name = c("5C", "5D", "6C", "6D"),
   # 
   # dag_name = c("5D", "5D-bin",
   #              "6D", "6D-bin",
@@ -290,7 +290,7 @@ path = "/home/groups/manishad/IAI"
 partition = "qsu,owners,normal"
 setwd( paste(path, "/sbatch_files", sep="") )
 
-for (i in 2:8) {
+for (i in 1:8) {
   system( paste("sbatch -p ", partition, " /home/groups/manishad/IAI/sbatch_files/", i, ".sbatch", sep="") )
 }
 

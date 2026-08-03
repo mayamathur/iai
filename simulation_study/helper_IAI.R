@@ -659,7 +659,7 @@ sim_data = function(.p) {
   # 5A: MAR
   # 5B: slight MNAR
   
-  if ( .p$dag_name %in% c("5A", "5B") ) {
+  if ( .p$dag_name %in% c("5A", "5B", "5C", "5D") ) {
     
     # "fake" variable Z1 is always observed but is independent of everything; used only
     #  to prevent all-NA rows
@@ -678,7 +678,7 @@ sim_data = function(.p) {
       du$B1       = rnorm(  n = .p$N, mean = coefAB*du$A1 + 2.6*du$C1 + du$A1*du$C1 +
                               coefDB*du$W01_true )
       
-      # 5A: true CSI
+      # 5A: true CSI (mechanism is flat in W when W is missing)
       if ( .p$dag_name == "5A") pR = ifelse( du$RW01 == 1,
                                              expit(-0.5 + 3*du$W01_true),
                                              0.5 )
@@ -687,6 +687,22 @@ sim_data = function(.p) {
       if ( .p$dag_name == "5B") pR = ifelse( du$RW01 == 1,
                                              expit(-0.5 + 3*du$W01_true),
                                              expit(-0.5 + 0.75*du$W01_true) )
+      
+      # 5C: CSI arising from a HARD positivity violation. R_W = 0 forces
+      #  R_X2 = R_Y = 0, so the mechanism is degenerate (not merely flat) in that
+      #  context and is trivially free of W there. MAR, but no complete cases
+      #  whatsoever in the R_W = 0 stratum.
+      if ( .p$dag_name == "5C") pR = ifelse( du$RW01 == 1,
+                                             expit(-0.5 + 3*du$W01_true),
+                                             0 )
+      
+      # 5D: near-CSI arising from a NEAR-positivity violation. Deliberately keeps
+      #  the SAME W slope as the R_W = 1 branch -- only the intercept shifts -- so
+      #  that near-positivity is the sole source of near-CSI, with no added
+      #  interaction. Gives P(R = 0 | R_W = 0) = 0.90 per indicator.
+      if ( .p$dag_name == "5D") pR = ifelse( du$RW01 == 1,
+                                             expit(-0.5 + 3*du$W01_true),
+                                             expit(-4.5 + 3*du$W01_true) )
       
       du$RA = rbinom( n = .p$N, size = 1, prob = pR )
       du$RB = rbinom( n = .p$N, size = 1, prob = pR )
@@ -708,9 +724,9 @@ sim_data = function(.p) {
     cc = du %>% filter(RA == 1 & RB == 1 & RW01 == 1)
     mean(cc$W01_true)
     if ( length(unique(cc$W01_true)) < 2 ) {
-      warning("5A: W01 is constant among complete cases; Y model not estimable")
+      warning( paste0(.p$dag_name, ": W01 is constant among complete cases; Y model not estimable") )
     }
-
+    
     # make dataset for imputation
     di = du %>% select( all_of( c("A", "B", "C", W_obs_names, "Z") ) )
     
@@ -727,7 +743,7 @@ sim_data = function(.p) {
       exclude_from_imp_model = NULL
     }
     
-  }  # end of .p$dag_name == "5A"
+  }  # end of .p$dag_name %in% c("5A", "5B", "5C", "5D")
   
   
   
@@ -737,76 +753,99 @@ sim_data = function(.p) {
   # 6B: slight MNAR
   
   
-  if ( .p$dag_name %in% c( "6A", "6B" ) ) {
-    
-    # "fake" variable Z1 is always observed but is independent of everything; used only
-    #  to prevent all-NA rows
-    du = data.frame( Z1 = rbinom( n = .p$N, size = 1, prob = 0.5 ),
-                     C1 = rbinom( n = .p$N, size = 1, prob = 0.5 ) )
-    
-    coefAB    = 2   # X2  -> Y
-    coefW01B  = 2   # W01 -> Y   (incomplete auxiliary)
-    coefW02B  = 2   # W02 -> Y   (complete auxiliary)
-    
-    if ( is.null(.p$W_dim) || is.na(.p$W_dim) || .p$W_dim <= 1 ) {
+    if ( .p$dag_name %in% c( "6A", "6B", "6C", "6D" ) ) {
       
-      # ~~ LEGACY scalar branch, but with TWO auxiliaries -----------------------
-      # W01 is the incomplete auxiliary; W02 is complete by construction (RW02 == 1).
-      du$W01_true = rbinom( n = .p$N, size = 1, prob = 0.5 )   # incomplete auxiliary
-      du$W02_true = rbinom( n = .p$N, size = 1, prob = 0.5 )   # COMPLETE auxiliary
-      du$A1       = rbinom( n = .p$N, size = 1, prob = expit(-1 + 3*du$C1) )
-      du$B1       = rnorm(  n = .p$N, mean = coefAB*du$A1 + 2.6*du$C1 + du$A1*du$C1 +
-                              coefW01B*du$W01_true + coefW02B*du$W02_true )
+      # "fake" variable Z1 is always observed but is independent of everything; used only
+      #  to prevent all-NA rows
+      du = data.frame( Z1 = rbinom( n = .p$N, size = 1, prob = 0.5 ),
+                       C1 = rbinom( n = .p$N, size = 1, prob = 0.5 ) )
       
-      # W02 -> R_W01 (ordinary edge; W02 always observed)
-      du$RW01 = rbinom( n = .p$N, size = 1, prob = expit(-1 + 3*du$W02_true) )
-      du$RW02 = 1L   # W02 is complete
+      coefAB    = 2   # X2  -> Y
+      coefW01B  = 2   # W01 -> Y   (incomplete auxiliary)
+      coefW02B  = 2   # W02 -> Y   (complete auxiliary)
       
-      # 6A: true CSI
-      if ( .p$dag_name == "6A" ) pRY   = ifelse( du$RW01 == 1,
-                                                 expit(-1 + 2*du$W01_true),
-                                                 0.5 )
-      # 6B: near-CSI
-      if ( .p$dag_name == "6B" ) pRY   = ifelse( du$RW01 == 1,
-                                                 expit(-1 + 2*du$W01_true),
-                                                 expit(-1 + 0.5*du$W01_true))
+      if ( is.null(.p$W_dim) || is.na(.p$W_dim) || .p$W_dim <= 1 ) {
+        
+        # ~~ LEGACY scalar branch, but with TWO auxiliaries -----------------------
+        # W01 is the incomplete auxiliary; W02 is complete by construction (RW02 == 1).
+        du$W01_true = rbinom( n = .p$N, size = 1, prob = 0.5 )   # incomplete auxiliary
+        du$W02_true = rbinom( n = .p$N, size = 1, prob = 0.5 )   # COMPLETE auxiliary
+        du$A1       = rbinom( n = .p$N, size = 1, prob = expit(-1 + 3*du$C1) )
+        du$B1       = rnorm(  n = .p$N, mean = coefAB*du$A1 + 2.6*du$C1 + du$A1*du$C1 +
+                                coefW01B*du$W01_true + coefW02B*du$W02_true )
+        
+        # W02 -> R_W01 (ordinary edge; W02 always observed)
+        du$RW01 = rbinom( n = .p$N, size = 1, prob = expit(-1 + 3*du$W02_true) )
+        du$RW02 = 1L   # W02 is complete
+        
+        # 6A: true CSI (mechanism is flat in W01 when W01 is missing)
+        if ( .p$dag_name == "6A" ) pRY   = ifelse( du$RW01 == 1,
+                                                   expit(-1 + 2*du$W01_true),
+                                                   0.5 )
+        # 6B: near-CSI
+        if ( .p$dag_name == "6B" ) pRY   = ifelse( du$RW01 == 1,
+                                                   expit(-1 + 2*du$W01_true),
+                                                   expit(-1 + 0.5*du$W01_true))
+        
+        # 6C: CSI arising from a HARD positivity violation. R_W01 = 0 forces R_Y = 0,
+        #  so the mechanism is degenerate (not merely flat) in that context and is
+        #  trivially free of W01 there. MAR, but no complete cases whatsoever in the
+        #  R_W01 = 0 stratum -- and since R_W01 depends on W02, that stratum is
+        #  itself selected on W02.
+        if ( .p$dag_name == "6C" ) pRY   = ifelse( du$RW01 == 1,
+                                                   expit(-1 + 2*du$W01_true),
+                                                   0 )
+        
+        # 6D: near-CSI arising from a NEAR-positivity violation. Deliberately keeps
+        #  the SAME W01 slope as the R_W01 = 1 branch -- only the intercept shifts --
+        #  so that near-positivity is the sole source of near-CSI, with no added
+        #  interaction. Gives P(R_Y = 0 | R_W01 = 0) = 0.90.
+        if ( .p$dag_name == "6D" ) pRY   = ifelse( du$RW01 == 1,
+                                                   expit(-1 + 2*du$W01_true),
+                                                   expit(-3.6 + 2*du$W01_true))
+        
+        
+        du$RB = rbinom( n = .p$N, size = 1, prob = pRY )
+        
+        du$RA = 1L   # X is complete
+        du$RC = 1L
+        
+        W = NULL; W_cal = NULL; W_obs_names = c("W01", "W02")
+        
+      } else {
+        stop("Only W_dim = 1 is implemented for this DAG.")
+      }
       
+      du = du %>% mutate( A = A1,
+                          B = ifelse(RB == 1, B1, NA),
+                          C = C1,
+                          Z = Z1,
+                          W01 = ifelse(RW01 == 1, W01_true, NA),
+                          W02 = ifelse(RW02 == 1, W02_true, NA) )
       
-      du$RB = rbinom( n = .p$N, size = 1, prob = pRY )
+      # sanity check
+      cc = du %>% filter(RB == 1 & RW01 == 1)
+      if ( length(unique(cc$W01_true)) < 2 ) {
+        warning( paste0(.p$dag_name, ": W01 is constant among complete cases; Y model not estimable") )
+      }
       
-      du$RA = 1L   # X is complete
-      du$RC = 1L
+      # make dataset for imputation
+      di = du %>% select( all_of( c("A", "B", "C", W_obs_names, "Z") ) )
       
-      W = NULL; W_cal = NULL; W_obs_names = c("W01", "W02")
+      ### For just the intercept of A
+      if ( .p$coef_of_interest == "(Intercept)" ){ 
+        stop("Intercept not implemented for this DAG")
+      }
       
-    } else {
-      stop("Only W_dim = 1 is implemented for this DAG.")
-    }
-    
-    du = du %>% mutate( A = A1,
-                        B = ifelse(RB == 1, B1, NA),
-                        C = C1,
-                        Z = Z1,
-                        W01 = ifelse(RW01 == 1, W01_true, NA),
-                        W02 = ifelse(RW02 == 1, W02_true, NA) )
-    
-    # make dataset for imputation
-    di = du %>% select( all_of( c("A", "B", "C", W_obs_names, "Z") ) )
-    
-    ### For just the intercept of A
-    if ( .p$coef_of_interest == "(Intercept)" ){ 
-      stop("Intercept not implemented for this DAG")
-    }
-    
-    ### Coefficient of interest
-    if ( .p$coef_of_interest %in% c("A", "C" ) ){ 
-      form_string      = "B ~ A * C"
-      gold_form_string = "B1 ~ A1 * C1"
-      beta             = NA
-      exclude_from_imp_model = NULL
-    }
-    
-  }  # end of .p$dag_name == "6A"
+      ### Coefficient of interest
+      if ( .p$coef_of_interest %in% c("A", "C" ) ){ 
+        form_string      = "B ~ A * C"
+        gold_form_string = "B1 ~ A1 * C1"
+        beta             = NA
+        exclude_from_imp_model = NULL
+      }
+      
+    }  # end of .p$dag_name %in% c("6A", "6B", "6C", "6D")
   
   
   

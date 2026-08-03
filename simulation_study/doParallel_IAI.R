@@ -1130,11 +1130,7 @@ for ( scen in scens_to_run ) {
         .rep.res = rep.res )
       
       if (run.local == TRUE) srr(rep.res)
-      # DEBUGGING ONLY
-      #bm
-      #if( is.na( rep.res$bhat[rep.res$method == "mia-tmle"] ) ) browser()
-      
-      
+
       # ~ Add Scen Params and Sanity Checks --------------------------------------
       
       # add in scenario parameters
