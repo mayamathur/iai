@@ -675,8 +675,13 @@ sim_data = function(.p) {
       du$W01_true = rbinom( n = .p$N, size = 1, prob = 0.5 )   # W is a source node
       du$RW01     = rbinom( n = .p$N, size = 1, prob = 0.5 )   # R_W is isolated
       du$A1       = rbinom( n = .p$N, size = 1, prob = expit(-1 + 3*du$C1) )
+      
+      # 2026-08-03 sims
       du$B1       = rnorm(  n = .p$N, mean = coefAB*du$A1 + 2.6*du$C1 + du$A1*du$C1 +
                               coefDB*du$W01_true )
+      # #bm: TEMP: with additional interaction to try to create bias in both coefficients
+      # du$B1       = rnorm(  n = .p$N, mean = coefAB*du$A1 + 2.6*du$C1 + du$A1*du$C1 +
+      #                         coefDB*du$W01_true + du$A1*du$W01_true )
       
       # 5A: true CSI (mechanism is flat in W when W is missing)
       if ( .p$dag_name == "5A") pR = ifelse( du$RW01 == 1,
