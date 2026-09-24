@@ -20,9 +20,5 @@ The [key scripts]([https://github.com/mayamathur/iwn/tree/main/simulation_study]
 
 - `genSbatch_IAI.R` automatically generates the sbatch files based on user-specified simulation parameters (from which `genSbatch_IAI.R` writes a spreadsheet of scenario parameters, `scen_params.csv`, to the cluster environment; this file is called later by `doParallel_IAI.R`). This script is specialized for our cluster and would likely need to be rewritten for other computing systems. 
 
-- `stitch_on_sherlock_IAI.R` takes the output files written by `doParallel_IAI.R`. This was run on the cluster. Writes the data files `stitched.csv` (iterate-level data) and `agg.csv` (scenario-level data) to the Results directory (not committed due to massive size).
-
-- `prep_sims_IAI.R` takes `agg.csv` described above and does variable manipulations to facilitate analysis. 
-
-- `analyze_sims_IAI.R` generates all analyses, results tables, and plots. Each table is printed in LaTeX code that was copied straight into the manuscript. This script calls helper functions in `analyze_sims_helper_IAI.R` and works with the dataset `agg.csv` described above. 
+- `stitch_on_sherlock_IAI.R` takes the output files written by `doParallel_IAI.R` and aggregates them into the summary metrics presented in the paper. Writes the data files `stitched.csv` (iterate-level data) and `agg.csv` (scenario-level data).
 
