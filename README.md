@@ -2,17 +2,17 @@
  
 This repository contains all code required to reproduce the applied example and simulation studies reported in:
 
-*Mathur MB, Zhang W, Shpitser I (under review). Imputation without nightMARs: Graphical criteria for valid imputation of missing data. Preprint available at [https://osf.io/preprints/osf/zqne9](https://osf.io/preprints/osf/zqne9).*
+*Mathur MB, Seaman S, Zhang W, McGrath S, Shpitser I (under review). Estimating conditional means under missingness-not-at-random with incomplete auxiliary variables. [Preprint link.](https://www.researchgate.net/publication/401123077_Estimating_conditional_means_under_missingness-not-at-random_with_incomplete_auxiliary_variables?channel=doi&linkId=699ccbc17247bc6473e365d5&showFulltext=true.)*
 
 ## How to reproduce the applied examples
 
-The dataset on sexual identity can be accessed after approved ethics application to the [Steering Committee of the Stockholm Public Health Cohort](https://www.ces.regionstockholm.se/projekt-och-uppdrag/halsa-stockholm/SPHC-data). Code to reproduce this example is [here]([https://github.com/mayamathur/iwn/tree/main/applied_example_sexual_identity](https://github.com/willizhang/incomplete-auxiliary-variable-in-imputation/tree/main).
+The dataset on sexual identity can be accessed after approved ethics application to the [Steering Committee of the Stockholm Public Health Cohort](https://www.ces.regionstockholm.se/projekt-och-uppdrag/halsa-stockholm/SPHC-data). Code to reproduce this example is [here](https://github.com/willizhang/incomplete-auxiliary-variable-in-imputation/tree/main).
 
 ## How to re-run the simulation study from scratch
 
 Simulation scripts are parallelized and were run on a SLURM cluster.
 
-The [key scripts]([https://github.com/mayamathur/iwn/tree/main/simulation_study](https://github.com/mayamathur/iai/tree/main/simulation_study) are:
+The [key scripts](https://github.com/mayamathur/iai/tree/main/simulation_study) are:
 
 - `helper_IAI.R` and `helper_IAI_Wblock.R` contain helper functions that can be run locally. This is the file to consult if you have questions about the various custom functions called by `doParallel_IAI.R` below. 
 
