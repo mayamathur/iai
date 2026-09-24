@@ -679,10 +679,7 @@ sim_data = function(.p) {
       # 2026-08-03 sims
       du$B1       = rnorm(  n = .p$N, mean = coefAB*du$A1 + 2.6*du$C1 + du$A1*du$C1 +
                               coefDB*du$W01_true )
-      # #bm: TEMP: with additional interaction to try to create bias in both coefficients
-      # du$B1       = rnorm(  n = .p$N, mean = coefAB*du$A1 + 2.6*du$C1 + du$A1*du$C1 +
-      #                         coefDB*du$W01_true + du$A1*du$W01_true )
-      
+
       # 5A: true CSI (mechanism is flat in W when W is missing)
       if ( .p$dag_name == "5A") pR = ifelse( du$RW01 == 1,
                                              expit(-0.5 + 3*du$W01_true),
