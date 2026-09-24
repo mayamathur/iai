@@ -1,5 +1,3 @@
-## CURRENTLY VERBATIM FROM IWN; NEEDS UPDATING.
-
 ## Overview
  
 This repository contains all code required to reproduce the applied example and simulation studies reported in:
@@ -8,13 +6,7 @@ This repository contains all code required to reproduce the applied example and 
 
 ## How to reproduce the applied examples
 
-For the main-text applied example on sexual identity, the dataset can be accessed after approved ethics application to the [Steering Committee of the Stockholm Public Health Cohort](https://www.ces.regionstockholm.se/projekt-och-uppdrag/halsa-stockholm/SPHC-data). Code to reproduce this example is [here](https://github.com/mayamathur/iwn/tree/main/applied_example_sexual_identity).
-
-For the supplementary applied example on high schoolers, the dataset is [publicly available](https://www.icpsr.umich.edu/web/NADAC/studies/36423) through the Inter-University Consortium for Political and Social Research (ICPSR). Due to their terms of use, the dataset cannot be posted in this repository. Code to reproduce this example is [here](https://github.com/mayamathur/iwn/tree/main/applied_example_supplement). The files use the `renv` package for reproducibility; as noted in the comments of the code files, you can uncomment the calls `renv::snapshot()` if you want to reproduce our software environment. Open the R project `Code/Code.Rproj` and run the scripts as follows:
-
-- `prep_applied_IWN.R` loads the ICPSR data, draws a random sample of 5,000, and preps variables for analysis. The prepped data are written to a separate folder (not publicly available per ICPSR's terms of use.).
-- `analyze_applied_IWN.R` conducts all analyses by calling the helper code in `helper_applied_IWN.R`.
-
+The dataset on sexual identity can be accessed after approved ethics application to the [Steering Committee of the Stockholm Public Health Cohort](https://www.ces.regionstockholm.se/projekt-och-uppdrag/halsa-stockholm/SPHC-data). Code to reproduce this example is [here]([https://github.com/mayamathur/iwn/tree/main/applied_example_sexual_identity](https://github.com/willizhang/incomplete-auxiliary-variable-in-imputation/tree/main).
 
 ## How to re-run the simulation study from scratch
 
