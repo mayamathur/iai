@@ -1,194 +1,118 @@
+# STITCH AND AGGREGATE SIMULATION RESULTS ------------------------------------------
+#
+# Step 3 of the simulation pipeline (see README). After all sbatch jobs for a study
+# have finished, this script:
+#   (1) combines the per-job results files in results/<study>/long_results into
+#       results/<study>/stitched/stitched.csv (one row per scenario x rep x method); and
+#   (2) summarizes performance by scenario and method in
+#       results/<study>/stitched/agg.csv (bias, RMSE, CI coverage, and CI width).
+#
+# Usage (from the simulation_study directory):
+#   Rscript stitch_IAI.R <study>
+# where <study> is "study12" or "study3". It also reports any jobs that did not
+# write results; these can be rerun with `Rscript genSbatch_IAI.R <study> resubmit_missed`.
 
 
+# PRELIMINARIES --------------------------------------------------------------------
 
-stitch = function(){
-  # PRELIMINARIES ----------------------------------------------
-  
+suppressPackageStartupMessages({
   library(data.table)
   library(dplyr)
-  library(testthat)
-  library(xlsx)
-  library(xtable)
+})
+
+source("config_IAI.R")
+source("helper_IAI.R")
+
+
+# FUNCTION ----------------------------------------------------------------------
+
+stitch = function(study) {
+  
+  check_study(study)
+  d = make_study_dirs(study)
   
   
-  .results.singles.path = "/home/groups/manishad/IAI/long_results"
-  .results.stitched.write.path = "/home/groups/manishad/IAI/overall_stitched"
-  .name.prefix = "long_results_job"
-  .stitch.file.name="stitched.csv"
+  # ~ Stitch per-job files ---------------------------
+  
+  keepers = list.files(d$long.results, pattern = "^long_results_job", full.names = TRUE)
+  if ( length(keepers) == 0 ) stop("No results files found in ", d$long.results)
+  
+  # bind_rows fills with NA any columns that are absent from some files (e.g., a
+  #  method that errored in every rep of a job)
+  s = bind_rows( lapply( keepers, function(x) fread(x, colClasses = c(dag_name = "character")) ) )
+  s = s %>% filter( !is.na(scen.name) )
+  
+  cat("\nRows:", nrow(s), "  Scenarios:", nuni(s$scen.name), "\n")
+  
+  # report any jobs that did not write results
+  n.files = length( list.files(d$sbatch, pattern = "\\.sbatch$") )
+  sbatch_not_run( .results.singles.path = d$long.results,
+                  .results.write.path = d$base,
+                  .name.prefix = "long_results",
+                  .max.sbatch.num = if ( n.files > 0 ) n.files else NA )
+  
+  fwrite( s, file.path(d$stitched, "stitched.csv") )
   
   
-  # MAKE STITCHED DATA ----------------------------------------------
+  # ~ Estimands ---------------------------
   
-  # get list of all files in folder
-  all.files = list.files(.results.singles.path, full.names=TRUE)
-  
-  # we only want the ones whose name includes .name.prefix
-  keepers = all.files[ grep( .name.prefix, all.files ) ]
-  length(keepers)
-  
-  # grab variable names from first file
-  names = names( read.csv(keepers[1]) )
-  
-  # temp = lapply(keepers, function(x){
-  #   dat = read.csv(x, header = TRUE)
-  #   "dag_name" %in% names(dat) } )
-  # which(temp == FALSE)
-  
-  # read in and rbind the keepers
-  tables <- lapply(keepers, function(x) read.csv(x, header = TRUE, colClasses = c(dag_name = "character")))
-  
-  # sanity check: do all files have the same names?
-  # if not, could be because some jobs were killed early so didn't get doParallelTime
-  #  variable added at the end
-  #  can be verified by looking at out-file for a job without name "doParallelTime"
-  allNames = lapply( tables, names )
-  # # find out which jobs had wrong number of names
-  # lapply( allNames, function(x) all.equal(x, names ) )
-  # allNames[[1]][ !allNames[[1]] %in% allNames[[111]] ]
-  
-  # bind_rows works even if datasets have different names
-  #  will fill in NAs
-  s <- do.call(bind_rows, tables)
-  
-  names(s) = names( read.csv(keepers[1], header= TRUE) )
-  
-  if( is.na(s[1,1]) ) s = s[-1,]  # delete annoying NA row
-  write.csv(s, paste(.results.stitched.write.path, .stitch.file.name, sep="/") )
-  
-  cat("\n\n nrow(s) =", nrow(s))
-  cat("\n nuni(s$scen.name) =", nuni(s$scen.name) )
-  
-  # debugging help:
-  # if there's only 1 unique scen, you might have set
-  #  interactive.cluster.run = TRUE in doParallel
-  
-  
-  # ~ Check for Bad Column Names ---------------------------
-  
-  # remove any all-NA columns
-  names(s)
-  any(is.na(names(s)))
-  
-  if ( any(is.na(names(s))) ) {
-    NA.names = which( is.na(names(s) ) )
-    s = s[ , -NA.names ]
-    
-  }
-  
-  s = s %>% filter(!is.na(scen.name))
-  
-  table(s$dag_name)
-  
-  
-  
-  
-  # MAKE AGG DATA ----------------------------------------------
-  
-  # sanity check
-  table(s$dag_name, s$coef_of_interest)
-  
-  correct.order = c("gold", "CC", "MICE-std", "Am-std", "genloc", "IPW-custom", "IPW-nm",
-                    "af4-np", "af4-sp", "mia-pkg-sp", "mia-pkg-ice", "mia-tmle",
-                    "g-form", "custom")
-  s$method = factor(s$method, levels = correct.order)
-  
-  # fill in beta (where it's NA) using gold-standard
-  # s = data.frame( scen.name = c(1,1,1,1,2,2,2,2),
-  #                 beta = c( rep(NA,4), rep(1,4)),
-  #                 method = rep( c("gold", "gold", "other", "other"), 2),
-  #                 bhat = rep( c(2,3,0,1), 2 ) )  # test
-  
-  beta_emp = s %>% filter(method == "gold") %>%
+  # beta is the true contrast when sim_data() supplies it analytically; otherwise
+  #  it is estimated by the mean of the benchmark ("gold") estimates across reps.
+  #  The true intercept (reference-level mean) is always the benchmark mean.
+  truth_emp = s %>%
+    filter(method == "gold") %>%
     group_by(scen.name) %>%
-    summarise(beta = meanNA(bhat)) 
-  as.data.frame(beta_emp)
+    summarise( beta_emp = meanNA(bhat),
+               int      = meanNA(inthat),
+               .groups  = "drop" )
   
-  # same for intercept
-  int_emp = s %>% filter(method == "gold") %>%
+  s2 = s %>%
+    left_join(truth_emp, by = "scen.name") %>%
+    mutate( beta = coalesce(beta, beta_emp) ) %>%
+    select(-beta_emp)
+  
+  s2$method = factor( s2$method, levels = c("gold", "CC", "IPW-nm", "mia-pkg-ice", "mia-tmle") )
+  
+  
+  # ~ Aggregate by scenario and method ---------------------------
+  
+  # scenario-level variables: those constant within every scenario
+  n.distinct = s2 %>%
     group_by(scen.name) %>%
-    summarise(int = meanNA(inthat)) 
-  as.data.frame(int_emp)
+    summarise( across( everything(), ~ n_distinct(., na.rm = FALSE) ), .groups = "drop" ) %>%
+    select(-scen.name)
+  scenario_vars = names(n.distinct)[ sapply(n.distinct, function(x) all(x == 1)) ]
+  scenario_vars = union("scen.name", scenario_vars)
   
-  s2 = s
-  
-  
-  s2 = s2 %>% rowwise() %>%
-    mutate( beta = ifelse( !is.na(beta),
-                           beta,
-                           beta_emp$beta[ beta_emp$scen.name == scen.name ] ),
-            int = int_emp$int[ int_emp$scen.name == scen.name ] )
-  
-  # sanity check
-  as.data.frame( s2 %>% group_by(dag_name, coef_of_interest, model) %>%
-                   summarise(beta[1]) )
-  # end of filling in beta and int
-  
-  
-  
-  
-  # For every variable, check whether it is constant (1 unique value)
-  # within every scen.name group
-  varying_check <- s2 %>%
-    group_by(scen.name) %>%
-    summarise(across(everything(), ~ n_distinct(., na.rm = FALSE))) %>%
-    ungroup()
-  
-  # A variable is "non-varying within scen.name" if its number of distinct
-  # values is 1 in EVERY scen.name group
-  scenario_vars <- varying_check %>%
-    select(-scen.name) %>%
-    summarise(across(everything(), ~ all(. == 1))) %>%
-    unlist()
-  
-  scenario_vars <- names(scenario_vars)[scenario_vars]
-  scenario_vars  # inspect this
-  
-  
-  
-  t = s2 %>%
-    group_by(across(all_of(scenario_vars)), method) %>%
+  agg = s2 %>%
+    group_by( across( all_of(scenario_vars) ), method ) %>%
     summarise(
-      reps = n(),
-      PropNA = mean(is.na(bhat)),
-      Bhat = meanNA(bhat),
-      BhatBias = meanNA(bhat - beta),
-      BhatRMSE = sqrt( meanNA( (bhat - beta)^2 ) ),
-      BhatWidth = meanNA( bhat_hi - bhat_lo ),
+      reps      = n(),
+      PropNA    = mean( is.na(bhat) ),
+      Bhat      = meanNA(bhat),
+      BhatBias  = meanNA(bhat - beta),
+      BhatRMSE  = sqrt( meanNA( (bhat - beta)^2 ) ),
+      BhatWidth = meanNA(bhat_hi - bhat_lo),
       BhatCover = meanNA( covers(truth = beta, lo = bhat_lo, hi = bhat_hi) ),
-      IntHat = meanNA(inthat),
-      IntBias = meanNA(inthat - int),
-      IntRMSE = sqrt( meanNA( (inthat - int)^2 ) ),
-      IntWidth = meanNA( int_hi - int_lo ),
-      IntCover = meanNA( covers(truth = int, lo = int_lo, hi = int_hi) ),
-      .groups = "drop"
-    ) %>%
-    mutate_if(is.numeric, function(x) round(x, 2))
+      IntHat    = meanNA(inthat),
+      IntBias   = meanNA(inthat - int),
+      IntRMSE   = sqrt( meanNA( (inthat - int)^2 ) ),
+      IntWidth  = meanNA(int_hi - int_lo),
+      IntCover  = meanNA( covers(truth = int, lo = int_lo, hi = int_hi) ),
+      .groups = "drop" ) %>%
+    mutate_if( is.numeric, function(x) round(x, 2) )
   
-  as.data.frame(t)
+  fwrite( agg, file.path(d$stitched, "agg.csv") )
+  cat("\nWrote", file.path(d$stitched, "stitched.csv"), "and agg.csv\n")
   
-  
-  
-  
-  
-  # save agg data
-  path = "/home/groups/manishad/IAI/overall_stitched"
-  setwd(path)
-  write.xlsx(as.data.frame(t),
-             paste(Sys.Date(), "agg.xlsx") )
-  
-  
-  # # xtable
-  # t2 = t %>% ungroup() %>% select(dag_name, method, Bhat, BhatBias, BhatCover, BhatWidth, BhatRMSE)
-  # print( xtable(t2), include.rownames = FALSE )
-  
-  
-  
-  # ~ Write stitched.csv ---------------------------
-  
-  setwd(.results.stitched.write.path)
-  fwrite(s, .stitch.file.name)
-  
-  # also make a zipped version
-  string = paste("zip -m stitched.zip", .stitch.file.name)
-  system(string)
+  invisible(agg)
+}
+
+
+# RUN ------------------------------------------------------------------------------
+
+# runs only when called via Rscript, not when this file is sourced
+if ( sys.nframe() == 0 ) {
+  args = commandArgs(trailingOnly = TRUE)
+  stitch( if ( length(args) >= 1 ) args[1] else "study3" )
 }
