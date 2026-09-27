@@ -1,12 +1,17 @@
-# RECORD SOFTWARE VERSIONS ---------------------------------------------------------
+# INSTALL PACKAGES AND RECORD SOFTWARE VERSIONS -----------------------------------
 #
-# Writes package_versions.csv (R version and the version of every package used by
+# Installs any missing packages, then writes package_versions.csv (R version and the version of every package used by
 # the simulation scripts) and session_info.txt. Run on the computing environment
 # used for the simulations, from the simulation_study directory:
 #   Rscript record_package_versions_IAI.R
 
+source("config_IAI.R")
+
 pkgs = c("dplyr", "tidyr", "tibble", "data.table", "foreach", "doParallel", "doRNG",
-         "MASS", "R2jags", "rjags", "boot", "miapack", "tmle", "SuperLearner")
+         "MASS", "R2jags", "rjags", "boot", "mice", "Amelia", "miapack", "tmle", "SuperLearner")
+
+# install anything missing (run this once before submitting cluster jobs)
+load_sim_packages( setdiff(pkgs, c("rjags", "SuperLearner")) )
 
 versions = data.frame(
   package = c("R", pkgs),

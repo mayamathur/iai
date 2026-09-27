@@ -39,7 +39,7 @@ All code is in `simulation_study/`; scripts must be run with that directory as t
 | `record_package_versions_IAI.R` | Installs any missing packages and records the R, package, and JAGS versions of the computing environment. |
 | `DATA_DICTIONARY.md` | Defines the variables in the results files `agg.csv` and `stitched.csv`. |
 
-In the code, the variables X1, X2, W1, and Y of the paper are named C, A, D (or W01), and B, respectively; `helper_IAI.R` lists the correspondence between DAG labels in the code and in the paper. Estimation methods are labeled `gold` (benchmark analysis of the full data before missingness), `CC` (complete-case analysis), `IPW-nm` (inverse-probability weighting under a no-self-censoring model), `mia-pkg-ice` (MIA plug-in estimator), and `mia-tmle` (MIA targeted maximum likelihood estimator).
+In the code, the variables X1, X2, W1, and Y of the paper are named C, A, D (or W01), and B, respectively; `helper_IAI.R` lists the correspondence between DAG labels in the code and in the paper. Estimation methods are labeled `gold` (benchmark analysis of the full data before missingness), `CC` (complete-case analysis), `MICE-std` (multiple imputation by chained equations), `IPW-nm` (inverse-probability weighting under a no-self-censoring model), `mia-pkg-ice` (MIA plug-in estimator), and `mia-tmle` (MIA targeted maximum likelihood estimator). The code also implements `Am-std` (multiple imputation under a joint normal model via Amelia), which is not run in the paper's scenarios.
 
 ### Software
 
@@ -58,8 +58,6 @@ The simulations were run in R 4.3.2 on Stanford's Sherlock cluster (SLURM), with
 | R2jags | 0.8-9 |
 | rjags | 4-17 |
 | boot | 1.3-28.1 |
-| mice | 3.16.0 |
-| Amelia | 1.8.2 |
 | miapack | 0.2.0 (GitHub commit `06fd66a88e38ab3ae63709e9b6bf58cab7dd7e3a`) |
 | tmle | 2.1.1 |
 | SuperLearner | 2.0-29 |
@@ -68,7 +66,7 @@ These are also recorded in `simulation_study/package_versions.csv`. `load_sim_pa
 
 ### How to rerun the simulation study
 
-The full study is computationally intensive: each scenario has 1,000 reps, and the MIA plug-in estimator uses 1,000 bootstrap reps per dataset for its CIs. Studies 1–2 comprise 3,640 sbatch jobs and Study 3 comprises 928, each using 16 cores for up to 2 hours (W of dimension 1) or 8 hours (W of dimension 10). `genSbatch_IAI.R` is specific to SLURM; cluster settings (partition, modules, memory, and wall time) are in `config_IAI.R` and would need to be adapted for other systems.
+The full study is computationally intensive: each scenario has 1,000 reps, and the MIA plug-in estimator uses 1,000 bootstrap reps per dataset for its CIs. Studies 1–2 comprise 3,640 sbatch jobs and Study 3 comprises 928, each using 16 cores for up to 3 hours (W of dimension 1) or 10 hours (W of dimension 10); these wall-time limits, set by `jobtime_per_scen()` in `config_IAI.R`, include extra time for multiple imputation. `genSbatch_IAI.R` is specific to SLURM; cluster settings (partition, modules, memory, and wall time) are in `config_IAI.R` and would need to be adapted for other systems.
 
 From `simulation_study/` on the cluster:
 

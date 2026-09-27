@@ -475,8 +475,13 @@ computer.</td>
 </tr>
 <tr class="even">
 <td><code>record_package_versions_IAI.R</code></td>
-<td>Records the R, package, and JAGS versions of the computing
-environment.</td>
+<td>Installs any missing packages and records the R, package, and JAGS
+versions of the computing environment.</td>
+</tr>
+<tr class="odd">
+<td><code>DATA_DICTIONARY.md</code></td>
+<td>Defines the variables in the results files <code>agg.csv</code> and
+<code>stitched.csv</code>.</td>
 </tr>
 </tbody>
 </table>
@@ -493,15 +498,86 @@ estimator).</p>
 <div id="software" class="section level3">
 <h3>Software</h3>
 <p>The simulations were run in R 4.3.2 on Stanford’s Sherlock cluster
-(SLURM). Required R packages are dplyr, tidyr, tibble, data.table,
-foreach, doParallel, doRNG, MASS, R2jags, boot, miapack, and tmle;
-IPW-nm also requires <a href="https://mcmc-jags.sourceforge.io/">JAGS</a>. The miapack package
-is installed from GitHub
-(<code>remotes::install_github(&quot;stmcg/miapack&quot;)</code>). The exact
-versions used, including the miapack commit, are listed in
-<code>simulation_study/package_versions.csv</code> and
-<code>simulation_study/session_info.txt</code>, which
-<code>record_package_versions_IAI.R</code> writes.</p>
+(SLURM), with JAGS 4.3.1 (required by R2jags for IPW-nm; <a href="https://mcmc-jags.sourceforge.io/">download</a>). Package
+versions:</p>
+<table>
+<colgroup>
+<col width="50%" />
+<col width="50%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Package</th>
+<th>Version</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>dplyr</td>
+<td>1.1.4</td>
+</tr>
+<tr class="even">
+<td>tidyr</td>
+<td>1.3.1</td>
+</tr>
+<tr class="odd">
+<td>tibble</td>
+<td>3.2.1</td>
+</tr>
+<tr class="even">
+<td>data.table</td>
+<td>1.15.4</td>
+</tr>
+<tr class="odd">
+<td>foreach</td>
+<td>1.5.2</td>
+</tr>
+<tr class="even">
+<td>doParallel</td>
+<td>1.0.17</td>
+</tr>
+<tr class="odd">
+<td>doRNG</td>
+<td>1.8.6.3</td>
+</tr>
+<tr class="even">
+<td>MASS</td>
+<td>7.3-60.0.1</td>
+</tr>
+<tr class="odd">
+<td>R2jags</td>
+<td>0.8-9</td>
+</tr>
+<tr class="even">
+<td>rjags</td>
+<td>4-17</td>
+</tr>
+<tr class="odd">
+<td>boot</td>
+<td>1.3-28.1</td>
+</tr>
+<tr class="even">
+<td>miapack</td>
+<td>0.2.0 (GitHub commit
+<code>06fd66a88e38ab3ae63709e9b6bf58cab7dd7e3a</code>)</td>
+</tr>
+<tr class="odd">
+<td>tmle</td>
+<td>2.1.1</td>
+</tr>
+<tr class="even">
+<td>SuperLearner</td>
+<td>2.0-29</td>
+</tr>
+</tbody>
+</table>
+<p>These are also recorded in
+<code>simulation_study/package_versions.csv</code>.
+<code>load_sim_packages()</code> in <code>config_IAI.R</code> installs
+any missing packages; miapack is installed from GitHub
+(<code>stmcg/miapack</code>). To install the exact miapack version used,
+run
+<code>remotes::install_github(&quot;stmcg/miapack@06fd66a88e38ab3ae63709e9b6bf58cab7dd7e3a&quot;)</code>.</p>
 </div>
 <div id="how-to-rerun-the-simulation-study" class="section level3">
 <h3>How to rerun the simulation study</h3>
@@ -527,7 +603,8 @@ SLURM logs to <code>results/&lt;study&gt;/logs/</code>.</li>
 <code>results/&lt;study&gt;/stitched/stitched.csv</code> (one row per
 scenario, rep, and method) and
 <code>results/&lt;study&gt;/stitched/agg.csv</code> (one row per
-scenario and method; the results reported in the paper). It also lists
+scenario and method; the results reported in the paper).
+<code>DATA_DICTIONARY.md</code> defines their variables. It also lists
 any jobs that did not write results in
 <code>results/&lt;study&gt;/missed_job_nums.csv</code>; these can be
 rerun with

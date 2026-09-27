@@ -59,6 +59,8 @@ sim.packages = c("dplyr",
                  "MASS",      # multivariate normal draws for the W block
                  "R2jags",    # IPW-nm (requires JAGS to be installed)
                  "boot",      # bootstrap CIs for mia-pkg-ice
+                 "mice",      # MICE-std, and pooling for all imputation methods
+                 "Amelia",    # Am-std
                  "miapack",   # mia-pkg-ice
                  "tmle")      # mia-tmle
 
@@ -135,6 +137,7 @@ cluster = list(
   partition      = "qsu,owners,normal",
   cores          = 16,  # cores per job; also passed to registerDoParallel()
   mem_per_node   = 64000,  # MB
+  max_hours      = 48,     # longest wall time the partition allows
   user_email     = "",     # set to receive SLURM emails
   mailtype       = "NONE",
   # environment modules loaded before running R
@@ -147,7 +150,20 @@ reps_per_job = function(scen.params) {
 }
 
 jobtime_per_scen = function(scen.params) {
-  ifelse( scen.params$W_dim == 1, "02:00:00", "08:00:00" )
+  # base wall time for the non-imputation methods; W_dim = 1 jobs with N >= 2000
+  #  run 250 reps each and need longer (some timed out at 3 hours)
+  hours = ifelse( scen.params$W_dim == 1, ifelse( scen.params$N >= 2000, 5, 2 ), 8 )
+  
+  # multiple imputation (MICE-std or Am-std) adds time in proportion to
+  #  imp_m * imp_maxit; the extra hours below are for imp_m = 50 and imp_maxit = 20
+  has_imp = grepl( "MICE-std|Am-std", scen.params$rep.methods )
+  if ( any(has_imp) ) {
+    imp_scale = ( scen.params$imp_m * scen.params$imp_maxit ) / ( 50 * 20 )
+    extra = ifelse( scen.params$W_dim == 1, 1, 2 ) * imp_scale
+    hours = hours + ifelse( has_imp, ceiling(extra), 0 )
+  }
+  
+  sprintf( "%02d:00:00", as.integer(hours) )
 }
 
 
@@ -158,6 +174,9 @@ jobtime_per_scen = function(scen.params) {
 # Method labels in rep.methods (see doParallel_IAI.R):
 #   gold        = benchmark analysis of the full data (no missingness)
 #   CC          = complete-case analysis
+#   MICE-std    = multiple imputation by chained equations (mice)
+#   Am-std      = multiple imputation under a joint normal model (Amelia); not
+#                 in the default grids, but can be added to rep.methods
 #   mia-pkg-ice = MIA plug-in (iterative conditional expectation) estimator, via miapack
 #   mia-tmle    = MIA targeted maximum likelihood estimator
 #   IPW-nm      = inverse-probability weighting under a no-self-censoring model (Sun et al.)
@@ -170,24 +189,30 @@ make_scen_params = function(study) {
   
   if ( study == "study12" ) {
     scen.params = tidyr::expand_grid(
-      rep.methods        = "gold ; CC ; mia-pkg-ice ; mia-tmle ; IPW-nm",
+      rep.methods        = "gold ; CC ; MICE-std ; mia-pkg-ice ; mia-tmle ; IPW-nm",
       model              = "OLS",
       coef_of_interest   = "A",
       N                  = c(200, 500, 1000, 2000, 5000, 10000),
       boot_reps_mia_ice  = 1000,  # bootstrap reps for mia-pkg-ice CIs (0 = no CIs)
       calculate_tmle_CIs = TRUE,
+      imp_m              = 50,   # imputations for MICE-std and Am-std
+      imp_maxit          = 20,   # iterations for MICE-std
+      mice_method        = NA,   # NA: mice's default imputation methods
       dag_name           = c("1A", "1B", "1C", "2A", "2B", "3A", "3B"),
       W_dim              = c(1, 10) )
   }
   
   if ( study == "study3" ) {
     scen.params = tidyr::expand_grid(
-      rep.methods        = "gold ; mia-pkg-ice ; mia-tmle ; IPW-nm",
+      rep.methods        = "gold ; MICE-std ; mia-pkg-ice ; mia-tmle ; IPW-nm",
       model              = "OLS",
       coef_of_interest   = "A",
       N                  = c(200, 500, 1000, 5000, 10000),
       boot_reps_mia_ice  = 1000,
       calculate_tmle_CIs = TRUE,
+      imp_m              = 50,   # imputations for MICE-std and Am-std
+      imp_maxit          = 20,   # iterations for MICE-std
+      mice_method        = NA,   # NA: mice's default imputation methods
       dag_name           = c("5A", "5B", "5C", "5D", "6A", "6B", "6C", "6D"),
       W_dim              = 1 )
   }

@@ -15,12 +15,8 @@
 
 # PRELIMINARIES --------------------------------------------------------------------
 
-suppressPackageStartupMessages({
-  library(data.table)
-  library(dplyr)
-})
-
 source("config_IAI.R")
+load_sim_packages( c("data.table", "dplyr") )
 source("helper_IAI.R")
 
 
@@ -41,6 +37,14 @@ stitch = function(study) {
   #  method that errored in every rep of a job)
   s = bind_rows( lapply( keepers, function(x) fread(x, colClasses = c(dag_name = "character")) ) )
   s = s %>% filter( !is.na(scen.name) )
+  
+  # reps that failed outside the individual methods (see doParallel_IAI.R)
+  failed = s %>% filter( is.na(method) )
+  if ( nrow(failed) > 0 ) {
+    cat("\nReps that failed entirely:", nrow(failed), "\n")
+    print( as.data.frame( failed %>% count(scen.name, overall.error) ) )
+  }
+  s = s %>% filter( !is.na(method) )
   
   cat("\nRows:", nrow(s), "  Scenarios:", nuni(s$scen.name), "\n")
   
@@ -71,7 +75,7 @@ stitch = function(study) {
     mutate( beta = coalesce(beta, beta_emp) ) %>%
     select(-beta_emp)
   
-  s2$method = factor( s2$method, levels = c("gold", "CC", "IPW-nm", "mia-pkg-ice", "mia-tmle") )
+  s2$method = factor( s2$method, levels = c("gold", "CC", "MICE-std", "Am-std", "IPW-nm", "mia-pkg-ice", "mia-tmle") )
   
   
   # ~ Aggregate by scenario and method ---------------------------

@@ -2,8 +2,9 @@
 #
 # Sourced by doParallel_IAI.R, genSbatch_IAI.R, and stitch_IAI.R. Contents:
 #   - sim_data():        data-generating mechanisms for each DAG
-#   - fit_regression():  benchmark ("gold"), complete-case, and IPW-nm estimators
+#   - fit_regression():  benchmark ("gold"), complete-case, IPW-nm, and multiple-imputation estimators
 #   - IPW-nm helpers:    Bayesian missingness model (JAGS) and inverse-probability weights
+#   - multiple-imputation helpers
 #   - run_method_safe(): runs one estimation method, recording errors rather than stopping
 #   - cluster helpers:   writing sbatch files and finding jobs that did not finish
 #   - small utilities
@@ -216,7 +217,7 @@ sim_data = function(.p) {
   }  # end of .p$dag_name == "1B"
 
 
-# ~ DAG 1C -----------------------------
+  # ~ DAG 1C -----------------------------
   
   # same as 1B, but no D -> Y edge, so IPMW should now work
   
@@ -300,7 +301,7 @@ sim_data = function(.p) {
   }  # end of .p$dag_name == "1C"
 
 
-# ~ DAG 2A -----------------------------
+  # ~ DAG 2A -----------------------------
   
   if ( .p$dag_name == "2A" ) {
     
@@ -380,7 +381,7 @@ sim_data = function(.p) {
   }  # end of .p$dag_name == "2A"
 
 
-# ~ DAG 2B -----------------------------
+  # ~ DAG 2B -----------------------------
   
   if ( .p$dag_name == "2B" ) {
     
@@ -548,7 +549,7 @@ sim_data = function(.p) {
   }  # end of .p$dag_name == "3A"
 
 
-# ~ DAG 3B -----------------------------
+  # ~ DAG 3B -----------------------------
   
   if ( .p$dag_name == "3B" ) {
     
@@ -743,7 +744,7 @@ sim_data = function(.p) {
   }  # end of .p$dag_name %in% c("5A", "5B", "5C", "5D")
 
 
-# ~ DAG 6A-B -----------------------------
+  # ~ DAG 6A-B -----------------------------
   # V^- = Y (X complete); W = {W02 (COMPLETE), W01 (incomplete)}, so W != W^-.
   # 6A: MAR
   # 6B: slight MNAR
@@ -844,7 +845,7 @@ sim_data = function(.p) {
     }  # end of .p$dag_name %in% c("6A", "6B", "6C", "6D")
 
 
-# ~ Finish generating data ----------------
+  # ~ Finish generating data ----------------
   return( list(du = du,
                di = di,
                # the W block itself, so doParallel can compute its sanchecks;
@@ -864,7 +865,8 @@ sim_data = function(.p) {
 
 # Fits the analysis model and returns the estimate and CI for the coefficient of
 #  interest (bhat) and the intercept (inthat).
-# miss_method: "gold" (full data), "CC" (complete cases), or "IPW-nm"
+# miss_method: "gold" (full data), "CC" (complete cases), "IPW-nm", or "MI"
+#  (multiple imputation; imps is a list of imputed datasets or an amelia object)
 # model: "OLS", "logistic", or "log"
 fit_regression = function(form_string,
                           model,
@@ -881,6 +883,7 @@ fit_regression = function(form_string,
   EY_prediction = NA
   
   if ( miss_method %in% c("gold", "CC", "IPW-nm") ) dat = du
+  if ( miss_method == "MI" ) dat = imps
   
   if ( is.null(dat) ) stop("Dataset passed to fit_regression was NULL, maybe bc imputation failed")
   
@@ -939,6 +942,49 @@ fit_regression = function(form_string,
                                       int_hi = mod_hc0_int$hi,
                                       int_width = mod_hc0_int$hi - mod_hc0_int$lo ) ) ) 
   }
+  
+  # ~ MI  ---------------------
+  # Fits the analysis model to each imputed dataset and pools with Rubin's rules.
+  if ( miss_method == "MI" ) {
+    
+    family = switch( model,
+                     OLS      = gaussian(),
+                     logistic = binomial(link = "logit"),
+                     log      = binomial(link = "log") )
+    
+    if ( inherits(imps, c("mids", "amelia")) ) {
+      # works for both MICE and Amelia objects
+      mod = with( imps, glm( eval( parse(text = form_string) ), family = family ) )
+    } else {
+      # for a plain list of imputed datasets
+      mod = lapply( imps, function(d) glm( as.formula(form_string), data = d, family = family ) )
+    }
+    
+    mod_pool = mice::pool(mod)
+    summ = summary(mod_pool, conf.int = TRUE)
+    
+    # MICE-std converts binaries to factors before imputing (so they are not imputed
+    #  as continuous), which renames coefficients (e.g., "A" becomes "A1"); match them
+    coef_of_interest_recoded = match_coef_names_to_mice( coef_of_interest = coef_of_interest,
+                                                         pooled_terms = as.character(mod_pool$pooled$term) )
+    
+    bhat_lo = summ$`2.5 %`[ summ$term == coef_of_interest_recoded ]
+    bhat_hi = summ$`97.5 %`[ summ$term == coef_of_interest_recoded ]
+    
+    int_lo = summ$`2.5 %`[ summ$term == "(Intercept)" ]
+    int_hi = summ$`97.5 %`[ summ$term == "(Intercept)" ]
+    
+    return( list( stats = data.frame( bhat = mod_pool$pooled$estimate[ mod_pool$pooled$term == coef_of_interest_recoded ],
+                                      bhat_lo = bhat_lo,
+                                      bhat_hi = bhat_hi,
+                                      bhat_width = bhat_hi - bhat_lo,
+                                      
+                                      inthat = mod_pool$pooled$estimate[ mod_pool$pooled$term == "(Intercept)" ],
+                                      int_lo = int_lo,
+                                      int_hi = int_hi,
+                                      int_width = int_hi - int_lo ) ) )
+  }
+  
   
   # ~ IPW-nm  ---------------------
   
@@ -1667,6 +1713,70 @@ namesWith = function(pattern, dat){
 # quick length(unique)
 nuni = function(x) {
   length(unique(x))
+}
+
+
+# MULTIPLE-IMPUTATION HELPERS ----------------------------------------------------
+
+# MICE-std: multiple imputation by chained equations with mice's default methods
+#  (pmm for continuous variables, logistic regression for binaries), unless
+#  p$mice_method specifies otherwise. Returns a list of p$imp_m completed datasets.
+impute_mice = function(di, p) {
+  # binaries as factors, so they are not imputed as continuous
+  mice_args = list( data = convert_binary_to_factor(di), maxit = p$imp_maxit, m = p$imp_m,
+                    printFlag = FALSE )
+  if ( !is.null(p$mice_method) && !is.na(p$mice_method) ) mice_args$method = p$mice_method
+  imps_raw = do.call(mice, mice_args)
+  
+  # completed datasets, with 0/1 factors recoded as numeric
+  imps = lapply( seq_len(imps_raw$m), function(.m) complete(imps_raw, .m) %>%
+                   mutate( across( where(is.factor), ~ as.numeric( as.character(.) ) ) ) )
+  if ( any( is.na(imps[[1]]) ) ) stop("MICE-std left NAs in the imputed dataset")
+  imps
+}
+
+# Am-std: multiple imputation under a joint multivariate normal model, via Amelia
+impute_amelia = function(di, p) {
+  imps = amelia( as.data.frame(di), m = p$imp_m, p2s = 0 )
+  if ( any( is.na(imps$imputations$imp1) ) ) stop("Am-std left NAs in the imputed dataset")
+  imps
+}
+
+# convert numeric binary variables to factors, so that mice imputes them with
+#  logistic regression rather than treating them as continuous
+convert_binary_to_factor <- function(df) {
+  is_binary <- function(x) is.numeric(x) && length(unique(x[!is.na(x)])) == 2
+  df[] <- lapply(df, function(x) if (is_binary(x)) as.factor(x) else x)
+  return(df)
+}
+
+# summarize the imputation method used for each variable as a single string
+summarize_mice_methods <- function(method_vector) {
+  method_vector <- method_vector[method_vector != ""]
+  paste(paste0(names(method_vector), ": ", method_vector), collapse = "; ")
+}
+
+# rename a coefficient to match mice's names for factor coefficients
+#  (e.g., "A" -> "A1"), including within interaction terms
+#  e.g., match_coef_names_to_mice("B", c("A1", "B1", "C1:W01_true")) returns "B1"
+match_coef_names_to_mice <- function(coef_of_interest, pooled_terms) {
+  coef_of_interest <- as.character(coef_of_interest)
+  pooled_terms <- as.character(pooled_terms)
+  
+  # variable names used in pooled terms (excluding intercept)
+  vars_in_pooled <- unique(unlist(strsplit(pooled_terms[pooled_terms != "(Intercept)"], "[:*]")))
+  vars_with_1 <- vars_in_pooled[grepl("1$", vars_in_pooled)]
+  vars_clean   <- sub("1$", "", vars_with_1)
+  
+  replacements <- setNames(vars_with_1, vars_clean)  # e.g., "A" -> "A1"
+  
+  out <- coef_of_interest
+  for (v in names(replacements)) {
+    pattern <- paste0("\\b", v, "\\b")
+    out <- gsub(pattern, replacements[[v]], out)
+  }
+  
+  return(out)
 }
 
 

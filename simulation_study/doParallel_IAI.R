@@ -48,9 +48,13 @@ registerDoParallel(cores = cluster$cores)
 #  so results are reproducible regardless of the number of cores.
 doParallel.seconds = system.time({
   rs = foreach( i = 1:n.reps, .combine = bind_rows, .options.RNG = job.seed ) %dorng% {
-    sim_one_rep(p, verbose = TRUE) %>%
-      add_column( job.name = jobname, study = study, job.seed = job.seed,
-                  scen.name = scen, rep.name = i, .before = 1 )
+    # an error outside the individual methods (e.g., in data generation) is recorded
+    #  as a row with method = NA, so one failed rep does not stop the whole job
+    rep.res = tryCatch( sim_one_rep(p, verbose = TRUE),
+                        error = function(e) data.frame( method = NA_character_,
+                                                        overall.error = paste("Rep failed:", conditionMessage(e)) ) )
+    rep.res %>% add_column( job.name = jobname, study = study, job.seed = job.seed,
+                            scen.name = scen, rep.name = i, .before = 1 )
   }
 })
 

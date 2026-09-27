@@ -16,6 +16,8 @@
 # Estimation methods:
 #   gold        benchmark: analysis model fit to the full data, before missingness
 #   CC          complete-case analysis
+#   MICE-std    multiple imputation by chained equations, via mice
+#   Am-std      multiple imputation under a joint normal model, via Amelia
 #   IPW-nm      inverse-probability weighting under a no-self-censoring model
 #   mia-pkg-ice MIA plug-in estimator (iterative conditional expectation), via miapack
 #   mia-tmle    MIA targeted maximum likelihood estimator, via tmle
@@ -83,11 +85,11 @@ sim_one_rep = function(p, verbose = TRUE) {
   }
 
 
-# ~~ Complete-case analysis (naive) ----
+  # ~~ Complete-case analysis (naive) ----
   if ( "CC" %in% all.methods ) {
 
 
-rep.res = run_method_safe(method.label = c("CC"),
+    rep.res = run_method_safe(method.label = c("CC"),
                               
                               method.fn = function(x) fit_regression(form_string = form_string,
                                                                      model = p$model,
@@ -104,7 +106,36 @@ rep.res = run_method_safe(method.label = c("CC"),
   }
 
 
-# ~~ IPW-nm ----
+  # ~~ MICE-std ----
+  if ( "MICE-std" %in% all.methods ) {
+    rep.res = run_method_safe(method.label = c("MICE-std"),
+                              # imputation happens inside method.fn, so any error in mice
+                              #  is recorded for this method rather than stopping the job
+                              method.fn = function(x) fit_regression(form_string = form_string,
+                                                                     model = p$model,
+                                                                     coef_of_interest = coef_of_interest,
+                                                                     miss_method = "MI",
+                                                                     du = NULL,
+                                                                     imps = impute_mice(di, p)),
+                              .rep.res = rep.res )
+    if (verbose) srr(rep.res)
+  }
+  
+  # ~~ Am-std ----
+  if ( "Am-std" %in% all.methods ) {
+    rep.res = run_method_safe(method.label = c("Am-std"),
+                              method.fn = function(x) fit_regression(form_string = form_string,
+                                                                     model = p$model,
+                                                                     coef_of_interest = coef_of_interest,
+                                                                     miss_method = "MI",
+                                                                     du = NULL,
+                                                                     imps = impute_amelia(di, p)),
+                              .rep.res = rep.res )
+    if (verbose) srr(rep.res)
+  }
+  
+
+  # ~~ IPW-nm ----
   # Sun et al.'s IPW under a no-self-censoring model; see helper_IAI.R
   if ( "IPW-nm" %in% all.methods ) {
     
@@ -119,12 +150,12 @@ rep.res = run_method_safe(method.label = c("CC"),
                               .rep.res = rep.res )
 
 
-if (verbose) srr(rep.res)
+    if (verbose) srr(rep.res)
     
   }
 
 
-# ~~ MIA-ICE (iterative conditional expectation, using miapack) --------------
+  # ~~ MIA-ICE (iterative conditional expectation, using miapack) --------------
   # miapack::mia_ice (ice-implementation branch): plug-in estimator of
   #   mu_MIA(x) = E[ E[Y | X=x, W, M=1] | X=x, R_W=R_X=1 ].
   # Differs from the Monte Carlo mia(): no W-density model and no n_mc.
@@ -256,7 +287,7 @@ if (verbose) srr(rep.res)
   }
 
 
-# ~~ MIA-tmle -------------------------------------------------
+ # ~~ MIA-tmle -------------------------------------------------
   ## mu_MIA(x) = E[ E(Y | X = x, W, S, r_Y = 1) | X = x, S ],  S = {r_X = r_W = 1}
   ##
   ## Restrict to S, subset to the X = x stratum, call tmle() with A = NULL and

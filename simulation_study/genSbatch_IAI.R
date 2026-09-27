@@ -8,45 +8,99 @@
 #   (4) optionally submits all jobs, or only those that have not yet written results.
 #
 # Usage (from the simulation_study directory, on the cluster):
-#   Rscript genSbatch_IAI.R <study> [submit | resubmit_missed]
+#   Rscript genSbatch_IAI.R <study> [submit | check_missed | resubmit_missed [time.mult]]
 # where <study> is "study12" or "study3". Without a second argument, the sbatch
-# files are written but not submitted. "resubmit_missed" submits only jobs whose
-# results file is absent (e.g., because a job exceeded its wall time).
+# files are written but not submitted. "check_missed" reports how many jobs have
+# finished and which are missing, without submitting anything. "resubmit_missed"
+# does the same, then resubmits jobs that have no results file and are not still
+# queued or running (e.g., because a job exceeded its wall time). The optional
+# time.mult multiplies each resubmitted job's wall time, e.g.,
+#   Rscript genSbatch_IAI.R study12 resubmit_missed 2
+# resubmits with double the original wall time (capped at cluster$max_hours).
 #
 # The sbatch files are specific to SLURM; cluster settings are in config_IAI.R.
 
 
 # PRELIMINARIES --------------------------------------------------------------------
 
-suppressPackageStartupMessages({
-  library(dplyr)
-  library(tidyr)
-  library(tibble)
-})
-
 source("config_IAI.R")
+load_sim_packages( c("dplyr", "tidyr", "tibble") )
 source("helper_IAI.R")
 
 args   = commandArgs(trailingOnly = TRUE)
 study  = if ( length(args) >= 1 ) args[1] else "study3"
 action = if ( length(args) >= 2 ) args[2] else "write_only"
+# for resubmit_missed: factor by which to multiply each resubmitted job's wall time
+time.mult = if ( length(args) >= 3 ) as.numeric(args[3]) else 1
 check_study(study)
-stopifnot( action %in% c("write_only", "submit", "resubmit_missed") )
+stopifnot( action %in% c("write_only", "submit", "check_missed", "resubmit_missed") )
 
 d = make_study_dirs(study)
 
 
-# RESUBMIT MISSED JOBS -------------------------------------------------------------
+# CHECK OR RESUBMIT MISSED JOBS ----------------------------------------------------
 
-if ( action == "resubmit_missed" ) {
+# "check_missed" only reports progress; "resubmit_missed" reports, then resubmits
+#  jobs that have no results file and are not still in the queue.
+if ( action %in% c("check_missed", "resubmit_missed") ) {
+  
+  # expected jobs: one per sbatch file written for this study
   n.files = length( list.files(d$sbatch, pattern = "\\.sbatch$") )
-  missed.nums = sbatch_not_run( .results.singles.path = d$long.results,
-                                .results.write.path = d$base,
-                                .name.prefix = "long_results",
-                                .max.sbatch.num = n.files )
-  for (i in missed.nums) {
-    system( paste0( "sbatch -p ", cluster$partition, " ", file.path(d$sbatch, paste0(i, ".sbatch")) ) )
+  if ( n.files == 0 ) stop("No sbatch files in ", d$sbatch)
+  
+  # finished jobs: those that wrote a results file
+  finished = list.files(d$long.results, pattern = "^long_results_job_[0-9]+_\\.csv$")
+  finished.nums = sort( as.integer( sub( ".*_job_([0-9]+)_.*", "\\1", finished ) ) )
+  
+  # jobs still pending or running. SLURM job names are "<study>_job_<number>"; plain
+  #  "job_<number>" names come from sbatch files written by earlier versions of this
+  #  script and cannot be attributed to a study, so they are counted for any study.
+  queue = tryCatch( system( "squeue -u $USER -h -o %j", intern = TRUE ), error = function(e) character(0) )
+  pattern = paste0( "^(", study, "_)?job_[0-9]+$" )
+  queued.nums = as.integer( sub( ".*job_", "", grep( pattern, queue, value = TRUE ) ) )
+  
+  missed.nums = setdiff( setdiff( 1:n.files, finished.nums ), queued.nums )
+  
+  # summarize runs of consecutive numbers, e.g., "1-3, 7, 10-12"
+  as_ranges = function(x) {
+    if ( length(x) == 0 ) return("none")
+    x = sort(x); breaks = c(0, which(diff(x) != 1), length(x))
+    paste( sapply( seq_len(length(breaks) - 1), function(k) {
+      lo = x[breaks[k] + 1]; hi = x[breaks[k + 1]]
+      if ( lo == hi ) lo else paste0(lo, "-", hi)
+    } ), collapse = ", " )
   }
+  
+  cat( "\nStudy:                    ", study,
+       "\nExpected jobs (sbatch):   ", n.files,
+       "\nFinished (results file):  ", length(finished.nums),
+       "\nMax finished job number:  ", if ( length(finished.nums) ) max(finished.nums) else NA,
+       "\nStill queued or running:  ", length( intersect(queued.nums, 1:n.files) ),
+       "\nMissing, not in queue:    ", length(missed.nums),
+       "\n  job numbers:            ", as_ranges(missed.nums), "\n\n" )
+  
+  if ( length(missed.nums) > 0 ) {
+    write.csv( data.frame(job = missed.nums), file.path(d$base, "missed_job_nums.csv"), row.names = FALSE )
+  }
+  
+  if ( action == "resubmit_missed" ) {
+    for (i in missed.nums) {
+      f = file.path(d$sbatch, paste0(i, ".sbatch"))
+      time.arg = ""
+      if ( time.mult != 1 ) {
+        # original wall time from the sbatch file, as HH:MM:SS
+        orig = sub( ".*--time=", "", grep( "^#SBATCH --time=", readLines(f), value = TRUE ) )
+        hms = as.numeric( strsplit(orig, ":")[[1]] )
+        mins = min( ceiling( (hms[1] * 60 + hms[2] + hms[3] / 60) * time.mult ), cluster$max_hours * 60 )
+        new.time = sprintf( "%02d:%02d:00", mins %/% 60, mins %% 60 )
+        time.arg = paste0(" --time=", new.time)  # overrides the #SBATCH line in the file
+        cat("Job", i, ": wall time", orig, "->", new.time, "\n")
+      }
+      system( paste0( "sbatch -p ", cluster$partition, time.arg, " ", f ) )
+    }
+    cat("Resubmitted", length(missed.nums), "jobs\n")
+  }
+  
   quit(save = "no")
 }
 
@@ -98,7 +152,8 @@ unlink( list.files(d$sbatch, pattern = "\\.sbatch$", full.names = TRUE) )
 jobname = paste("job", 1:n.files, sep = "_")
 
 sbatch_params = data.frame(
-  jobname,
+  # SLURM job name includes the study, so jobs of different studies can be told apart
+  jobname          = paste(study, jobname, sep = "_"),
   outfile          = file.path(d$logs, paste0("rm_", 1:n.files, ".out")),
   errorfile        = file.path(d$logs, paste0("rm_", 1:n.files, ".err")),
   jobtime          = jobtime,
@@ -119,9 +174,9 @@ sbatch_params = data.frame(
   stringsAsFactors = FALSE )
 
 invisible( generateSbatch( sbatch_params,
-                extra_placeholders = c( PARTITION    = "partition",
-                                        MODULE_LOADS = "module_loads",
-                                        WORK_DIR     = "work_dir" ) ) )
+                           extra_placeholders = c( PARTITION    = "partition",
+                                                   MODULE_LOADS = "module_loads",
+                                                   WORK_DIR     = "work_dir" ) ) )
 
 
 # SUBMIT ---------------------------------------------------------------------------
