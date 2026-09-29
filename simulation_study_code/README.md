@@ -31,9 +31,10 @@ All code is in `simulation_study/`; scripts must be run with that directory as t
 | `helper_IAI.R` | Data-generating mechanisms for each DAG (`sim_data()`), the benchmark, complete-case, and IPW-nm estimators, and cluster utilities. |
 | `helper_IAI_Wblock.R` | Generation and calibration of the high-dimensional auxiliary block W. |
 | `sim_one_rep_IAI.R` | `sim_one_rep()`: simulates one dataset and applies every estimation method, including the MIA estimators. |
-| `genSbatch_IAI.R` | Step 1: writes the scenario grid and one SLURM sbatch file per job, and optionally submits them. |
+| `genSbatch_IAI.R` | Step 1: writes the scenario grid and one SLURM sbatch file per job, and optionally submits them. Also reports and resubmits jobs that did not finish. |
 | `doParallel_IAI.R` | Step 2: run by each sbatch job; runs a batch of reps of one scenario in parallel. |
 | `stitch_IAI.R` | Step 3: combines per-job results and computes the performance metrics reported in the paper. |
+| `split_resubmit_IAI.R` | Replaces jobs that repeatedly exceed their wall time with several smaller jobs (see "Jobs that time out"). |
 | `run_all_IAI.sh` | Master script that runs the steps above in order. |
 | `run_one_scenario_local_IAI.R` | Standalone script to run a few reps of one scenario on a personal computer. |
 | `record_package_versions_IAI.R` | Installs any missing packages and records the R, package, and JAGS versions of the computing environment. |
@@ -66,14 +67,25 @@ These are also recorded in `simulation_study/package_versions.csv`. `load_sim_pa
 
 ### How to rerun the simulation study
 
-The full study is computationally intensive: each scenario has 1,000 reps, and the MIA plug-in estimator uses 1,000 bootstrap reps per dataset for its CIs. Studies 1–2 comprise 3,640 sbatch jobs and Study 3 comprises 928, each using 16 cores for up to 3 hours (W of dimension 1) or 10 hours (W of dimension 10); these wall-time limits, set by `jobtime_per_scen()` in `config_IAI.R`, include extra time for multiple imputation. `genSbatch_IAI.R` is specific to SLURM; cluster settings (partition, modules, memory, and wall time) are in `config_IAI.R` and would need to be adapted for other systems.
+The full study is computationally intensive: each scenario has 1,000 reps, and the MIA plug-in estimator uses 1,000 bootstrap reps per dataset for its CIs. Each sbatch job uses 16 cores. The number of reps per job and the wall-time limit are set by `reps_per_job()` and `jobtime_per_scen()` in `config_IAI.R`; the limits (3–6 hours for W of dimension 1 and 10 hours for W of dimension 10) include extra time for multiple imputation. In the reported results, Studies 1–2 comprised 3,640 sbatch jobs and Study 3 comprised 928, plus the replacement jobs described under "Jobs that time out." After those runs, `reps_per_job()` was changed to allow at most 50 reps per job for scenarios with multiple imputation and N ≥ 2,000, so the current configuration writes 3,864 and 1,056 jobs, respectively. Because each job's seed depends on its job number (see "Random seeds"), a rerun under the current configuration reproduces the reported results up to Monte Carlo error, not digit for digit. `genSbatch_IAI.R` is specific to SLURM; cluster settings (partition, modules, memory, and wall time) are in `config_IAI.R` and would need to be adapted for other systems.
 
 From `simulation_study/` on the cluster:
 
 1. `bash run_all_IAI.sh submit all` records package versions, then writes and submits the sbatch jobs for both studies. For each study, this writes `results/<study>/scen_params.csv` (the scenario grid) and `results/<study>/sbatch_files/`. Each job writes one file to `results/<study>/long_results/` and its SLURM logs to `results/<study>/logs/`.
-2. After all jobs have finished, `bash run_all_IAI.sh stitch all` writes `results/<study>/stitched/stitched.csv` (one row per scenario, rep, and method) and `results/<study>/stitched/agg.csv` (one row per scenario and method; the results reported in the paper). `DATA_DICTIONARY.md` defines their variables. It also lists any jobs that did not write results in `results/<study>/missed_job_nums.csv`; these can be rerun with `Rscript genSbatch_IAI.R <study> resubmit_missed`, after which step 2 should be repeated.
+2. After all jobs have finished, `bash run_all_IAI.sh stitch all` writes `results/<study>/stitched/stitched.csv` (one row per scenario, rep, and method) and `results/<study>/stitched/agg.csv` (one row per scenario and method; the results reported in the paper). `DATA_DICTIONARY.md` defines their variables. It also lists any jobs that did not write results in `results/<study>/missed_job_nums.csv`; see "Jobs that time out" for how to rerun them, after which step 2 should be repeated.
 
 Each step can also be run for a single study, e.g., `bash run_all_IAI.sh submit study3`.
+
+### Jobs that time out
+
+Each job writes its results file only after all of its reps have finished, so a job that exceeds its wall time writes nothing; it cannot leave a partial file that would later be double-counted. Such jobs can be rerun in two ways, which differ in whether the job keeps its number:
+
+1. **Resubmitting with more time.** `Rscript genSbatch_IAI.R <study> resubmit_missed [time.mult]` resubmits every job that has no results file and is not still queued, with its wall time multiplied by `time.mult` (e.g., 2 to double it; capped at `cluster$max_hours`). The multiplier is passed to `sbatch` on the command line, so the sbatch file itself is unchanged. The job keeps its number, and hence its seed, so it produces exactly the results the original job would have. `Rscript genSbatch_IAI.R <study> check_missed` gives the same report without resubmitting anything.
+2. **Splitting into smaller jobs.** If a job still times out, `Rscript split_resubmit_IAI.R <study> <reps per job> <job numbers | missed> [HH:MM:SS] [write]` replaces it with several smaller jobs that run the same scenario and, together, the same number of reps. Each new job is numbered after the largest existing job number, so it has its own seed; reusing the old number would give the new jobs identical random-number streams, and hence identical reps. The script uses the old sbatch file as a template, refuses to split a job that is still queued or already has results, and records each old job number and its replacements in `results/<study>/retired_jobs.csv`. Without `write`, it only prints this plan. Retired jobs are never counted as missing or resubmitted by `check_missed` and `resubmit_missed`, and `stitch_IAI.R` needs no changes, since it combines whatever results files exist.
+
+Because of splitting, the job numbers in a study's results need not be consecutive: a retired job has no results file, and its replacements are numbered above the jobs written by `genSbatch_IAI.R`. For the same reason, once a study has any results, `genSbatch_IAI.R` refuses to regenerate its sbatch files, which would renumber every job (changing its seed) and delete any replacement jobs; to start a study over, first run `bash run_all_IAI.sh clean <study>`.
+
+In the reported results, jobs 1617–1618, 1929–1930, and 1932 of `study12` (scenarios 45 and 51, i.e., DAGs 1B and 2B with N = 5,000 and W of dimension 1) repeatedly exceeded their wall time, including after resubmission with triple the time. Each of these 250-rep jobs was split into five jobs of 50 reps, numbered 3641–3665.
 
 ### Random seeds
 

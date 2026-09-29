@@ -146,9 +146,17 @@ cluster = list(
   modules        = c("v8", "openblas/0.3.20", "jags/4.3.1", "R/4.3.2")
 )
 
-# reps per sbatch job and wall time, as functions of a scenario's parameters
+# reps per sbatch job and wall time, as functions of a scenario's parameters.
+#  Multiple imputation (imp_m * imp_maxit chained-equation iterations per rep) scales
+#  with reps per job and with N, so scenarios that include it get at most 50 reps per
+#  job once N >= 2000 (some study12 MICE-std jobs kept timing out with 250 reps,
+#  even after tripling their wall time). Changing this changes the job -> scenario layout
+#  that genSbatch_IAI.R writes, so do not regenerate sbatch files for a study that
+#  has already been submitted; to shrink jobs mid-study, use split_resubmit_IAI.R.
 reps_per_job = function(scen.params) {
-  ifelse( scen.params$W_dim == 1 & scen.params$N < 10e3, 250, 10 )
+  base    = ifelse( scen.params$W_dim == 1 & scen.params$N < 10e3, 250, 10 )
+  has_imp = grepl( "MICE-std|MICE-int|Am-std", scen.params$rep.methods )
+  ifelse( has_imp & scen.params$N >= 2000, pmin(base, 50), base )
 }
 
 jobtime_per_scen = function(scen.params) {

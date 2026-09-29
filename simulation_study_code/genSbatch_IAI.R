@@ -13,7 +13,9 @@
 # files are written but not submitted. "check_missed" reports how many jobs have
 # finished and which are missing, without submitting anything. "resubmit_missed"
 # does the same, then resubmits jobs that have no results file and are not still
-# queued or running (e.g., because a job exceeded its wall time). The optional
+# queued or running (e.g., because a job exceeded its wall time); jobs retired by
+# split_resubmit_IAI.R (listed in results/<study>/retired_jobs.csv) are never
+# counted as missing or resubmitted. The optional
 # time.mult multiplies each resubmitted job's wall time, e.g.,
 #   Rscript genSbatch_IAI.R study12 resubmit_missed 2
 # resubmits with double the original wall time (capped at cluster$max_hours).
@@ -59,7 +61,11 @@ if ( action %in% c("check_missed", "resubmit_missed") ) {
   pattern = paste0( "^(", study, "_)?job_[0-9]+$" )
   queued.nums = as.integer( sub( ".*job_", "", grep( pattern, queue, value = TRUE ) ) )
   
-  missed.nums = setdiff( setdiff( 1:n.files, finished.nums ), queued.nums )
+  # jobs retired by split_resubmit_IAI.R (replaced by smaller jobs with new numbers)
+  retired.path = file.path(d$base, "retired_jobs.csv")
+  retired.nums = if ( file.exists(retired.path) ) unique( read.csv(retired.path)$old.job ) else integer(0)
+  
+  missed.nums = setdiff( setdiff( setdiff( 1:n.files, finished.nums ), queued.nums ), retired.nums )
   
   # summarize runs of consecutive numbers, e.g., "1-3, 7, 10-12"
   as_ranges = function(x) {
@@ -76,6 +82,7 @@ if ( action %in% c("check_missed", "resubmit_missed") ) {
        "\nFinished (results file):  ", length(finished.nums),
        "\nMax finished job number:  ", if ( length(finished.nums) ) max(finished.nums) else NA,
        "\nStill queued or running:  ", length( intersect(queued.nums, 1:n.files) ),
+       "\nRetired (split into new): ", length(retired.nums),
        "\nMissing, not in queue:    ", length(missed.nums),
        "\n  job numbers:            ", as_ranges(missed.nums), "\n\n" )
   
@@ -145,6 +152,14 @@ cat("\nTotal scenarios:", n.scen, "  Total sbatch files:", n.files, "\n")
 
 
 # WRITE SBATCH FILES ---------------------------------------------------------------
+
+# Regenerating renumbers every job (and would erase jobs written by
+#  split_resubmit_IAI.R), so refuse once a study has any results; start over with
+#  `bash run_all_IAI.sh clean <study>` if that is really intended.
+if ( length( list.files(d$long.results) ) > 0 || file.exists( file.path(d$base, "retired_jobs.csv") ) ) {
+  stop( study, " already has results in ", d$long.results, " (or split jobs); not regenerating its sbatch files. ",
+        "Use check_missed / resubmit_missed / split_resubmit_IAI.R, or clean the study first." )
+}
 
 # remove sbatch files from any previous run of this study
 unlink( list.files(d$sbatch, pattern = "\\.sbatch$", full.names = TRUE) )
