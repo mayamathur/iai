@@ -14,7 +14,7 @@
 
 study  = "study12"  # "study12" (paper's Studies 1-2) or "study3" (Study 3)
 scen   = 15         # row of the study's scenario grid; see make_scen_params() in config_IAI.R
-n.reps = 5         # number of simulation reps
+n.reps = 1        # number of simulation reps
 seed   = 1
 
 # If TRUE, skips the 1000 bootstrap reps used for mia-pkg-ice CIs, which dominate

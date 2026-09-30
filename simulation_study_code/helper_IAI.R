@@ -1982,7 +1982,8 @@ generateSbatch <- function(sbatch_params,
 sbatch_not_run = function(.results.singles.path,
                           .results.write.path,
                           .name.prefix,
-                          .max.sbatch.num = NA ) {
+                          .max.sbatch.num = NA,
+                          .retired.path = file.path(.results.write.path, "retired_jobs.csv") ) {
   
   keepers = list.files(.results.singles.path, pattern = .name.prefix)
   sbatch.nums = as.numeric( sub( ".*_job_([0-9]+)_.*", "\\1", keepers ) )
@@ -1990,12 +1991,18 @@ sbatch_not_run = function(.results.singles.path,
   if ( is.na(.max.sbatch.num) ) .max.sbatch.num = max(sbatch.nums)
   missed.nums = setdiff( 1:.max.sbatch.num, sbatch.nums )
   
-  cat( "\nNumber of jobs that did not write results:", length(missed.nums), "\n" )
+  # jobs replaced by smaller jobs via split_resubmit_IAI.R are not missing
+  retired.nums = if ( !is.na(.retired.path) && file.exists(.retired.path) ) unique( read.csv(.retired.path)$old.job ) else numeric(0)
+  missed.nums = setdiff( missed.nums, retired.nums )
   
+  cat( "\nNumber of jobs that did not write results:", length(missed.nums),
+       if ( length(retired.nums) > 0 ) paste0("  (plus ", length(retired.nums), " retired by splitting)") else "", "\n" )
+  
+  missed.path = file.path(.results.write.path, "missed_job_nums.csv")
   if ( length(missed.nums) > 0 ) {
-    write.csv( data.frame(job = missed.nums),
-               file.path(.results.write.path, "missed_job_nums.csv"),
-               row.names = FALSE )
+    write.csv( data.frame(job = missed.nums), missed.path, row.names = FALSE )
+  } else if ( file.exists(missed.path) ) {
+    file.remove(missed.path)   # don't leave a stale list from an earlier stitch
   }
   
   return(missed.nums)

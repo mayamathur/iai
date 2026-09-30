@@ -9,8 +9,9 @@
 #
 # Usage (from the simulation_study directory):
 #   Rscript stitch_IAI.R <study>
-# where <study> is "study12" or "study3". It also reports any jobs that did not
-# write results; these can be rerun with `Rscript genSbatch_IAI.R <study> resubmit_missed`.
+# where <study> is "study12" or "study3". It also reports any jobs that did not write results (excluding jobs
+# retired by split_resubmit_IAI.R); these can be rerun with
+# `Rscript genSbatch_IAI.R <study> resubmit_missed`.
 
 
 # PRELIMINARIES --------------------------------------------------------------------

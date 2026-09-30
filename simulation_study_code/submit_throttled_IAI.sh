@@ -14,7 +14,9 @@
 #
 # Progress is saved to results/<study>/submit_progress.txt, so if this script is
 # stopped (or its own job times out), rerunning the same command resumes where it
-# left off. Jobs whose results file already exists are skipped.
+# left off. Jobs whose results file already exists are skipped, as are jobs retired
+# by split_resubmit_IAI.R (listed in results/<study>/retired_jobs.csv), whose
+# replacements have their own sbatch files.
 
 set -uo pipefail
 
@@ -23,6 +25,12 @@ SBATCH_DIR="results/$STUDY/sbatch_files"
 RESULTS_DIR="results/$STUDY/long_results"
 PROGRESS="results/$STUDY/submit_progress.txt"
 PARTITION="qsu,owners,normal"
+
+# old job numbers of jobs retired by split_resubmit_IAI.R (column 1, after the header)
+RETIRED=" "
+if [ -f "results/$STUDY/retired_jobs.csv" ]; then
+  RETIRED=" $(tail -n +2 "results/$STUDY/retired_jobs.csv" | cut -d, -f1 | tr -d '"' | sort -u | tr '\n' ' ') "
+fi
 
 N_FILES=$(ls "$SBATCH_DIR"/*.sbatch 2>/dev/null | wc -l)
 if [ "$N_FILES" -eq 0 ]; then echo "No sbatch files in $SBATCH_DIR"; exit 1; fi
@@ -50,7 +58,7 @@ while [ "$NEXT" -le "$LAST" ]; do
   
   while [ "$ROOM" -gt 0 ] && [ "$NEXT" -le "$LAST" ]; do
     f="$SBATCH_DIR/$NEXT.sbatch"
-    if [ -f "$f" ] && [ ! -f "$RESULTS_DIR/long_results_job_${NEXT}_.csv" ]; then
+    if [ -f "$f" ] && [ ! -f "$RESULTS_DIR/long_results_job_${NEXT}_.csv" ] && [[ "$RETIRED" != *" $NEXT "* ]]; then
       if sbatch -p "$PARTITION" "$f" > /dev/null; then
         ROOM=$(( ROOM - 1 )); SUBMITTED=$(( SUBMITTED + 1 ))
       else

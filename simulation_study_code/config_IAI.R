@@ -242,10 +242,10 @@ make_scen_params = function(study) {
       W_cor_type        = "exch",
       # marginal P(W_j = 1) for binary components
       W_bin_prob        = 0.5,
-      # marginal P(R_Wj = 0) for incomplete components; 0.4252 is the value implied
-      #  by expit(-1 + 3*D1) when W_dim = 1; W_dim = 10 uses 0.10 so that complete
-      #  cases are not too rare
-      W_miss_rate       = ifelse( W_dim == 1, 1 - 0.5748, 0.10 ),
+      # marginal P(R_Wj = 0) for incomplete components. Informational when W_dim = 1:
+      #  the scalar DGMs in sim_data() hard-code R_W1 ~ Bern(0.5). W_dim = 10 uses 0.10
+      #  so that complete cases are not too rare
+      W_miss_rate       = ifelse( W_dim == 1, 0.5, 0.10 ),
       # coefficient of W's parent (X2 or Y, depending on the DAG) on W
       W_parent_coef     = 1,
       # number and coefficient of W_j*W_k interaction terms in the missingness model
