@@ -12,14 +12,19 @@ The dataset on sexual identity can be accessed after an approved ethics applicat
 
 ### What the code reproduces
 
-The simulation study has no separate analysis stage. The results reported in the paper and supplement are scenario-level summaries of estimator performance (bias, RMSE, 95% CI coverage, and CI width), computed by the aggregation in `stitch_IAI.R` and written to `agg.csv`:
+The simulation study has no separate analysis stage. The results reported in the paper and supplement are scenario-level summaries of estimator performance (bias, RMSE, 95% CI coverage, and CI width), computed by the aggregation in `stitch_IAI.R`. The results of each study are provided as a zip file in `simulation_study_results/`:
 
-| Paper results | Study label in code | Output file |
-|---|---|---|
-| Simulation Studies 1 and 2 | `study12` | `results/study12/stitched/agg.csv` |
-| Simulation Study 3 | `study3` | `results/study3/stitched/agg.csv` |
+| Paper results | Study label in code | Results provided | Output file when rerun |
+|---|---|---|---|
+| Simulation Studies 1 and 2 | `study12` | `simulation_study_results/Studies 1-2.zip` | `results/study12/stitched/agg.csv` |
+| Simulation Study 3 | `study3` | `simulation_study_results/Study 3.zip` | `results/study3/stitched/agg.csv` |
 
-The per-job results files written by the cluster (one row per simulation rep and method) are very large, so they were not saved locally and are not included here. Rerunning the pipeline below regenerates them, along with `stitched.csv` and `agg.csv`.
+Each zip file contains two files:
+
+- `stitched.csv`: one row per scenario, simulation rep, and method (the rep-level results).
+- `agg.csv` (named with the study and date, e.g., `2026-09-29 - agg study12.csv`): one row per scenario and method. These are the results reported in the paper and supplement.
+
+`DATA_DICTIONARY.md` defines the variables in both files. The per-job results files written by the cluster are not included, because `stitched.csv` contains all of their rows. Rerunning the pipeline below regenerates the per-job files, `stitched.csv`, and `agg.csv`.
 
 ### Directory structure
 
