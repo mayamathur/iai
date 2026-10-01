@@ -56,6 +56,7 @@ The simulations were run in R 4.3.2 on Stanford's Sherlock cluster (SLURM), with
 | doParallel | 1.0.17 |
 | doRNG | 1.8.6.3 |
 | MASS | 7.3-60.0.1 |
+| mice | 3.19.0 |
 | R2jags | 0.8-9 |
 | rjags | 4-17 |
 | boot | 1.3-28.1 |
